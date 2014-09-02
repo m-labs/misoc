@@ -45,6 +45,9 @@ modules.
 
 [> Quick start guide
 --------------------
+0. (If cloning from git) Initialize the git submodules. 
+  `git submodule init; git submodule update`
+
 1. Install Python 3.3+, Migen and FPGA vendor's development tools.
   Get Migen from: https://github.com/m-labs/migen
 
