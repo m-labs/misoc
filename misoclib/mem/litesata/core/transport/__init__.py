@@ -74,7 +74,7 @@ class LiteSATATransportTX(Module):
         fsm.act("SEND_DATA",
             data_send.eq(1),
             sink.ack.eq(link.sink.ack),
-            If(sink.stb & sink.eop & sink.ack,
+            If(sink.stb & sink.eop & link.sink.ack,
                 NextState("IDLE")
             )
         )

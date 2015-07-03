@@ -61,7 +61,7 @@ class LiteSATACommandTX(Module):
             transport.sink.sop.eq(1),
             transport.sink.eop.eq(1),
             transport.sink.c.eq(1),
-            If(transport.sink.stb & transport.sink.ack,
+            If(sink.stb & transport.sink.ack,
                 If(is_write,
                     NextState("WAIT_DMA_ACTIVATE")
                 ).Else(
@@ -80,7 +80,7 @@ class LiteSATACommandTX(Module):
             )
         )
         fsm.act("SEND_DATA",
-            dwords_counter.ce.eq(sink.stb & sink.ack),
+            dwords_counter.ce.eq(sink.stb & transport.sink.ack),
 
             transport.sink.stb.eq(sink.stb),
             transport.sink.sop.eq(dwords_counter.value == 0),
@@ -88,7 +88,7 @@ class LiteSATACommandTX(Module):
                                   sink.eop),
 
             sink.ack.eq(transport.sink.ack),
-            If(sink.stb & sink.ack,
+            If(sink.stb & transport.sink.ack,
                 If(sink.eop,
                     NextState("IDLE")
                 ).Elif(dwords_counter.value == (fis_max_dwords-1),
