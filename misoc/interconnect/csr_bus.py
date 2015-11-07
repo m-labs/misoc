@@ -156,7 +156,7 @@ class CSRBankArray(Module):
                     if mapaddr is None:
                         continue
                     sram_bus = Interface(*ifargs, **ifkwargs)
-                    mmap = csr.SRAM(memory, mapaddr, bus=sram_bus)
+                    mmap = SRAM(memory, mapaddr, bus=sram_bus)
                     self.submodules += mmap
                     csrs += mmap.get_csrs()
                     self.srams.append((name, memory, mapaddr, mmap))
