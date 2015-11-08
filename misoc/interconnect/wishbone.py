@@ -9,7 +9,7 @@ from migen.genlib.fsm import FSM, NextState
 
 from misoc.interconnect import csr
 
-# TODO: rewrite without FlipFlop and Counter
+# TODO: rewrite without FlipFlop
 
 
 _layout = [
