@@ -9,4 +9,4 @@
 	url = http://llvm.org/git/compiler-rt.git
 [submodule "misoc/software/unwinder"]
 	path = misoc/software/unwinder
-	url = https://github.com/whitequark/libunwind
+	url = http://llvm.org/git/libunwind.git
