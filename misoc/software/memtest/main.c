@@ -22,18 +22,16 @@ static void membw_service(void)
 {
 	static int last_event;
 	unsigned long long int nr, nw;
-	unsigned long long int f;
 	unsigned int rdb, wrb;
 	unsigned int dw;
 
-	if(elapsed(&last_event, identifier_frequency_read())) {
+	if(elapsed(&last_event, SYSTEM_CLOCK_FREQUENCY)) {
 		sdram_controller_bandwidth_update_write(1);
 		nr = sdram_controller_bandwidth_nreads_read();
 		nw = sdram_controller_bandwidth_nwrites_read();
-		f = identifier_frequency_read();
 		dw = sdram_controller_bandwidth_data_width_read();
-		rdb = (nr*f >> (24 - log2(dw)))/1000000ULL;
-		wrb = (nw*f >> (24 - log2(dw)))/1000000ULL;
+		rdb = (nr*SYSTEM_CLOCK_FREQUENCY >> (24 - log2(dw)))/1000000ULL;
+		wrb = (nw*SYSTEM_CLOCK_FREQUENCY >> (24 - log2(dw)))/1000000ULL;
 		printf("read:%5dMbps  write:%5dMbps  all:%5dMbps\n", rdb, wrb, rdb + wrb);
 	}
 }
