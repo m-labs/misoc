@@ -20,6 +20,19 @@ class Interface(Record):
         Record.__init__(self, set_layout_parameters(_layout,
             data_width=data_width, address_width=address_width))
 
+    def write(self, adr, dat):
+        yield self.adr.eq(adr)
+        yield self.dat_w.eq(dat)
+        yield self.we.eq(1)
+        yield
+        yield self.we.eq(0)
+
+    def read(self, adr):
+        yield self.adr.eq(adr)
+        yield
+        yield
+        return (yield self.dat_r)
+
 
 class Interconnect(Module):
     def __init__(self, master, slaves):
