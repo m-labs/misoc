@@ -1,9 +1,11 @@
 from operator import itemgetter
+import warnings
 
 from migen import *
 
 from misoc.cores import lm32, mor1kx, identifier, timer, uart
 from misoc.interconnect import wishbone, csr_bus, wishbone2csr
+from misoc.integration.config import Config
 
 
 __all__ = ["mem_decoder", "SoCCore", "soc_core_args", "soc_core_argdict"]
@@ -70,6 +72,8 @@ class SoCCore(Module):
         self._wb_masters = []
         self._wb_slaves = []
 
+        self.submodules.config = Config()
+
         if cpu_type == "lm32":
             self.submodules.cpu = lm32.LM32(platform, self.cpu_reset_address)
         elif cpu_type == "or1k":
@@ -102,7 +106,7 @@ class SoCCore(Module):
 
         if ident:
             self.submodules.identifier = identifier.Identifier(ident)
-        self.add_constant("SYSTEM_CLOCK_FREQUENCY", int(clk_freq))
+        self.config["CLOCK_FREQUENCY"] = int(clk_freq)
 
         if with_timer:
             self.submodules.timer0 = timer.Timer()
@@ -154,6 +158,7 @@ class SoCCore(Module):
         return self._csr_regions
 
     def add_constant(self, name, value=None):
+        warnings.warn("use CSRConstant and/or Config", DeprecationWarning)
         self._constants.append((name, value))
 
     def get_constants(self):
@@ -184,7 +189,7 @@ class SoCCore(Module):
         for name, memory, mapaddr, mmap in self.csrbankarray.srams:
             self.add_csr_region(name + "_" + memory.name_override, (self.mem_map["csr"] + 0x800*mapaddr) | self.shadow_base, self.csr_data_width, memory)
         for name, constant in self.csrbankarray.constants:
-            self.add_constant((name + "_" + constant.name).upper(), constant.value)
+            self._constants.append(((name + "_" + constant.name).upper(), constant.value))
 
         # Interrupts
         for k, v in sorted(self.interrupt_map.items(), key=itemgetter(1)):
