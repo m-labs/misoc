@@ -12,6 +12,14 @@ class _CSRBase(DUID):
         self.size = size
 
 
+class CSRConstant(Constant):
+    def __init__(self, value, bits_sign=None, name=None):
+        Constant.__init__(self, value, bits_sign)
+        self.name = get_obj_var_name(name)
+        if self.name is None:
+            raise ValueError("Cannot extract CSR name from code, need to specify.")
+
+
 class CSR(_CSRBase):
     def __init__(self, size=1, name=None):
         _CSRBase.__init__(self, size, name)
@@ -131,6 +139,7 @@ def _make_gatherer(method, cls, prefix_cb):
 class AutoCSR:
     get_memories = _make_gatherer("get_memories", Memory, memprefix)
     get_csrs = _make_gatherer("get_csrs", _CSRBase, csrprefix)
+    get_constants = _make_gatherer("get_constants", CSRConstant, csrprefix)
 
 
 class GenericBank(Module):
