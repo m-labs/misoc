@@ -72,7 +72,7 @@ class SoCCore(Module):
         self._wb_masters = []
         self._wb_slaves = []
 
-        self.submodules.config = Config()
+        self.config = Config()
 
         if cpu_type == "lm32":
             self.submodules.cpu = lm32.LM32(platform, self.cpu_reset_address)
@@ -156,10 +156,6 @@ class SoCCore(Module):
 
     def get_csr_regions(self):
         return self._csr_regions
-
-    def add_constant(self, name, value=None):
-        warnings.warn("use CSRConstant and/or Config", DeprecationWarning)
-        self._constants.append((name, value))
 
     def get_constants(self):
         r = []

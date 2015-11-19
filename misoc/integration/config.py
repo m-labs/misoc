@@ -2,7 +2,7 @@ from migen import *
 
 from misoc.interconnect.csr import AutoCSR, CSRConstant
 
-class Config(Module, AutoCSR):
+class Config(AutoCSR):
     def __setitem__(self, key, value):
         setattr(self, key, CSRConstant(value, name=key))
 
