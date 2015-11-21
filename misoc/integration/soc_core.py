@@ -1,5 +1,4 @@
 from operator import itemgetter
-import warnings
 
 from migen import *
 

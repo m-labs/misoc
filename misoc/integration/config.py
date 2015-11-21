@@ -1,6 +1,5 @@
-from migen import *
-
 from misoc.interconnect.csr import AutoCSR, CSRConstant
+
 
 class Config(AutoCSR):
     def __setitem__(self, key, value):
