@@ -184,7 +184,7 @@ class SoCCore(Module):
         for name, memory, mapaddr, mmap in self.csrbankarray.srams:
             self.add_csr_region(name + "_" + memory.name_override, (self.mem_map["csr"] + 0x800*mapaddr) | self.shadow_base, self.csr_data_width, memory)
         for name, constant in self.csrbankarray.constants:
-            self._constants.append(((name + "_" + constant.name).upper(), constant.value))
+            self._constants.append(((name + "_" + constant.name).upper(), constant.value.value))
 
         # Interrupts
         for k, v in sorted(self.interrupt_map.items(), key=itemgetter(1)):

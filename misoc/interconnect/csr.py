@@ -12,9 +12,10 @@ class _CSRBase(DUID):
         self.size = size
 
 
-class CSRConstant(Constant):
+class CSRConstant(DUID):
     def __init__(self, value, bits_sign=None, name=None):
-        Constant.__init__(self, value, bits_sign)
+        DUID.__init__(self)
+        self.value = Constant(value, bits_sign)
         self.name = get_obj_var_name(name)
         if self.name is None:
             raise ValueError("Cannot extract CSR name from code, need to specify.")
