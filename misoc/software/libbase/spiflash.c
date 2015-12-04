@@ -1,6 +1,6 @@
 #include <generated/csr.h>
 
-#if (defined CSR_SPIFLASH_BASE && defined SPIFLASH_PAGE_SIZE)
+#if (defined CSR_SPIFLASH_BASE && defined CONFIG_SPIFLASH_PAGE_SIZE)
 
 #include <spiflash.h>
 
@@ -71,7 +71,7 @@ static void wait_for_device_ready(void)
 
 void erase_flash_sector(unsigned int addr)
 {
-    unsigned int sector_addr = addr & ~(SPIFLASH_SECTOR_SIZE - 1);
+    unsigned int sector_addr = addr & ~(CONFIG_SPIFLASH_SECTOR_SIZE - 1);
 
     spiflash_bitbang_en_write(1);
 
@@ -93,8 +93,8 @@ void write_to_flash_page(unsigned int addr, const unsigned char *c, unsigned int
 {
     unsigned int i;
 
-    if(len > SPIFLASH_PAGE_SIZE)
-        len = SPIFLASH_PAGE_SIZE;
+    if(len > CONFIG_SPIFLASH_PAGE_SIZE)
+        len = CONFIG_SPIFLASH_PAGE_SIZE;
 
     spiflash_bitbang_en_write(1);
 
@@ -115,14 +115,14 @@ void write_to_flash_page(unsigned int addr, const unsigned char *c, unsigned int
     spiflash_bitbang_en_write(0);
 }
 
-#define SPIFLASH_PAGE_MASK (SPIFLASH_PAGE_SIZE - 1)
+#define SPIFLASH_PAGE_MASK (CONFIG_SPIFLASH_PAGE_SIZE - 1)
 
 void write_to_flash(unsigned int addr, const unsigned char *c, unsigned int len)
 {
    unsigned int written = 0;
 
    if(addr & SPIFLASH_PAGE_MASK) {
-       written = min(SPIFLASH_PAGE_SIZE - (addr & SPIFLASH_PAGE_MASK), len);
+       written = min(CONFIG_SPIFLASH_PAGE_SIZE - (addr & SPIFLASH_PAGE_MASK), len);
        write_to_flash_page(addr, c, written);
        c += written;
        addr += written;
@@ -130,7 +130,7 @@ void write_to_flash(unsigned int addr, const unsigned char *c, unsigned int len)
    }
 
    while(len > 0) {
-       written = min(len, SPIFLASH_PAGE_SIZE);
+       written = min(len, CONFIG_SPIFLASH_PAGE_SIZE);
        write_to_flash_page(addr, c, written);
        c += written;
        addr += written;
@@ -138,4 +138,4 @@ void write_to_flash(unsigned int addr, const unsigned char *c, unsigned int len)
    }
 }
 
-#endif /* CSR_SPIFLASH_BASE && SPIFLASH_PAGE_SIZE */
+#endif /* CSR_SPIFLASH_BASE && CONFIG_SPIFLASH_PAGE_SIZE */

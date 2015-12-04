@@ -353,7 +353,7 @@ static void do_command(char *c)
 	else if(strcmp(token, "crc") == 0) crc(get_token(&c), get_token(&c));
 	else if(strcmp(token, "ident") == 0) ident();
 
-#ifdef L2_SIZE
+#ifdef CONFIG_L2_SIZE
 	else if(strcmp(token, "flushl2") == 0) flush_l2_cache();
 #endif
 
@@ -468,7 +468,7 @@ static int test_user_abort(void)
 #endif
 	timer0_en_write(0);
 	timer0_reload_write(0);
-	timer0_load_write(SYSTEM_CLOCK_FREQUENCY*2);
+	timer0_load_write(CONFIG_CLOCK_FREQUENCY*2);
 	timer0_en_write(1);
 	timer0_update_value_write(1);
 	while(timer0_value_read()) {

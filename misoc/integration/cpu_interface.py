@@ -102,13 +102,18 @@ def get_csr_header(regions, constants, with_access_functions=True):
 
     r += "\n/* constants */\n"
     for name, value in constants:
-        r += "#define " + name
-        if value is not None:
-            if isinstance(value, str):
-                r +=  " \"" + value + "\""
-            else:
-                r += " " + str(value)
-        r += "\n"
+        if value is None:
+            r += "#define "+name+"\n"
+            continue
+        if isinstance(value, str):
+            value = "\"" + value + "\""
+            ctype = "const char *"
+        else:
+            value = str(value)
+            ctype = "int"
+        r += "#define "+name+" "+value+"\n"
+        r += "static inline "+ctype+" "+name.lower()+"_read(void) {\n"
+        r += "\treturn "+value+";\n}\n"
 
     r += "\n#endif\n"
     return r
