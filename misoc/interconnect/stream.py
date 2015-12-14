@@ -41,7 +41,7 @@ class EndpointDescription:
         return full_layout
 
 
-class _Endpoint(Record):
+class Endpoint(Record):
     def __init__(self, description_or_layout):
         if isinstance(description_or_layout, EndpointDescription):
             self.description = description_or_layout
@@ -53,12 +53,12 @@ class _Endpoint(Record):
         return getattr(object.__getattribute__(self, "payload"), name)
 
 
-class Source(_Endpoint):
+class Source(Endpoint):  # deprecated
     def connect(self, sink):
         return Record.connect(self, sink)
 
 
-class Sink(_Endpoint):
+class Sink(Endpoint):  # deprecated
     def connect(self, source):
         return source.connect(self)
 
@@ -159,7 +159,7 @@ from migen.util.misc import xdir
 def pack_layout(l, n):
     return [("chunk"+str(i), l) for i in range(n)]
 
-def get_endpoints(obj, filt=_Endpoint):
+def get_endpoints(obj, filt=Endpoint):
     if hasattr(obj, "get_endpoints") and callable(obj.get_endpoints):
         return obj.get_endpoints(filt)
     r = dict()
