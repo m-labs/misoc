@@ -28,85 +28,72 @@
  * Design new peripherals using Migen and benefit from automatic CSR maps
    and logic, etc.
  * Possibility to encapsulate legacy Verilog/VHDL code.
- * Complex FPGA cores that can be used integrated in MiSoC or standalone:
-     - LiteEth:   a small footprint and configurable Ethernet core
 
-MiSoC comes with built-in support for the following boards:
- * Mixxeo, the digital video mixer from M-Labs [XC6SLX45]
- * Milkymist One, the original M-Labs video synthesizer [XC6SLX45]
- * Papilio Pro, a simple and low-cost development board [XC6SLX9]
- * Pipistrello, a simple board with USB and HDMI [XC6SLX45]
- * De0 Nano, a simple and low-cost development board [CYCLONEIV]
- * KC705, a Kintex-7 devboard from Xilinx [XC7K325T]
- * Versa, a low-cost Lattice development board [ECP3-35]
-MiSoC is portable and support for other boards can easily be added as external
+MiSoC comes with built-in targets for a few boards containing devices from all
+major FPGA vendors. Support for other boards can easily be added as external
 modules.
 
 [> Quick start guide
 --------------------
 0. If cloned from Git without the --recursive option, get the submodules:
-  git submodule update --init
+   git submodule update --init
 
 1. Install Python 3.3+, Migen and FPGA vendor's development tools.
-  Get Migen from: https://github.com/m-labs/migen
+   Get Migen from: https://github.com/m-labs/migen
 
 2. Install JTAG tools.
-  For Mixxeo and M1:          http://urjtag.org
-  For Papilio Pro and KC705:  http://xc3sprog.sourceforge.net
-  For De0 Nano:               USBBlaster from Altera
-  We recommend using xc3sprog for Xilinx devices, but Vivado programmer
-  is also supported for Xilinx 7-series.
 
-3. (Optional, only needed if you want to flash the bistream/software)
-  Obtain and build any required flash proxy bitstreams. Flash proxy bitstreams
-  give JTAG access to a flash chip through the FPGA.
-  For Mixxeo and M1: https://github.com/m-labs/fjmem-m1
-  For Papilio Pro:   https://github.com/GadgetFactory/Papilio-Loader
-    (xc3sprog/trunk/bscan_spi/bscan_spi_lx9_papilio.bit)
-  For KC705: https://github.com/m-labs/bscan_spi_kc705
+   For Mixxeo and M1:          http://urjtag.org
+   For Papilio Pro and KC705:  http://xc3sprog.sourceforge.net
+   For De0 Nano:               USBBlaster from Altera
+
+3. (Optional, only needed if you want to flash the bitstream/BIOS/software)
+   Obtain and build any required flash proxy bitstreams. Flash proxy bitstreams
+   give JTAG access to a flash chip through the FPGA.
+
+   For Mixxeo and M1: https://github.com/m-labs/fjmem-m1
+   For Papilio Pro:   https://github.com/GadgetFactory/Papilio-Loader
+     (xc3sprog/trunk/bscan_spi/bscan_spi_lx9_papilio.bit)
+   For KC705: https://github.com/m-labs/bscan_spi_kc705
 
 4. Compile and install binutils. Take the latest version from GNU.
-  mkdir build && cd build
-  ../configure --target=lm32-elf
-  make
-  make install
+   mkdir build && cd build
+   ../configure --target=lm32-elf
+   make
+   make install
 
 5. Compile and install GCC. Take gcc-core and gcc-g++ from GNU
-  (version 4.5 or >=4.9).
-  rm -rf libstdc++-v3
-  mkdir build && cd build
-  ../configure --target=lm32-elf --enable-languages="c,c++" --disable-libgcc \
-    --disable-libssp
-  make
-  make install
+   (version 4.5 or >=4.9).
+   rm -rf libstdc++-v3
+   mkdir build && cd build
+   ../configure --target=lm32-elf --enable-languages="c,c++" --disable-libgcc \
+     --disable-libssp
+   make
+   make install
 
-6. Build and flash the BIOS and bitstream. Run from MiSoC:
-  For Mixxeo:      ./make.py all
-  For M1:          ./make.py -p m1 all
-  For Papilio Pro: ./make.py -t ppro all
-  For Pipistrello: ./make.py -t pipistrello all
-  For De0 Nano:    ./make.py -t de0nano all load-bitstream
-  For KC705:       ./make.py -t kc705 all
+6. Install MiSoC with:
+   python3 setup.py install
 
-  If just want to load the bitstream in volatile SRAM use:
-    all load-bitstream
+7. Build the bitstream and BIOS for your board by executing the corresponding
+   target file (see misoc/targets), e.g.
+   python3 -m misoc.targets.kc705
+
+   Use the -h flag to see options. This will create a folder named e.g.
+   misoc_basesoc_kc705 and build the BIOS and bitstream there.
+
+   If your target uses BIOS execute-in-place, flash it.
+
+   Load the bitstream.
 
 7. Run a terminal program on the board's serial port at 115200 8-N-1.
-  You should get the BIOS prompt.
+   You should get the BIOS prompt.
 
 8. Read and experiment with the source!
-  Come to our IRC channel and mailing list!
-  A simple target is provided to test MiSoC easily with your board:
-    Create your target with a clock and serial pins.
-    Build and test it: ./make.py -t simple -p your_platform all load-bitstream
-  If you don't have access to a FPGA board, you can also try MiSoC
-  with Verilator:
-    Download and install Verilator: http://www.veripool.org/
-    Test it: ./make.py -t simple -p sim build-bitstream
+   Come to our IRC channel and mailing list!
 
 9. Contribute a patch!
-  Once you have experimented with stuff, please send your results back.
-  For more details on how to do so, you can see the CONTRIBUTING.rst file.
+   Once you have experimented with stuff, please send your results back.
+   For more details on how to do so, you can see the CONTRIBUTING.rst file.
 
 [> License
 ----------
