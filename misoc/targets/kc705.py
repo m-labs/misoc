@@ -16,7 +16,6 @@ from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
 
 
-
 class _CRG(Module):
     def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
@@ -78,8 +77,8 @@ class BaseSoC(SoCSDRAM):
     default_platform = "kc705"
 
     csr_map = {
-        "spiflash": 16,
-        "ddrphy":   17,
+        "spiflash": 9,
+        "ddrphy":   10,
     }
     csr_map.update(SoCSDRAM.csr_map)
 
@@ -111,8 +110,8 @@ class BaseSoC(SoCSDRAM):
 
 class MiniSoC(BaseSoC):
     csr_map = {
-        "ethphy": 18,
-        "ethmac": 19,
+        "ethphy": 11,
+        "ethmac": 12,
     }
     csr_map.update(BaseSoC.csr_map)
 

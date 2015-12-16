@@ -96,7 +96,7 @@ class _CRG(Module):
 
 class BaseSoC(SoCSDRAM):
     csr_map = {
-        "spiflash": 16,
+        "spiflash": 9,
     }
     csr_map.update(SoCSDRAM.csr_map)
 
