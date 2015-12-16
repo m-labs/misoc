@@ -462,7 +462,7 @@ class Cache(Module):
         self.master = master
         self.slave = slave
 
-        ###
+        # # #
 
         dw_from = len(master.dat_r)
         dw_to = len(slave.dat_r)

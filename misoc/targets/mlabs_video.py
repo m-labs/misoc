@@ -88,19 +88,18 @@ class BaseSoC(SoCSDRAM):
 
         self.submodules.crg = _MXCRG(_MXClockPads(platform), self.clk_freq)
 
-        if not self.integrated_main_ram_size:
-            sdram_module = MT46V32M16(self.clk_freq)
-            self.submodules.ddrphy = S6HalfRateDDRPHY(platform.request("ddram"),
-                                                      sdram_module.memtype,
-                                                      rd_bitslip=0,
-                                                      wr_bitslip=3,
-                                                      dqs_ddr_alignment="C1")
-            self.register_sdram(self.ddrphy, "lasmicon",
-                                sdram_module.geom_settings, sdram_module.timing_settings)
-            self.comb += [
-                self.ddrphy.clk4x_wr_strb.eq(self.crg.clk4x_wr_strb),
-                self.ddrphy.clk4x_rd_strb.eq(self.crg.clk4x_rd_strb)
-            ]
+        sdram_module = MT46V32M16(self.clk_freq)
+        self.submodules.ddrphy = S6HalfRateDDRPHY(platform.request("ddram"),
+                                                  sdram_module.memtype,
+                                                  rd_bitslip=0,
+                                                  wr_bitslip=3,
+                                                  dqs_ddr_alignment="C1")
+        self.register_sdram(self.ddrphy, "lasmicon",
+                            sdram_module.geom_settings, sdram_module.timing_settings)
+        self.comb += [
+            self.ddrphy.clk4x_wr_strb.eq(self.crg.clk4x_wr_strb),
+            self.ddrphy.clk4x_rd_strb.eq(self.crg.clk4x_rd_strb)
+        ]
 
         if not self.integrated_rom_size:
             clk_period_ns = 1000000000/self.clk_freq
@@ -187,7 +186,7 @@ class FramebufferSoC(MiniSoC):
         MiniSoC.__init__(self, *args, **kwargs)
         pads_vga, pads_dvi = get_vga_dvi(platform)
         self.submodules.fb = framebuffer.Framebuffer(pads_vga, pads_dvi,
-                                                     self.sdram.crossbar.get_master())
+                                                     self.get_native_sdram_if())
         add_vga_tig(platform, self.fb)
 
 

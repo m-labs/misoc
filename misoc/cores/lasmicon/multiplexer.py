@@ -5,7 +5,6 @@ from migen import *
 from migen.genlib.roundrobin import *
 from migen.genlib.fsm import FSM, NextState
 
-from misoc.cores.lasmicon.perf import Bandwidth
 from misoc.interconnect.csr import AutoCSR
 
 
@@ -96,8 +95,7 @@ class _Steerer(Module):
 
 
 class Multiplexer(Module, AutoCSR):
-    def __init__(self, phy_settings, geom_settings, timing_settings, controller_settings, bank_machines, refresher, dfi, lasmic,
-            with_bandwidth=False):
+    def __init__(self, phy_settings, geom_settings, timing_settings, controller_settings, bank_machines, refresher, dfi, lasmic):
         assert(phy_settings.nphases == len(dfi.phases))
         self.phy_settings = phy_settings
 
@@ -216,7 +214,3 @@ class Multiplexer(Module, AutoCSR):
         )
         fsm.delayed_enter("RTW", "WRITE", phy_settings.read_latency-1)  # FIXME: reduce this, actual limit is around (cl+1)/nphases
         fsm.delayed_enter("WTR", "READ", timing_settings.tWTR-1)
-
-        if controller_settings.with_bandwidth:
-            data_width = phy_settings.dfi_databits*phy_settings.nphases
-            self.submodules.bandwidth = Bandwidth(self.choose_req.cmd, data_width)

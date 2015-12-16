@@ -4,13 +4,14 @@ from misoc.interconnect.csr import *
 
 
 class Bandwidth(Module, AutoCSR):
-    def __init__(self, cmd, data_width, period_bits=24):
+    def __init__(self, lasmicon, period_bits=24):
         self._update = CSR()
         self._nreads = CSRStatus(period_bits)
         self._nwrites = CSRStatus(period_bits)
-        self._data_width = CSRStatus(bits_for(data_width), reset=data_width)
 
         ###
+
+        cmd = lasmicon.multiplexer.choose_req.cmd
 
         cmd_stb = Signal()
         cmd_ack = Signal()

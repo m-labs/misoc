@@ -38,7 +38,7 @@ class SoCCore(Module):
                 cpu_type="lm32", cpu_reset_address=0x00000000,
                 integrated_rom_size=0,
                 integrated_sram_size=4096,
-                integrated_main_ram_size=0,
+                integrated_main_ram_size=16*1024,
                 shadow_base=0x80000000,
                 csr_data_width=8, csr_address_width=14,
                 with_uart=True, uart_baudrate=115200,

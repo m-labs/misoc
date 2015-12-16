@@ -320,7 +320,7 @@ static void help(void)
 	puts("romboot    - boot from embedded rom");
 #endif
 	puts("revision   - display revision");
-#ifdef CSR_SDRAM_BASE
+#ifdef CSR_DFII_BASE
 	puts("memtest    - run a memory test");
 #endif
 }
@@ -375,7 +375,7 @@ static void do_command(char *c)
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
 #endif
 
-#ifdef CSR_SDRAM_BASE
+#ifdef CSR_DFII_BASE
 	else if(strcmp(token, "sdrrow") == 0) sdrrow(get_token(&c));
 	else if(strcmp(token, "sdrsw") == 0) sdrsw();
 	else if(strcmp(token, "sdrhw") == 0) sdrhw();
@@ -529,7 +529,7 @@ int main(int i, char **c)
 #ifdef CSR_ETHMAC_BASE
 	eth_init();
 #endif
-#ifdef CSR_SDRAM_BASE
+#ifdef CSR_DFII_BASE
 	sdr_ok = sdrinit();
 #else
 	sdr_ok = 1;

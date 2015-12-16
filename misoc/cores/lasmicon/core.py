@@ -7,11 +7,10 @@ from misoc.cores.lasmicon.multiplexer import *
 
 
 class ControllerSettings:
-    def __init__(self, req_queue_size=8, read_time=32, write_time=16, with_bandwidth=False):
+    def __init__(self, req_queue_size=8, read_time=32, write_time=16):
         self.req_queue_size = req_queue_size
         self.read_time = read_time
         self.write_time = write_time
-        self.with_bandwidth = with_bandwidth
 
 
 class LASMIcon(Module):
@@ -48,6 +47,3 @@ class LASMIcon(Module):
         self.submodules.multiplexer = Multiplexer(phy_settings, geom_settings, timing_settings, controller_settings,
             self.bank_machines, self.refresher,
             self.dfi, self.lasmic)
-
-    def get_csrs(self):
-        return self.multiplexer.get_csrs()

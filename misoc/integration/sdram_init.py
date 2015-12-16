@@ -15,18 +15,18 @@ def get_sdram_phy_header(sdram_phy_settings):
         r += """
 static void command_p{n}(int cmd)
 {{
-    sdram_dfii_pi{n}_command_write(cmd);
-    sdram_dfii_pi{n}_command_issue_write(1);
+    dfii_pi{n}_command_write(cmd);
+    dfii_pi{n}_command_issue_write(1);
 }}""".format(n=str(n))
     r += "\n\n"
 
     # rd/wr access macros
     r += """
-#define sdram_dfii_pird_address_write(X) sdram_dfii_pi{rdphase}_address_write(X)
-#define sdram_dfii_piwr_address_write(X) sdram_dfii_pi{wrphase}_address_write(X)
+#define dfii_pird_address_write(X) dfii_pi{rdphase}_address_write(X)
+#define dfii_piwr_address_write(X) dfii_pi{wrphase}_address_write(X)
 
-#define sdram_dfii_pird_baddress_write(X) sdram_dfii_pi{rdphase}_baddress_write(X)
-#define sdram_dfii_piwr_baddress_write(X) sdram_dfii_pi{wrphase}_baddress_write(X)
+#define dfii_pird_baddress_write(X) dfii_pi{rdphase}_baddress_write(X)
+#define dfii_piwr_baddress_write(X) dfii_pi{wrphase}_baddress_write(X)
 
 #define command_prd(X) command_p{rdphase}(X)
 #define command_pwr(X) command_p{wrphase}(X)
@@ -36,24 +36,24 @@ static void command_p{n}(int cmd)
     #
     # sdrrd/sdrwr functions utilities
     #
-    r += "#define DFII_PIX_DATA_SIZE CSR_SDRAM_DFII_PI0_WRDATA_SIZE\n"
-    sdram_dfii_pix_wrdata_addr = []
+    r += "#define DFII_PIX_DATA_SIZE CSR_DFII_PI0_WRDATA_SIZE\n"
+    dfii_pix_wrdata_addr = []
     for n in range(nphases):
-        sdram_dfii_pix_wrdata_addr.append("CSR_SDRAM_DFII_PI{n}_WRDATA_ADDR".format(n=n))
+        dfii_pix_wrdata_addr.append("CSR_DFII_PI{n}_WRDATA_ADDR".format(n=n))
     r += """
-const unsigned int sdram_dfii_pix_wrdata_addr[{n}] = {{
-    {sdram_dfii_pix_wrdata_addr}
+const unsigned int dfii_pix_wrdata_addr[{n}] = {{
+    {dfii_pix_wrdata_addr}
 }};
-""".format(n=nphases, sdram_dfii_pix_wrdata_addr=",\n\t".join(sdram_dfii_pix_wrdata_addr))
+""".format(n=nphases, dfii_pix_wrdata_addr=",\n\t".join(dfii_pix_wrdata_addr))
 
-    sdram_dfii_pix_rddata_addr = []
+    dfii_pix_rddata_addr = []
     for n in range(nphases):
-        sdram_dfii_pix_rddata_addr.append("CSR_SDRAM_DFII_PI{n}_RDDATA_ADDR".format(n=n))
+        dfii_pix_rddata_addr.append("CSR_DFII_PI{n}_RDDATA_ADDR".format(n=n))
     r += """
-const unsigned int sdram_dfii_pix_rddata_addr[{n}] = {{
-    {sdram_dfii_pix_rddata_addr}
+const unsigned int dfii_pix_rddata_addr[{n}] = {{
+    {dfii_pix_rddata_addr}
 }};
-""".format(n=nphases, sdram_dfii_pix_rddata_addr=",\n\t".join(sdram_dfii_pix_rddata_addr))
+""".format(n=nphases, dfii_pix_rddata_addr=",\n\t".join(dfii_pix_rddata_addr))
     r += "\n"
 
     # init sequence
@@ -213,10 +213,10 @@ const unsigned int sdram_dfii_pix_rddata_addr[{n}] = {{
     r += "static void init_sequence(void)\n{\n"
     for comment, a, ba, cmd, delay in init_sequence:
         r += "\t/* {0} */\n".format(comment)
-        r += "\tsdram_dfii_pi0_address_write({0:#x});\n".format(a)
-        r += "\tsdram_dfii_pi0_baddress_write({0:d});\n".format(ba)
+        r += "\tdfii_pi0_address_write({0:#x});\n".format(a)
+        r += "\tdfii_pi0_baddress_write({0:d});\n".format(ba)
         if cmd[:12] == "DFII_CONTROL":
-            r += "\tsdram_dfii_control_write({0});\n".format(cmd)
+            r += "\tdfii_control_write({0});\n".format(cmd)
         else:
             r += "\tcommand_p0({0});\n".format(cmd)
         if delay:

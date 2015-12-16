@@ -80,11 +80,10 @@ class BaseSoC(SoCSDRAM):
 
         self.submodules.crg = _CRG(platform, clk_freq)
 
-        if not self.integrated_main_ram_size:
-            self.submodules.sdrphy = GENSDRPHY(platform.request("sdram"))
-            sdram_module = MT48LC4M16(clk_freq)
-            self.register_sdram(self.sdrphy, "minicon",
-                                sdram_module.geom_settings, sdram_module.timing_settings)
+        self.submodules.sdrphy = GENSDRPHY(platform.request("sdram"))
+        sdram_module = MT48LC4M16(clk_freq)
+        self.register_sdram(self.sdrphy, "minicon",
+                            sdram_module.geom_settings, sdram_module.timing_settings)
 
         if not self.integrated_rom_size:
             self.submodules.spiflash = spi_flash.SpiFlash(platform.request("spiflash2x"),
