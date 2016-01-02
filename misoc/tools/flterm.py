@@ -9,7 +9,9 @@ import argparse
 
 from serial.tools.miniterm import console, character, LF
 
-sfl_magic_len = 14
+sfl_prompt_req = "F7:    boot from serial\n"
+sfl_prompt_ack = "\x06"
+
 sfl_magic_req = "sL5DdSMmkekro\n"
 sfl_magic_ack = "z6IHG7cYDID6o\n"
 
@@ -108,13 +110,15 @@ def get_file_data(filename):
 
 
 class Flterm:
-    def __init__(self, kernel_image, kernel_address):
+    def __init__(self, serial_boot, kernel_image, kernel_address):
+        self.serial_boot = serial_boot
         self.kernel_image = kernel_image
         self.kernel_address = kernel_address
 
         self.reader_alive = False
         self.writer_alive = False
 
+        self.detect_prompt_str = " "*len(sfl_prompt_req)
         self.detect_magic_str = " "*len(sfl_magic_req)
 
     def open(self, port, speed):
@@ -195,6 +199,17 @@ class Flterm:
             frame.payload.append(d)
         self.send_frame(frame)
 
+    def detect_prompt(self, data):
+        if data is not "":
+            self.detect_prompt_str = self.detect_prompt_str[1:] + data
+            return self.detect_prompt_str == sfl_prompt_req
+        else:
+            return False
+
+    def answer_prompt(self):
+        print("[FLTERM] Received serial boot prompt from the device.")
+        self.write_exact(sfl_prompt_ack)
+
     def detect_magic(self, data):
         if data is not "":
             self.detect_magic_str = self.detect_magic_str[1:] + data
@@ -221,6 +236,8 @@ class Flterm:
                 sys.stdout.flush()
 
                 if self.kernel_image is not None:
+                    if self.serial_boot and self.detect_prompt(c):
+                        self.answer_prompt()
                     if self.detect_magic(c):
                         self.answer_magic()
 
@@ -285,6 +302,8 @@ def _get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("port", help="serial port")
     parser.add_argument("--speed", default=115200, help="serial baudrate")
+    parser.add_argument("--serial-boot", default=False, action='store_true',
+                        help="automatically initiate serial boot")
     parser.add_argument("--kernel", default=None, help="kernel image")
     parser.add_argument("--kernel-adr", type=lambda a: int(a, 0), default=0x40000000, help="kernel address")
     return parser.parse_args()
@@ -292,7 +311,7 @@ def _get_args():
 
 def main():
     args = _get_args()
-    flterm = Flterm(args.kernel, args.kernel_adr)
+    flterm = Flterm(args.serial_boot, args.kernel, args.kernel_adr)
     flterm.open(args.port, args.speed)
     flterm.start()
     try:
