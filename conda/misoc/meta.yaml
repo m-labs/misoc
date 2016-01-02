@@ -18,6 +18,7 @@ requirements:
   run:
     - migen
     - python
+    - pyserial
 
 test:
   imports:
