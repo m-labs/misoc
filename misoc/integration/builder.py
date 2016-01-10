@@ -11,11 +11,12 @@ __all__ = ["misoc_software_packages", "misoc_directory",
 
 # in build order (for dependencies)
 misoc_software_packages = [
-    "libbase",
     "libcompiler_rt",
+    "libbase",
+    "liballoc",
     "libdyld",
-    "libnet",
     "libunwind",
+    "libnet",
     "bios"
 ]
 
