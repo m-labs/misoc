@@ -14,6 +14,7 @@ misoc_software_packages = [
     "libcompiler_rt",
     "libbase",
     "liballoc",
+    "libm",
     "libdyld",
     "libunwind",
     "libnet",
