@@ -3,6 +3,8 @@
 
 #include <generated/csr.h>
 
+void cdelay(int i);
+
 void sdrsw(void);
 void sdrhw(void);
 void sdrrow(char *_row);

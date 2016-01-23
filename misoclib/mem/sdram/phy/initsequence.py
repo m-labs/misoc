@@ -8,7 +8,7 @@ def get_sdram_phy_header(sdram_phy_settings):
     nphases = sdram_phy_settings.nphases
     r += "#define DFII_NPHASES "+str(nphases)+"\n\n"
 
-    r += "static void cdelay(int i);\n"
+    r += "extern void cdelay(int i);\n"
 
     # commands_px functions
     for n in range(nphases):

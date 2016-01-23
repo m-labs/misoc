@@ -11,7 +11,7 @@
 
 #include "sdram.h"
 
-static void cdelay(int i)
+void cdelay(int i)
 {
 	while(i > 0) {
 #if defined (__lm32__)
