@@ -25,6 +25,6 @@ test:
     - misoc
 
 about:
-  home: http://m-labs.hk/gateware.html
+  home: https://m-labs.hk/gateware.html
   license: 3-clause BSD
   summary: 'A high performance and small footprint SoC based on Migen'

@@ -16,7 +16,7 @@ setup(
     long_description=open("README").read(),
     author="Sebastien Bourdeauducq",
     author_email="sb@m-labs.hk",
-    url="http://m-labs.hk",
+    url="https://m-labs.hk",
     download_url="https://github.com/m-labs/misoc",
     license="BSD",
     platforms=["Any"],
