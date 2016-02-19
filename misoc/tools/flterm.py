@@ -116,7 +116,7 @@ class Flterm:
         self.reader_alive = False
         self.writer_alive = False
 
-        self.promp_detect_buffer = bytes(len(sfl_prompt_req))
+        self.prompt_detect_buffer = bytes(len(sfl_prompt_req))
         self.magic_detect_buffer = bytes(len(sfl_magic_req))
 
     def open(self, port, baudrate):
@@ -182,8 +182,8 @@ class Flterm:
 
     def detect_prompt(self, data):
         if len(data):
-            self.promp_detect_buffer = self.promp_detect_buffer[1:] + data
-            return self.promp_detect_buffer == sfl_prompt_req
+            self.prompt_detect_buffer = self.prompt_detect_buffer[1:] + data
+            return self.prompt_detect_buffer == sfl_prompt_req
         else:
             return False
 
@@ -213,11 +213,7 @@ class Flterm:
                 if c == b"\r":
                     sys.stdout.write(b"\n")
                 else:
-                    try:
-                        # TODO: cleanup
-                        sys.stdout.write(c.decode())
-                    except:
-                        pass
+                    sys.stdout.buffer.write(c)
                 sys.stdout.flush()
 
                 if self.kernel_image is not None:
@@ -243,10 +239,7 @@ class Flterm:
     def writer(self):
         try:
             while self.writer_alive:
-                try:
-                    b = getkey()
-                except KeyboardInterrupt:
-                    b = b"\x03"
+                b = getkey()
                 if b == b"\x03":
                     self.stop()
                 elif b == b"\n":
@@ -296,13 +289,12 @@ def _get_args():
 def main():
     args = _get_args()
     flterm = Flterm(args.serial_boot, args.kernel, args.kernel_adr)
-    flterm.open(args.port, args.speed)
-    flterm.start()
     try:
+        flterm.open(args.port, args.speed)
+        flterm.start()
         flterm.join(True)
-    except KeyboardInterrupt:
-        pass
-    flterm.close()
+    finally:
+        flterm.close()
 
 
 if __name__ == "__main__":
