@@ -7,27 +7,34 @@ import serial
 import threading
 import argparse
 
-# TODO: cleanup getkey function
 if sys.platform == "win32":
+    import msvcrt
+
+    def init_getkey():
+        pass
+
+    def deinit_getkey():
+        pass
+
     def getkey():
-        import msvcrt
         return msvcrt.getch()
 else:
-    def getkey():
-        import termios
+    import termios
+
+    def init_getkey():
+        global old_termios
+
         fd = sys.stdin.fileno()
-        old = termios.tcgetattr(fd)
-        new = termios.tcgetattr(fd)
+        old_termios = termios.tcgetattr(fd)
+        new = old_termios.copy()
         new[3] = new[3] & ~termios.ICANON & ~termios.ECHO
-        new[6][termios.VMIN] = 1
-        new[6][termios.VTIME] = 0
         termios.tcsetattr(fd, termios.TCSANOW, new)
-        c = None
-        try:
-            c = os.read(fd, 1)
-        finally:
-            termios.tcsetattr(fd, termios.TCSAFLUSH, old)
-        return c
+
+    def deinit_getkey():
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSANOW, old_termios)
+
+    def getkey():
+        return os.read(sys.stdin.fileno(), 1)
 
 
 sfl_magic_req = b"sL5DdSMmkekro\n"
@@ -221,13 +228,7 @@ class Flterm:
     def writer(self):
         try:
             while self.writer_alive:
-                b = getkey()
-                if b == b"\x03":
-                    self.stop()
-                elif b == b"\n":
-                    self.port.write(b"\x0a")
-                else:
-                    self.port.write(b)
+                self.port.write(getkey())
         except:
             self.writer_alive = False
             raise
@@ -269,12 +270,16 @@ def _get_args():
 def main():
     args = _get_args()
     flterm = Flterm(args.kernel, args.kernel_adr)
+    init_getkey()
     try:
-        flterm.open(args.port, args.speed)
-        flterm.start()
-        flterm.join(True)
+        try:
+            flterm.open(args.port, args.speed)
+            flterm.start()
+            flterm.join(True)
+        finally:
+            flterm.close()
     finally:
-        flterm.close()
+        deinit_getkey()
 
 
 if __name__ == "__main__":
