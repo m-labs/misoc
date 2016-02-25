@@ -179,7 +179,7 @@ class Flterm:
         print("[FLTERM] Booting the device.")
         frame = SFLFrame()
         frame.cmd = sfl_cmd_jump
-        frame.payload = self.kernel_address.to_bytes(4, "big") 
+        frame.payload = self.kernel_address.to_bytes(4, "big")
         self.send_frame(frame)
 
     def detect_magic(self, data):
@@ -263,13 +263,13 @@ def _get_args():
     parser.add_argument("port", help="serial port")
     parser.add_argument("--speed", default=115200, help="serial baudrate")
     parser.add_argument("--kernel", default=None, help="kernel image")
-    parser.add_argument("--kernel-adr", type=lambda a: int(a, 0), default=0x40000000, help="kernel address")
+    parser.add_argument("--kernel-addr", type=lambda a: int(a, 0), default=0x40000000, help="kernel address")
     return parser.parse_args()
 
 
 def main():
     args = _get_args()
-    flterm = Flterm(args.kernel, args.kernel_adr)
+    flterm = Flterm(args.kernel, args.kernel_addr)
     init_getkey()
     try:
         try:
