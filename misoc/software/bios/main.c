@@ -456,51 +456,12 @@ static void readstr(char *s, int size)
 	}
 }
 
-static int test_user_abort(void)
-{
-	char c;
-
-	printf("Automatic boot in 2 seconds...\n");
-	printf("Q/ESC: abort boot\n");
-	printf("F7:    boot from serial\n");
-#ifdef CSR_ETHMAC_BASE
-	printf("F8:    boot from network\n");
-#endif
-	timer0_en_write(0);
-	timer0_reload_write(0);
-	timer0_load_write(CONFIG_CLOCK_FREQUENCY*2);
-	timer0_en_write(1);
-	timer0_update_value_write(1);
-	while(timer0_value_read()) {
-		if(readchar_nonblock()) {
-			c = readchar();
-			if((c == 'Q')||(c == '\e')) {
-				puts("Aborted");
-				return 0;
-			}
-			if(c == 0x06) {
-				serialboot();
-				return 0;
-			}
-#ifdef CSR_ETHMAC_BASE
-			if(c == 0x07) {
-				netboot();
-				return 0;
-			}
-#endif
-		}
-		timer0_update_value_write(1);
-	}
-	return 1;
-}
-
 static void boot_sequence(void)
 {
-	if(test_user_abort()) {
+	if(serialboot()) {
 #ifdef FLASH_BOOT_ADDRESS
 		flashboot();
 #endif
-		serialboot();
 #ifdef CSR_ETHMAC_BASE
 #ifdef CSR_ETHPHY_MODE_DETECTION_MODE_ADDR
 		eth_mode();
