@@ -136,8 +136,8 @@ class Flterm:
         self.main_task = asyncio.ensure_future(self.main_coro())
 
     async def send_frame(self, frame):
-        while retry:
-            await self.port.write(frame.encode())
+        while True:
+            await self.port.write_exactly(frame.encode())
             reply = await self.port.read(1)
             if reply == sfl_ack_success:
                 return
@@ -186,7 +186,7 @@ class Flterm:
 
     async def answer_magic(self):
         print("[FLTERM] Received firmware download request from the device.")
-        await self.port.write(sfl_magic_ack)
+        await self.port.write_exactly(sfl_magic_ack)
         try:
             await self.upload(self.kernel_image, self.kernel_address)
         except FileNotFoundError:
@@ -212,21 +212,20 @@ class Flterm:
                 await asyncio.wait([f])
 
             if fs[0] in done:
-                c = fs[0].result()
-                if c == b"\r":
-                    sys.stdout.write(b"\n")
-                else:
-                    sys.stdout.buffer.write(c)
+                data = fs[0].result()
+                sys.stdout.buffer.write(data)
                 sys.stdout.flush()
 
-            if fs[1] in done:
-                c = fs[1].result()
-                await self.port.write(c)
+                if self.kernel_image is not None:
+                    for c in data:
+                        magic_detect_buffer = magic_detect_buffer[1:] + bytes([c])
+                        if magic_detect_buffer == sfl_magic_req:
+                            await self.answer_magic()
+                            break
 
-            if self.kernel_image is not None:
-                magic_detect_buffer = magic_detect_buffer[1:] + c
-                if magic_detect_buffer == sfl_magic_req:
-                    await self.answer_magic()
+            if fs[1] in done:
+                await self.port.write(fs[1].result())
+
 
     async def close(self):
         deinit_getkey()
