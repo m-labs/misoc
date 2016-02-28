@@ -27,7 +27,9 @@ else:
         termios.tcsetattr(fd, termios.TCSANOW, new)
 
         loop = asyncio.get_event_loop()
-        loop.add_reader(sys.stdin.fileno(), callback)
+        def callback_wrapper():
+            callback(os.read(sys.stdin.fileno(), 1))
+        loop.add_reader(sys.stdin.fileno(), callback_wrapper)
 
     def deinit_getkey():
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSANOW, old_termios)
@@ -188,8 +190,8 @@ class Flterm:
                 if self.magic_detect_buffer == sfl_magic_req:
                     self.answer_magic()
 
-    def getkey_callback(self):
-        self.writer.write(os.read(sys.stdin.fileno(), 1))
+    def getkey_callback(self, c):
+        self.writer.write(c)
 
     async def open(self, port, baudrate):
         self.reader, self.writer = await asyncserial.open_serial_connection(
@@ -198,13 +200,13 @@ class Flterm:
         init_getkey(self.getkey_callback)
 
     async def close(self):
+        deinit_getkey()
         self.reader_task.cancel()
         try:
             await asyncio.wait_for(self.reader_task, None)
         except asyncio.CancelledError:
             pass
         self.writer.close()
-        deinit_getkey()
 
 
 def _get_args():
