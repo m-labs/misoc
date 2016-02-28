@@ -12,25 +12,19 @@ if sys.platform == "win32":
     import msvcrt
     import threading
 
-    stop_getkey_thread = False
-
     def init_getkey(callback):
-        global stop_getkey_thread
-
         loop = asyncio.get_event_loop()
         def getkey_thread():
             while True:
                 c = msvcrt.getch()
-                if stop_getkey_thread:
-                    return
+                # HACK: This may still attempt to use the loop
+                # after it is closed - see comment below.
                 loop.call_soon_threadsafe(callback, c)
-        stop_getkey_thread = False
         threading.Thread(target=getkey_thread, daemon=True).start()
 
     def deinit_getkey():
         # Python threads suck.
-        global stop_getkey_thread
-        stop_getkey_thread = True
+        pass
 else:
     import termios
 
@@ -128,15 +122,23 @@ class SFLFrame:
 
 
 class Flterm:
-    def __init__(self, kernel_image, kernel_address):
+    def __init__(self, port, speed, kernel_image, kernel_address):
         self.kernel_image = kernel_image
         self.kernel_address = kernel_address
-        self.magic_detect_buffer = b"\x00"*len(sfl_magic_req)
+
+        self.port = asyncserial.AsyncSerial(port, baudrate=speed)
+        
+        self.keyqueue = asyncio.Queue(100)
+        def getkey_callback(c):
+            self.keyqueue.put_nowait(c)
+        init_getkey(getkey_callback)
+
+        self.main_task = asyncio.ensure_future(self.main_coro())
 
     async def send_frame(self, frame):
         while retry:
-            self.writer.write(frame.encode())
-            reply = await self.reader.read(1)
+            await self.port.write(frame.encode())
+            reply = await self.port.read(1)
             if reply == sfl_ack_success:
                 return
             elif reply == sfl_ack_crcerror:
@@ -184,7 +186,7 @@ class Flterm:
 
     async def answer_magic(self):
         print("[FLTERM] Received firmware download request from the device.")
-        self.writer.write(sfl_magic_ack)
+        await self.port.write(sfl_magic_ack)
         try:
             await self.upload(self.kernel_image, self.kernel_address)
         except FileNotFoundError:
@@ -193,37 +195,44 @@ class Flterm:
             await self.boot()
         print("[FLTERM] Done.");
 
-    async def reader_coro(self):
+    async def main_coro(self):
+        magic_detect_buffer = b"\x00"*len(sfl_magic_req)
         while True:
-            c = await self.reader.read(1)
-            if c == b"\r":
-                sys.stdout.write(b"\n")
-            else:
-                sys.stdout.buffer.write(c)
-            sys.stdout.flush()
+            fs = [asyncio.ensure_future(self.port.read(1024)),
+                  asyncio.ensure_future(self.keyqueue.get())]
+            try:
+                done, pending = await asyncio.wait(
+                    fs, return_when=asyncio.FIRST_COMPLETED)
+            except:
+                for f in fs:
+                    f.cancel()
+                raise
+            for f in pending:
+                f.cancel()
+                await asyncio.wait([f])
+
+            if fs[0] in done:
+                c = fs[0].result()
+                if c == b"\r":
+                    sys.stdout.write(b"\n")
+                else:
+                    sys.stdout.buffer.write(c)
+                sys.stdout.flush()
+
+            if fs[1] in done:
+                c = fs[1].result()
+                await self.port.write(c)
 
             if self.kernel_image is not None:
-                self.magic_detect_buffer = self.magic_detect_buffer[1:] + c
-                if self.magic_detect_buffer == sfl_magic_req:
-                    self.answer_magic()
-
-    def getkey_callback(self, c):
-        self.writer.write(c)
-
-    async def open(self, port, baudrate):
-        self.reader, self.writer = await asyncserial.open_serial_connection(
-            port, baudrate=baudrate)
-        self.reader_task = asyncio.ensure_future(self.reader_coro())
-        init_getkey(self.getkey_callback)
+                magic_detect_buffer = magic_detect_buffer[1:] + c
+                if magic_detect_buffer == sfl_magic_req:
+                    await self.answer_magic()
 
     async def close(self):
         deinit_getkey()
-        self.reader_task.cancel()
-        try:
-            await asyncio.wait_for(self.reader_task, None)
-        except asyncio.CancelledError:
-            pass
-        self.writer.close()
+        self.main_task.cancel()
+        await asyncio.wait([self.main_task])
+        self.port.close()
 
 
 def _get_args():
@@ -244,14 +253,11 @@ def main():
         loop = asyncio.get_event_loop()
     try:
         args = _get_args()
-        flterm = Flterm(args.kernel, args.kernel_adr)
-        loop.run_until_complete(
-            flterm.open(args.port, args.speed))
+        flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_adr)
         try:
             loop.run_forever()
         finally:
-            loop.run_until_complete(
-                flterm.close())
+            loop.run_until_complete(flterm.close())
     finally:
         loop.close()
 
