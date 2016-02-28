@@ -9,11 +9,28 @@ import argparse
 
 
 if sys.platform == "win32":
+    import msvcrt
+    import threading
+
+    stop_getkey_thread = False
+
     def init_getkey(callback):
-        raise NotImplementedError
+        global stop_getkey_thread
+
+        loop = asyncio.get_event_loop()
+        def getkey_thread():
+            while True:
+                c = msvcrt.getch()
+                if stop_getkey_thread:
+                    return
+                loop.call_soon_threadsafe(callback, c)
+        stop_getkey_thread = False
+        threading.Thread(target=getkey_thread, daemon=True).start()
 
     def deinit_getkey():
-        raise NotImplementedError
+        # Python threads suck.
+        global stop_getkey_thread
+        stop_getkey_thread = True
 else:
     import termios
 
