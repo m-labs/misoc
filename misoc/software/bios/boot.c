@@ -198,12 +198,12 @@ int serialboot(void)
 
 #define LOCALIP1 192
 #define LOCALIP2 168
-#define LOCALIP3 0
-#define LOCALIP4 42
+#define LOCALIP3 1
+#define LOCALIP4 50
 #define REMOTEIP1 192
 #define REMOTEIP2 168
-#define REMOTEIP3 0
-#define REMOTEIP4 14
+#define REMOTEIP3 1
+#define REMOTEIP4 100
 
 static int tftp_get_v(unsigned int ip, const char *filename, char *buffer)
 {
