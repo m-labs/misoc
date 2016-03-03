@@ -16,13 +16,22 @@ class GPIOOut(Module, AutoCSR):
         self.comb += signal.eq(self._out.storage)
 
 
-class GPIOInOut(Module):
-    def __init__(self, in_signal, out_signal):
-        self.submodules.gpio_in = GPIOIn(in_signal)
-        self.submodules.gpio_out = GPIOOut(out_signal)
+class GPIOTristate(Module, AutoCSR):
+    def __init__(self, signals):
+        l = len(signals)
+        self._in = CSRStatus(l)
+        self._out = CSRStorage(l)
+        self._oe = CSRStorage(l)
 
-    def get_csrs(self):
-        return self.gpio_in.get_csrs() + self.gpio_out.get_csrs()
+        for n, signal in enumerate(signals):
+            ts = TSTriple(1)
+            self.specials += ts.get_tristate(signal)
+
+            self.specials += MultiReg(ts.i, self._in.status)
+            self.comb += [
+                ts.o.eq(self._out.storage),
+                ts.oe.eq(self._oe.storage)
+            ]
 
 
 class Blinker(Module):
