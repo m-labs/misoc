@@ -27,7 +27,10 @@ class GPIOTristate(Module, AutoCSR):
             ts = TSTriple(1)
             self.specials += ts.get_tristate(signal)
 
-            self.specials += MultiReg(ts.i, self._in.status[n])
+            status = Signal()
+            self.comb += self._in.status[n].eq(status)
+
+            self.specials += MultiReg(ts.i, status)
             self.comb += [
                 ts.o.eq(self._out.storage[n]),
                 ts.oe.eq(self._oe.storage[n])
