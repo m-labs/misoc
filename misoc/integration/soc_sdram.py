@@ -50,7 +50,7 @@ class SoCSDRAM(SoCCore):
             self._native_sdram_ifs.append(bus)
             return bus
         elif isinstance(self.sdram_controller, lasmicon.LASMIcon):
-            return self.sdram_controller.crossbar.get_master()
+            return self.lasmi_crossbar.get_master()
         else:
             raise TypeError
 
@@ -107,6 +107,7 @@ class SoCSDRAM(SoCCore):
                 [self.sdram_controller.lasmic],
                 self.sdram_controller.nrowbits)
 
+            bridge_if = self.get_native_sdram_if()
             if self.l2_size:
                 l2_cache = wishbone.Cache(self.l2_size//4,
                     self._cpulevel_sdram_if_arbitrated,
