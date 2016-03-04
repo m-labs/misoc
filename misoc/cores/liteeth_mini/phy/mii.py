@@ -66,7 +66,7 @@ class LiteEthPHYMIIRX(Module):
             converter.sink.sop.eq(sop),
             converter.sink.eop.eq(~pads.dv)
         ]
-        self.comb += Record.connect(converter.source, source)
+        self.comb += converter.source.connect(source)
 
 
 class LiteEthPHYMIICRG(Module, AutoCSR):

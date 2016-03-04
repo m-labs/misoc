@@ -32,4 +32,4 @@ class LiteEthPHYLoopback(Module, AutoCSR):
         self.submodules.crg = LiteEthLoopbackPHYCRG()
         self.sink = Sink(eth_phy_description(8))
         self.source = Source(eth_phy_description(8))
-        self.comb += Record.connect(self.sink, self.source)
+        self.comb += self.sink.connect(self.source)

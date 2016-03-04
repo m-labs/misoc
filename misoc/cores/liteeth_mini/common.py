@@ -8,8 +8,8 @@ from misoc.interconnect.stream import *
 class Port:
     def connect(self, port):
         r = [
-            Record.connect(self.source, port.sink),
-            Record.connect(port.source, self.sink)
+            self.source.connect(port.sink),
+            port.source.connect(self.sink)
         ]
         return r
 

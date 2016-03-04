@@ -53,7 +53,7 @@ class LiteEthMACPreambleInserter(Module):
             self.source.last_be.eq(self.sink.last_be)
         ]
         fsm.act("COPY",
-            Record.connect(self.sink, self.source, leave_out=set(["data", "last_be"])),
+            self.sink.connect(self.source, leave_out=set(["data", "last_be"])),
             self.source.sop.eq(0),
 
             If(self.sink.stb & self.sink.eop & self.source.ack,
@@ -146,7 +146,7 @@ class LiteEthMACPreambleChecker(Module):
             self.source.last_be.eq(self.sink.last_be)
         ]
         fsm.act("COPY",
-            Record.connect(self.sink, self.source, leave_out=set(["data", "last_be"])),
+            self.sink.connect(self.source, leave_out=set(["data", "last_be"])),
             self.source.sop.eq(sop),
             clr_sop.eq(self.source.stb & self.source.ack),
 

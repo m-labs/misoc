@@ -161,7 +161,7 @@ class LiteEthMACCRCInserter(Module):
         fsm.act("COPY",
             crc.ce.eq(sink.stb & source.ack),
             crc.data.eq(sink.data),
-            Record.connect(sink, source),
+            sink.connect(source),
             source.eop.eq(0),
             If(sink.stb & sink.eop & source.ack,
                 NextState("INSERT"),
@@ -246,7 +246,7 @@ class LiteEthMACCRCChecker(Module):
             fifo_in.eq(sink.stb & (~fifo_full | fifo_out)),
             fifo_out.eq(source.stb & source.ack),
 
-            Record.connect(sink, fifo.sink),
+            sink.connect(fifo.sink),
             fifo.sink.stb.eq(fifo_in),
             self.sink.ack.eq(fifo_in),
 

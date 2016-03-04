@@ -36,9 +36,9 @@ class LiteEthPHYGMIIMIITX(Module):
         self.submodules += demux
         self.comb += [
             demux.sel.eq(mode == modes["MII"]),
-            Record.connect(sink, demux.sink),
-            Record.connect(demux.source0, gmii_tx.sink),
-            Record.connect(demux.source1, mii_tx.sink),
+            sink.connect(demux.sink),
+            demux.source0.connect(gmii_tx.sink),
+            demux.source1.connect(mii_tx.sink),
         ]
 
         if hasattr(pads, "tx_er"):
@@ -76,9 +76,9 @@ class LiteEthPHYGMIIMIIRX(Module):
         self.submodules += mux
         self.comb += [
             mux.sel.eq(mode == modes["MII"]),
-            Record.connect(gmii_rx.source, mux.sink0),
-            Record.connect(mii_rx.source, mux.sink1),
-            Record.connect(mux.source, source)
+            gmii_rx.source.connect(mux.sink0),
+            mii_rx.source.connect(mux.sink1),
+            mux.source.connect(source)
         ]
 
 

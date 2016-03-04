@@ -28,7 +28,7 @@ class LiteEthMACGap(Module):
         self.submodules.fsm = fsm = FSM(reset_state="COPY")
         fsm.act("COPY",
             counter_reset.eq(1),
-            Record.connect(sink, source),
+            sink.connect(source),
             If(sink.stb & sink.eop & sink.ack,
                 NextState("GAP")
             )

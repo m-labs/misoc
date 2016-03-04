@@ -32,7 +32,7 @@ class LiteEthMACPaddingInserter(Module):
 
         self.submodules.fsm = fsm = FSM(reset_state="IDLE")
         fsm.act("IDLE",
-            Record.connect(sink, source),
+            sink.connect(source),
             If(source.stb & source.ack,
                 counter_ce.eq(1),
                 If(sink.eop,
@@ -64,5 +64,5 @@ class LiteEthMACPaddingChecker(Module):
 
         # TODO: see if we should drop the packet when
         # payload size < minimum ethernet payload size
-        self.comb += Record.connect(sink, source)
+        self.comb += sink.connect(source)
 

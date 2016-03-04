@@ -20,8 +20,8 @@ class LiteEthMACWishboneInterface(Module, AutoCSR):
         sram_depth = buffer_depth//(dw//8)
         self.submodules.sram = sram.LiteEthMACSRAM(dw, sram_depth, nrxslots, ntxslots)
         self.comb += [
-            Record.connect(self.sink, self.sram.sink),
-            Record.connect(self.sram.source, self.source)
+            self.sink.connect(self.sram.sink),
+            self.sram.source.connect(self.source)
         ]
 
         # Wishbone interface

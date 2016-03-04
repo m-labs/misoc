@@ -53,14 +53,12 @@ class Endpoint(Record):
         return getattr(object.__getattribute__(self, "payload"), name)
 
 
-class Source(Endpoint):  # deprecated
-    def connect(self, sink):
-        return Record.connect(self, sink)
+class Source(Endpoint):
+    pass
 
 
-class Sink(Endpoint):  # deprecated
-    def connect(self, source):
-        return source.connect(self)
+class Sink(Endpoint):
+    pass
 
 
 class _FIFOWrapper(Module):
@@ -129,7 +127,7 @@ class Multiplexer(Module):
 
         cases = {}
         for i, sink in enumerate(sinks):
-            cases[i] = Record.connect(sink, self.source)
+            cases[i] = sink.connect(self.source)
         self.comb += Case(self.sel, cases)
 
 
@@ -147,7 +145,7 @@ class Demultiplexer(Module):
 
         cases = {}
         for i, source in enumerate(sources):
-            cases[i] = Record.connect(self.sink, source)
+            cases[i] = self.sink.connect(source)
         self.comb += Case(self.sel, cases)
 
 # TODO: clean up code below
@@ -361,9 +359,9 @@ class Converter(Module):
             self.submodules.unpack = Unpack(ratio, layout_to)
 
             self.comb += [
-                Record.connect(self.sink, self.chunkerize.sink),
-                Record.connect(self.chunkerize.source, self.unpack.sink),
-                Record.connect(self.unpack.source, self.source),
+                self.sink.connect(self.chunkerize.sink),
+                self.chunkerize.source.connect(self.unpack.sink),
+                self.unpack.source.connect(self.source),
                 self.busy.eq(self.unpack.busy)
             ]
         # upconverter
@@ -375,13 +373,13 @@ class Converter(Module):
             self.submodules.unchunkerize = Unchunkerize(layout_from, ratio, layout_to, reverse)
 
             self.comb += [
-                Record.connect(self.sink, self.pack.sink),
-                Record.connect(self.pack.source, self.unchunkerize.sink),
-                Record.connect(self.unchunkerize.source, self.source),
+                self.sink.connect(self.pack.sink),
+                self.pack.source.connect(self.unchunkerize.sink),
+                self.unchunkerize.source.connect(self.source),
                 self.busy.eq(self.pack.busy)
             ]
         # direct connection
         else:
-            self.comb += Record.connect(self.sink, self.source)
+            self.comb += self.sink.connect(self.source)
 
 # XXX
