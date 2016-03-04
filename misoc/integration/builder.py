@@ -101,15 +101,9 @@ class Builder:
         for name, src_dir in self.software_packages:
             dst_dir = os.path.join(self.output_dir, "software", name)
             os.makedirs(dst_dir, exist_ok=True)
-            src = os.path.join(src_dir, "Makefile")
-            dst = os.path.join(dst_dir, "Makefile")
-            try:
-                os.remove(dst)
-            except FileNotFoundError:
-                pass
-            os.symlink(src, dst)
+            makefile = os.path.join(src_dir, "Makefile")
             if self.compile_software:
-                subprocess.check_call(["make", "-C", dst_dir])
+                subprocess.check_call(["make", "-C", dst_dir, "-f", makefile])
 
     def _initialize_rom(self):
         bios_file = os.path.join(self.output_dir, "software", "bios",
