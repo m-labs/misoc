@@ -20,9 +20,10 @@ static struct meta *root;
 
 void *malloc(size_t size)
 {
+    struct meta *list;
     size += FILL - (size % FILL); /* round up */
 
-    for(struct meta *list = root; list; list = list->next) {
+    for(list = root; list; list = list->next) {
         if(list->magi == BUSY) {
             continue;
         } else if(list->magi == IDLE) {
@@ -118,11 +119,12 @@ void alloc_give(void *area, size_t size)
 
 void alloc_show()
 {
+    struct meta *list;
     size_t busy = 0, idle = 0, meta = 0;
 
     printf("Heap view:\n");
 
-    for(struct meta *list = root; list; list = list->next) {
+    for(list = root; list; list = list->next) {
         meta += sizeof(struct meta);
 
         const char *magi;
