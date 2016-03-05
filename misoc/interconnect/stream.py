@@ -19,7 +19,7 @@ class EndpointDescription:
         self.packetized = packetized
 
     def get_full_layout(self):
-        reserved = {"stb", "ack", "payload", "sop", "eop", "description"}
+        reserved = {"stb", "ack", "payload", "eop", "description"}
         attributed = set()
         for f in self.payload_layout:
             if f[0] in attributed:
@@ -35,7 +35,6 @@ class EndpointDescription:
         ]
         if self.packetized:
             full_layout += [
-                ("sop", 1, DIR_M_TO_S),
                 ("eop", 1, DIR_M_TO_S)
             ]
         return full_layout
@@ -72,7 +71,7 @@ class _FIFOWrapper(Module):
         description = self.sink.description
         fifo_layout = [("payload", description.payload_layout)]
         if description.packetized:
-            fifo_layout += [("sop", 1), ("eop", 1)]
+            fifo_layout += [("eop", 1)]
 
         self.submodules.fifo = fifo_class(layout_len(fifo_layout), depth)
         fifo_in = Record(fifo_layout)
@@ -93,9 +92,7 @@ class _FIFOWrapper(Module):
         ]
         if description.packetized:
             self.comb += [
-                fifo_in.sop.eq(self.sink.sop),
                 fifo_in.eop.eq(self.sink.eop),
-                self.source.sop.eq(fifo_out.sop),
                 self.source.eop.eq(fifo_out.eop)
             ]
 
@@ -192,10 +189,7 @@ class CombinatorialActor(BinaryActor):
             self.busy.eq(0)
         ]
         if sink.description.packetized:
-            self.comb += [
-                source.sop.eq(sink.sop),
-                source.eop.eq(sink.eop)
-            ]
+            self.comb += source.eop.eq(sink.eop)
 
 
 class Unpack(Module):
@@ -210,10 +204,8 @@ class Unpack(Module):
         ###
 
         mux = Signal(max=n)
-        first = Signal()
         last = Signal()
         self.comb += [
-            first.eq(mux == 0),
             last.eq(mux == (n-1)),
             source.stb.eq(sink.stb),
             sink.ack.eq(last & source.ack)
@@ -234,10 +226,7 @@ class Unpack(Module):
         self.comb += Case(mux, cases).makedefault()
 
         if description_from.packetized:
-            self.comb += [
-                source.sop.eq(sink.sop & first),
-                source.eop.eq(sink.eop & last)
-            ]
+            self.comb += source.eop.eq(sink.eop & last)
 
 
 class Pack(Module):
@@ -286,10 +275,8 @@ class Pack(Module):
         if description_to.packetized:
             self.sync += [
                 If(source.stb & source.ack,
-                    source.sop.eq(sink.sop),
                     source.eop.eq(sink.eop),
                 ).Elif(sink.stb & sink.ack,
-                    source.sop.eq(sink.sop | source.sop),
                     source.eop.eq(sink.eop | source.eop)
                 )
             ]
