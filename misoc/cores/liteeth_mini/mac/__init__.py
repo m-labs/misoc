@@ -15,7 +15,10 @@ class LiteEthMAC(Module, AutoCSR):
         self.csrs = []
         if interface == "wishbone":
             self.submodules.interface = LiteEthMACWishboneInterface(dw, 2, 2)
-            self.comb += Port.connect(self.interface, self.core)
+            self.comb += [
+                self.interface.source.connect(self.core.sink),
+                self.core.source.connect(self.interface.sink)
+            ]
             self.ev, self.bus = self.interface.sram.ev, self.interface.bus
             self.csrs = self.interface.get_csrs() + self.core.get_csrs()
         else:

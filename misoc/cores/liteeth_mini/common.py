@@ -5,14 +5,6 @@ from misoc.interconnect.csr import *
 from misoc.interconnect.stream import *
 
 
-class Port:
-    def connect(self, port):
-        r = [
-            self.source.connect(port.sink),
-            port.source.connect(self.sink)
-        ]
-        return r
-
 eth_mtu = 1532
 eth_min_len = 46
 eth_interpacket_gap = 12
