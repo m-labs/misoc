@@ -21,18 +21,15 @@ buffer_depth = 2**log2_int(eth_mtu, need_pow2=False)
 
 
 def eth_phy_description(dw):
-    payload_layout = [
+    return [
         ("data", dw),
         ("last_be", dw//8),
         ("error", dw//8)
     ]
-    return EndpointDescription(payload_layout, packetized=True)
-
 
 def eth_mac_description(dw):
-    payload_layout = mac_header.get_layout() + [
+    return mac_header.get_layout() + [
         ("data", dw),
         ("last_be", dw//8),
         ("error", dw//8)
     ]
-    return EndpointDescription(payload_layout, packetized=True)

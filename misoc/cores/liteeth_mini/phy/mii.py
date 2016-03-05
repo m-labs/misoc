@@ -7,8 +7,7 @@ from misoc.cores.liteeth_mini.common import *
 
 
 def converter_description(dw):
-    payload_layout = [("data", dw)]
-    return EndpointDescription(payload_layout, packetized=True)
+    return [("data", dw)]
 
 
 class LiteEthPHYMIITX(Module):
