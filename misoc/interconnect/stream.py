@@ -48,18 +48,10 @@ class Endpoint(Record):
         return getattr(object.__getattribute__(self, "payload"), name)
 
 
-class Source(Endpoint):
-    pass
-
-
-class Sink(Endpoint):
-    pass
-
-
 class _FIFOWrapper(Module):
     def __init__(self, fifo_class, layout, depth):
-        self.sink = Sink(layout)
-        self.source = Source(layout)
+        self.sink = Endpoint(layout)
+        self.source = Endpoint(layout)
         self.busy = Signal()
 
         ###
@@ -103,10 +95,10 @@ class AsyncFIFO(_FIFOWrapper):
 
 class Multiplexer(Module):
     def __init__(self, layout, n):
-        self.source = Source(layout)
+        self.source = Endpoint(layout)
         sinks = []
         for i in range(n):
-            sink = Sink(layout)
+            sink = Endpoint(layout)
             setattr(self, "sink"+str(i), sink)
             sinks.append(sink)
         self.sel = Signal(max=n)
@@ -121,10 +113,10 @@ class Multiplexer(Module):
 
 class Demultiplexer(Module):
     def __init__(self, layout, n):
-        self.sink = Sink(layout)
+        self.sink = Endpoint(layout)
         sources = []
         for i in range(n):
-            source = Source(layout)
+            source = Endpoint(layout)
             setattr(self, "source"+str(i), source)
             sources.append(source)
         self.sel = Signal(max=n)
@@ -147,10 +139,10 @@ def pack_layout(l, n):
 
 class Unpack(Module):
     def __init__(self, n, layout_to, reverse=False):
-        self.source = source = Source(layout_to)
+        self.source = source = Endpoint(layout_to)
         description_from = copy(source.description)
         description_from.payload_layout = pack_layout(description_from.payload_layout, n)
-        self.sink = sink = Sink(description_from)
+        self.sink = sink = Endpoint(description_from)
 
         self.busy = Signal()
 
@@ -182,10 +174,10 @@ class Unpack(Module):
 
 class Pack(Module):
     def __init__(self, layout_from, n, reverse=False):
-        self.sink = sink = Sink(layout_from)
+        self.sink = sink = Endpoint(layout_from)
         description_to = copy(sink.description)
         description_to.payload_layout = pack_layout(description_to.payload_layout, n)
-        self.source = source = Source(description_to)
+        self.source = source = Endpoint(description_to)
         self.busy = Signal()
 
         ###
@@ -228,13 +220,13 @@ class Pack(Module):
 
 class Chunkerize(Module):
     def __init__(self, layout_from, layout_to, n, reverse=False):
-        self.sink = sink = Sink(layout_from)
+        self.sink = sink = Endpoint(layout_from)
         if isinstance(layout_to, EndpointDescription):
             layout_to = copy(layout_to)
             layout_to.payload_layout = pack_layout(layout_to.payload_layout, n)
         else:
             layout_to = pack_layout(layout_to, n)
-        self.source = source = Source(layout_to)
+        self.source = source = Endpoint(layout_to)
 
         # # #
 
@@ -261,8 +253,8 @@ class Unchunkerize(Module):
         else:
             fields = layout_from
             layout_from = pack_layout(layout_from, n)
-        self.sink = sink = Sink(layout_from)
-        self.source = source = Source(layout_to)
+        self.sink = sink = Endpoint(layout_from)
+        self.source = source = Endpoint(layout_to)
 
         # # #
 
@@ -282,8 +274,8 @@ class Unchunkerize(Module):
 
 class Converter(Module):
     def __init__(self, layout_from, layout_to, reverse=False):
-        self.sink = Sink(layout_from)
-        self.source = Source(layout_to)
+        self.sink = Endpoint(layout_from)
+        self.source = Endpoint(layout_to)
         self.busy = Signal()
 
         # # #

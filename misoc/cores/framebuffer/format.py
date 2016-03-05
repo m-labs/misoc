@@ -5,6 +5,8 @@ from migen.genlib.record import Record
 from migen.genlib.fsm import FSM, NextState
 from migen.actorlib import spi
 
+from misoc.interconnect import stream
+
 _hbits = 12
 _vbits = 12
 
@@ -77,9 +79,9 @@ class VTG(Module):
             ("vsync_start", _vbits),
             ("vsync_end", _vbits),
             ("vscan", _vbits)]
-        self.timing = Sink(timing_layout)
-        self.pixels = Sink(pixel_layout(pack_factor))
-        self.phy = Source(phy_layout(pack_factor))
+        self.timing = stream.Endpoint(timing_layout)
+        self.pixels = stream.Endpoint(pixel_layout(pack_factor))
+        self.phy = stream.Endpoint(phy_layout(pack_factor))
         self.busy = Signal()
 
         ###

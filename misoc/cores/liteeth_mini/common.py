@@ -1,9 +1,4 @@
 from migen import *
-from migen.genlib.record import *
-
-from misoc.interconnect.csr import *
-from misoc.interconnect.stream import *
-
 
 eth_mtu = 1532
 eth_min_len = 46

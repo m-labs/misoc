@@ -2,7 +2,7 @@ from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from misoc.interconnect.csr import *
-from misoc.interconnect.stream import *
+from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import *
 
 
@@ -12,13 +12,13 @@ def converter_description(dw):
 
 class LiteEthPHYMIITX(Module):
     def __init__(self, pads):
-        self.sink = sink = Sink(eth_phy_description(8))
+        self.sink = sink = stream.Endpoint(eth_phy_description(8))
 
         # # #
 
         if hasattr(pads, "tx_er"):
             self.sync += pads.tx_er.eq(0)
-        converter = Converter(converter_description(8),
+        converter = stream.Converter(converter_description(8),
                               converter_description(4))
         self.submodules += converter
         self.comb += [
@@ -35,11 +35,11 @@ class LiteEthPHYMIITX(Module):
 
 class LiteEthPHYMIIRX(Module):
     def __init__(self, pads):
-        self.source = source = Source(eth_phy_description(8))
+        self.source = source = stream.Endpoint(eth_phy_description(8))
 
         # # #
 
-        converter = Converter(converter_description(4),
+        converter = stream.Converter(converter_description(4),
                               converter_description(8))
         converter = ResetInserter()(converter)
         self.submodules += converter

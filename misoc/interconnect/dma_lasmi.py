@@ -1,11 +1,13 @@
 from migen import *
 from migen.genlib.fifo import SyncFIFO
 
+from misoc.interconnect import stream
+
 
 class Reader(Module):
     def __init__(self, lasmim, fifo_depth=None):
-        self.address = Sink([("a", lasmim.aw)])
-        self.data = Source([("d", lasmim.dw)])
+        self.address = stream.Endpoint([("a", lasmim.aw)])
+        self.data = stream.Endpoint([("d", lasmim.dw)])
         self.busy = Signal()
 
         ###
@@ -59,7 +61,7 @@ class Reader(Module):
 
 class Writer(Module):
     def __init__(self, lasmim, fifo_depth=None):
-        self.address_data = Sink([("a", lasmim.aw), ("d", lasmim.dw)])
+        self.address_data = stream.Endpoint([("a", lasmim.aw), ("d", lasmim.dw)])
         self.busy = Signal()
 
         ###

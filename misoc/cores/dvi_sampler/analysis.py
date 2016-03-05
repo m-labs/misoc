@@ -4,6 +4,7 @@ from migen.genlib.fifo import AsyncFIFO
 from migen.genlib.record import Record
 
 from misoc.interconnect.csr import *
+from misoc.interconnect import stream
 from misoc.cores.dvi_sampler.common import channel_layout
 
 
@@ -119,7 +120,7 @@ class FrameExtraction(Module, AutoCSR):
 
         # in sys clock domain
         word_layout = [("sof", 1), ("pixels", word_width)]
-        self.frame = Source(word_layout)
+        self.frame = stream.Endpoint(word_layout)
         self.busy = Signal()
 
         self._overflow = CSR()

@@ -5,14 +5,14 @@ from migen.genlib.io import DDROutput
 from migen.genlib.misc import WaitTimer
 from migen.genlib.fsm import FSM, NextState
 
-from misoc.interconnect.stream import *
 from misoc.interconnect.csr import *
+from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import *
 
 
 class LiteEthPHYRGMIITX(Module):
     def __init__(self, pads):
-        self.sink = sink = Sink(eth_phy_description(8))
+        self.sink = sink = stream.Endpoint(eth_phy_description(8))
 
         # # #
 
@@ -34,7 +34,7 @@ class LiteEthPHYRGMIITX(Module):
 
 class LiteEthPHYRGMIIRX(Module):
     def __init__(self, pads):
-        self.source = source = Source(eth_phy_description(8))
+        self.source = source = stream.Endpoint(eth_phy_description(8))
 
         # # #
 

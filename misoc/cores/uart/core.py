@@ -4,12 +4,12 @@ from migen.genlib.cdc import MultiReg
 
 from misoc.interconnect.csr import *
 from misoc.interconnect.csr_eventmanager import *
-from misoc.interconnect.stream import Source, Sink, SyncFIFO, AsyncFIFO
+from misoc.interconnect import stream
 
 
 class RS232PHYRX(Module):
     def __init__(self, pads, tuning_word):
-        self.source = Source([("data", 8)])
+        self.source = stream.Endpoint([("data", 8)])
 
         # # #
 
@@ -61,7 +61,7 @@ class RS232PHYRX(Module):
 
 class RS232PHYTX(Module):
     def __init__(self, pads, tuning_word):
-        self.sink = Sink([("data", 8)])
+        self.sink = stream.Endpoint([("data", 8)])
 
         # # #
 
@@ -113,10 +113,10 @@ class RS232PHY(Module, AutoCSR):
 
 def _get_uart_fifo(depth, sink_cd="sys", source_cd="sys"):
     if sink_cd != source_cd:
-        fifo = AsyncFIFO([("data", 8)], depth)
+        fifo = stream.AsyncFIFO([("data", 8)], depth)
         return ClockDomainsRenamer({"write": sink_cd, "read": source_cd})(fifo)
     else:
-        return SyncFIFO([("data", 8)], depth)
+        return stream.SyncFIFO([("data", 8)], depth)
 
 
 class UART(Module, AutoCSR):

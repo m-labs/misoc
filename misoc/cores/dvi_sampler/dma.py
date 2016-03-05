@@ -3,6 +3,7 @@ from migen.genlib.fsm import FSM, NextState
 
 from misoc.interconnect.csr import *
 from misoc.interconnect.csr_eventmanager import *
+from misoc.interconnect import stream
 
 # TODO: rewrite dma_lasmi module
 # TODO: use stream packets to resync DMA
@@ -70,7 +71,7 @@ class DMA(Module):
         alignment_bits = bits_for(bus_dw//8) - 1
 
         fifo_word_width = 24*bus_dw//32
-        self.frame = Sink([("sof", 1), ("pixels", fifo_word_width)])
+        self.frame = stream.Endpoint([("sof", 1), ("pixels", fifo_word_width)])
         self._frame_size = CSRStorage(bus_aw + alignment_bits, alignment_bits=alignment_bits)
         self.submodules._slot_array = _SlotArray(nslots, bus_aw, alignment_bits)
         self.ev = self._slot_array.ev

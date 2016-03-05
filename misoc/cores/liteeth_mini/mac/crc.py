@@ -5,7 +5,7 @@ from operator import xor
 from migen import *
 from migen.genlib.misc import chooser
 
-from misoc.interconnect.stream import *
+from misoc.interconnect import stream
 
 
 class LiteEthMACCRCEngine(Module):
@@ -139,8 +139,8 @@ class LiteEthMACCRCInserter(Module):
         Packets output with CRC.
     """
     def __init__(self, crc_class, description):
-        self.sink = sink = Sink(description)
-        self.source = source = Source(description)
+        self.sink = sink = stream.Endpoint(description)
+        self.source = source = stream.Endpoint(description)
         self.busy = Signal()
 
         # # #
@@ -220,8 +220,8 @@ class LiteEthMACCRCChecker(Module):
         on eop when CRC OK / set to 1 when CRC KO.
     """
     def __init__(self, crc_class, description):
-        self.sink = sink = Sink(description)
-        self.source = source = Source(description)
+        self.sink = sink = stream.Endpoint(description)
+        self.source = source = stream.Endpoint(description)
         self.busy = Signal()
 
         # # #
@@ -231,7 +231,7 @@ class LiteEthMACCRCChecker(Module):
         self.submodules += crc
         ratio = crc.width//dw
 
-        fifo = ResetInserter()(SyncFIFO(description, ratio + 1))
+        fifo = ResetInserter()(stream.SyncFIFO(description, ratio + 1))
         self.submodules += fifo
 
         fsm = FSM(reset_state="RESET")

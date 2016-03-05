@@ -2,7 +2,8 @@ from migen import *
 from migen.genlib.io import DDROutput
 from migen.genlib.cdc import PulseSynchronizer
 
-from misoc.interconnect.stream import *
+from misoc.interconnect.csr import *
+from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import *
 from misoc.cores.liteeth_mini.phy.gmii import LiteEthPHYGMIICRG
 from misoc.cores.liteeth_mini.phy.mii import LiteEthPHYMIITX, LiteEthPHYMIIRX
@@ -20,7 +21,7 @@ rx_pads_layout = [("rx_er", 1), ("dv", 1), ("rx_data", 8)]
 
 class LiteEthPHYGMIIMIITX(Module):
     def __init__(self, pads, mode):
-        self.sink = sink = Sink(eth_phy_description(8))
+        self.sink = sink = stream.Endpoint(eth_phy_description(8))
 
         # # #
 
@@ -32,7 +33,7 @@ class LiteEthPHYGMIIMIITX(Module):
         mii_tx = LiteEthPHYMIITX(mii_tx_pads)
         self.submodules += mii_tx
 
-        demux = Demultiplexer(eth_phy_description(8), 2)
+        demux = stream.Demultiplexer(eth_phy_description(8), 2)
         self.submodules += demux
         self.comb += [
             demux.sel.eq(mode == modes["MII"]),
@@ -56,7 +57,7 @@ class LiteEthPHYGMIIMIITX(Module):
 
 class LiteEthPHYGMIIMIIRX(Module):
     def __init__(self, pads, mode):
-        self.source = source = Source(eth_phy_description(8))
+        self.source = source = stream.Endpoint(eth_phy_description(8))
 
         # # #
 
@@ -72,7 +73,7 @@ class LiteEthPHYGMIIMIIRX(Module):
         mii_rx = LiteEthPHYMIIRX(pads_d)
         self.submodules += mii_rx
 
-        mux = Multiplexer(eth_phy_description(8), 2)
+        mux = stream.Multiplexer(eth_phy_description(8), 2)
         self.submodules += mux
         self.comb += [
             mux.sel.eq(mode == modes["MII"]),

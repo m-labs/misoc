@@ -6,11 +6,12 @@ from migen.flow.actor import *
 
 from misoc.framebuffer.format import bpc_phy, phy_layout
 from misoc.framebuffer import dvi
+from misoc.interconnect import stream
 
 
 class _FIFO(Module):
     def __init__(self, pack_factor):
-        self.phy = Sink(phy_layout(pack_factor))
+        self.phy = stream.Endpoint(phy_layout(pack_factor))
         self.busy = Signal()
 
         self.pix_hsync = Signal()

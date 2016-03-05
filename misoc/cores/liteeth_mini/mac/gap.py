@@ -3,14 +3,14 @@ import math
 from migen import *
 from migen.genlib.fsm import *
 
-from misoc.interconnect.stream import Sink, Source
+from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import eth_phy_description, eth_interpacket_gap
 
 
 class LiteEthMACGap(Module):
     def __init__(self, dw, ack_on_gap=False):
-        self.sink = sink = Sink(eth_phy_description(dw))
-        self.source = source = Source(eth_phy_description(dw))
+        self.sink = sink = stream.Endpoint(eth_phy_description(dw))
+        self.source = source = stream.Endpoint(eth_phy_description(dw))
 
         # # #
 
