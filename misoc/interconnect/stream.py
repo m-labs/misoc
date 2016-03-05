@@ -140,46 +140,9 @@ class Demultiplexer(Module):
 # XXX
 
 from copy import copy
-from migen.util.misc import xdir
 
 def pack_layout(l, n):
     return [("chunk"+str(i), l) for i in range(n)]
-
-def get_endpoints(obj, filt=Endpoint):
-    if hasattr(obj, "get_endpoints") and callable(obj.get_endpoints):
-        return obj.get_endpoints(filt)
-    r = dict()
-    for k, v in xdir(obj, True):
-        if isinstance(v, filt):
-            r[k] = v
-    return r
-
-def get_single_ep(obj, filt):
-    eps = get_endpoints(obj, filt)
-    if len(eps) != 1:
-        raise ValueError("More than one endpoint")
-    return list(eps.items())[0]
-
-
-class BinaryActor(Module):
-    def __init__(self, *args, **kwargs):
-        self.busy = Signal()
-        sink = get_single_ep(self, Sink)[1]
-        source = get_single_ep(self, Source)[1]
-        self.build_binary_control(sink, source, *args, **kwargs)
-
-    def build_binary_control(self, sink, source):
-        raise NotImplementedError("Binary actor classes must overload build_binary_control_fragment")
-
-
-class CombinatorialActor(BinaryActor):
-    def build_binary_control(self, sink, source):
-        self.comb += [
-            source.stb.eq(sink.stb),
-            sink.ack.eq(source.ack),
-            source.eop.eq(sink.eop),
-            self.busy.eq(0)
-        ]
 
 
 class Unpack(Module):
@@ -263,18 +226,23 @@ class Pack(Module):
         ]
 
 
-class Chunkerize(CombinatorialActor):
+class Chunkerize(Module):
     def __init__(self, layout_from, layout_to, n, reverse=False):
-        self.sink = Sink(layout_from)
+        self.sink = sink = Sink(layout_from)
         if isinstance(layout_to, EndpointDescription):
             layout_to = copy(layout_to)
             layout_to.payload_layout = pack_layout(layout_to.payload_layout, n)
         else:
             layout_to = pack_layout(layout_to, n)
-        self.source = Source(layout_to)
-        CombinatorialActor.__init__(self)
+        self.source = source = Source(layout_to)
 
-        ###
+        # # #
+
+        self.comb += [
+            source.stb.eq(sink.stb),
+            sink.ack.eq(source.ack),
+            source.eop.eq(sink.eop)
+        ]
 
         for i in range(n):
             chunk = n-i-1 if reverse else i
@@ -284,7 +252,7 @@ class Chunkerize(CombinatorialActor):
                 self.comb += dst.eq(src[i*len(src)//n:(i+1)*len(src)//n])
 
 
-class Unchunkerize(CombinatorialActor):
+class Unchunkerize(Module):
     def __init__(self, layout_from, n, layout_to, reverse=False):
         if isinstance(layout_from, EndpointDescription):
             fields = layout_from.payload_layout
@@ -293,11 +261,16 @@ class Unchunkerize(CombinatorialActor):
         else:
             fields = layout_from
             layout_from = pack_layout(layout_from, n)
-        self.sink = Sink(layout_from)
-        self.source = Source(layout_to)
-        CombinatorialActor.__init__(self)
+        self.sink = sink = Sink(layout_from)
+        self.source = source = Source(layout_to)
 
-        ###
+        # # #
+
+        self.comb += [
+            source.stb.eq(sink.stb),
+            sink.ack.eq(source.ack),
+            source.eop.eq(sink.eop)
+        ]
 
         for i in range(n):
             chunk = n-i-1 if reverse else i
@@ -313,7 +286,7 @@ class Converter(Module):
         self.source = Source(layout_to)
         self.busy = Signal()
 
-        ###
+        # # #
 
         width_from = len(self.sink.payload.raw_bits())
         width_to = len(self.source.payload.raw_bits())
