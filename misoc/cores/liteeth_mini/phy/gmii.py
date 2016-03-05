@@ -40,7 +40,7 @@ class LiteEthPHYGMIIRX(Module):
 
 
 class LiteEthPHYGMIICRG(Module, AutoCSR):
-    def __init__(self, clock_pads, pads, with_hw_init_reset, mii_mode=0):
+    def __init__(self, clock_pads, pads, mii_mode=0):
         self._reset = CSRStorage()
 
         # # #
@@ -61,19 +61,7 @@ class LiteEthPHYGMIICRG(Module, AutoCSR):
                                   i_S=mii_mode,
                                   o_O=self.cd_eth_tx.clk)
 
-        if with_hw_init_reset:
-            reset = Signal()
-            counter = Signal(max=512)
-            counter_done = Signal()
-            counter_ce = Signal()
-            self.sync += If(counter_ce, counter.eq(counter + 1))
-            self.comb += [
-                counter_done.eq(counter == 256),
-                counter_ce.eq(~counter_done),
-                reset.eq(~counter_done | self._reset.storage)
-            ]
-        else:
-            reset = self._reset.storage
+        reset = self._reset.storage
         self.comb += pads.rst_n.eq(~reset)
         self.specials += [
             AsyncResetSynchronizer(self.cd_eth_tx, reset),
@@ -82,9 +70,9 @@ class LiteEthPHYGMIICRG(Module, AutoCSR):
 
 
 class LiteEthPHYGMII(Module, AutoCSR):
-    def __init__(self, clock_pads, pads, with_hw_init_reset=True):
+    def __init__(self, clock_pads, pads):
         self.dw = 8
-        self.submodules.crg = LiteEthPHYGMIICRG(clock_pads, pads, with_hw_init_reset)
+        self.submodules.crg = LiteEthPHYGMIICRG(clock_pads, pads)
         self.submodules.tx = ClockDomainsRenamer("eth_tx")(LiteEthPHYGMIITX(pads))
         self.submodules.rx = ClockDomainsRenamer("eth_rx")(LiteEthPHYGMIIRX(pads))
         self.sink, self.source = self.tx.sink, self.rx.source
