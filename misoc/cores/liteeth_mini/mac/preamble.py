@@ -4,13 +4,13 @@ from migen.genlib.misc import chooser
 from migen.genlib.record import Record
 
 from misoc.interconnect import stream
-from misoc.cores.liteeth_mini.common import eth_phy_description, eth_preamble
+from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_preamble
 
 
 class LiteEthMACPreambleInserter(Module):
     def __init__(self, dw):
-        self.sink = stream.Endpoint(eth_phy_description(dw))
-        self.source = stream.Endpoint(eth_phy_description(dw))
+        self.sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = stream.Endpoint(eth_phy_layout(dw))
 
         # # #
 
@@ -62,8 +62,8 @@ class LiteEthMACPreambleInserter(Module):
 
 class LiteEthMACPreambleChecker(Module):
     def __init__(self, dw):
-        self.sink = stream.Endpoint(eth_phy_description(dw))
-        self.source = stream.Endpoint(eth_phy_description(dw))
+        self.sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = stream.Endpoint(eth_phy_layout(dw))
 
         # # #
 

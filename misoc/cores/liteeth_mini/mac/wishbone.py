@@ -4,14 +4,14 @@ from migen.fhdl.simplify import FullMemoryWE
 from misoc.interconnect import wishbone
 from misoc.interconnect.csr import *
 from misoc.interconnect import stream
-from misoc.cores.liteeth_mini.common import eth_phy_description, buffer_depth
+from misoc.cores.liteeth_mini.common import eth_phy_layout, buffer_depth
 from misoc.cores.liteeth_mini.mac import sram
 
 
 class LiteEthMACWishboneInterface(Module, AutoCSR):
     def __init__(self, dw, nrxslots=2, ntxslots=2):
-        self.sink = stream.Endpoint(eth_phy_description(dw))
-        self.source = stream.Endpoint(eth_phy_description(dw))
+        self.sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = stream.Endpoint(eth_phy_layout(dw))
         self.bus = wishbone.Interface()
 
         # # #

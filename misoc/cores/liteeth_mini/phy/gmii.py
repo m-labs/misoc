@@ -9,7 +9,7 @@ from misoc.cores.liteeth_mini.common import *
 
 class LiteEthPHYGMIITX(Module):
     def __init__(self, pads):
-        self.sink = sink = stream.Endpoint(eth_phy_description(8))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
@@ -24,7 +24,7 @@ class LiteEthPHYGMIITX(Module):
 
 class LiteEthPHYGMIIRX(Module):
     def __init__(self, pads):
-        self.source = source = stream.Endpoint(eth_phy_description(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 

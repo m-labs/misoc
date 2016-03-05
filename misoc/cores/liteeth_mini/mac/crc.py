@@ -128,8 +128,8 @@ class LiteEthMACCRCInserter(Module):
 
     Parameters
     ----------
-    description : description
-        description of the dataflow.
+    layout : layout
+        layout of the dataflow.
 
     Attributes
     ----------
@@ -138,9 +138,9 @@ class LiteEthMACCRCInserter(Module):
     source : out
         Packets output with CRC.
     """
-    def __init__(self, crc_class, description):
-        self.sink = sink = stream.Endpoint(description)
-        self.source = source = stream.Endpoint(description)
+    def __init__(self, crc_class, layout):
+        self.sink = sink = stream.Endpoint(layout)
+        self.source = source = stream.Endpoint(layout)
 
         # # #
 
@@ -195,8 +195,8 @@ class LiteEthMACCRCInserter(Module):
 
 
 class LiteEthMACCRC32Inserter(LiteEthMACCRCInserter):
-    def __init__(self, description):
-        LiteEthMACCRCInserter.__init__(self, LiteEthMACCRC32, description)
+    def __init__(self, layout):
+        LiteEthMACCRCInserter.__init__(self, LiteEthMACCRC32, layout)
 
 
 class LiteEthMACCRCChecker(Module):
@@ -206,8 +206,8 @@ class LiteEthMACCRCChecker(Module):
 
     Parameters
     ----------
-    description : description
-        description of the dataflow.
+    layout : layout
+        layout of the dataflow.
 
     Attributes
     ----------
@@ -217,9 +217,9 @@ class LiteEthMACCRCChecker(Module):
         Packets output without CRC and "error" set to 0
         on eop when CRC OK / set to 1 when CRC KO.
     """
-    def __init__(self, crc_class, description):
-        self.sink = sink = stream.Endpoint(description)
-        self.source = source = stream.Endpoint(description)
+    def __init__(self, crc_class, layout):
+        self.sink = sink = stream.Endpoint(layout)
+        self.source = source = stream.Endpoint(layout)
 
         # # #
 
@@ -228,7 +228,7 @@ class LiteEthMACCRCChecker(Module):
         self.submodules += crc
         ratio = crc.width//dw
 
-        fifo = ResetInserter()(stream.SyncFIFO(description, ratio + 1))
+        fifo = ResetInserter()(stream.SyncFIFO(layout, ratio + 1))
         self.submodules += fifo
 
         fsm = FSM(reset_state="RESET")
@@ -278,5 +278,5 @@ class LiteEthMACCRCChecker(Module):
 
 
 class LiteEthMACCRC32Checker(LiteEthMACCRCChecker):
-    def __init__(self, description):
-        LiteEthMACCRCChecker.__init__(self, LiteEthMACCRC32, description)
+    def __init__(self, layout):
+        LiteEthMACCRCChecker.__init__(self, LiteEthMACCRC32, layout)

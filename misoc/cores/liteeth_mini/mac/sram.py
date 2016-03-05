@@ -3,12 +3,12 @@ from misoc import *
 from misoc.interconnect.csr import *
 from misoc.interconnect.csr_eventmanager import *
 from misoc.interconnect import stream
-from misoc.cores.liteeth_mini.common import eth_phy_description
+from misoc.cores.liteeth_mini.common import eth_phy_layout
 
 
 class LiteEthMACSRAMWriter(Module, AutoCSR):
     def __init__(self, dw, depth, nslots=2):
-        self.sink = sink = stream.Endpoint(eth_phy_description(dw))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
         self.crc_error = Signal()
 
         slotbits = max(log2_int(nslots), 1)
@@ -41,11 +41,12 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         counter = Signal(lengthbits)
         counter_reset = Signal()
         counter_ce = Signal()
-        self.sync += If(counter_reset,
-                        counter.eq(0)
-                    ).Elif(counter_ce,
-                        counter.eq(counter + increment)
-                    )
+        self.sync += \
+            If(counter_reset,
+                counter.eq(0)
+            ).Elif(counter_ce,
+                counter.eq(counter + increment)
+            )
 
         # slot computation
         slot = Signal(slotbits)
@@ -126,7 +127,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
 
 class LiteEthMACSRAMReader(Module, AutoCSR):
     def __init__(self, dw, depth, nslots=2):
-        self.source = source = stream.Endpoint(eth_phy_description(dw))
+        self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         slotbits = max(log2_int(nslots), 1)
         lengthbits = log2_int(depth*4)  # length in bytes
@@ -157,11 +158,12 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
         counter = Signal(lengthbits)
         counter_reset = Signal()
         counter_ce = Signal()
-        self.sync += If(counter_reset,
-                            counter.eq(0)
-                        ).Elif(counter_ce,
-                            counter.eq(counter + 4)
-                        )
+        self.sync += \
+            If(counter_reset,
+                counter.eq(0)
+            ).Elif(counter_ce,
+                counter.eq(counter + 4)
+            )
 
 
         # fsm

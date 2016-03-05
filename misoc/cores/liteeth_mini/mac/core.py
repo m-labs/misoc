@@ -4,7 +4,6 @@ from misoc.interconnect.csr import *
 from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import *
 from misoc.cores.liteeth_mini.mac import gap, preamble, crc, padding, last_be
-from misoc.cores.liteeth_mini.phy.mii import LiteEthPHYMII
 
 
 class LiteEthMACCore(Module, AutoCSR):
@@ -36,8 +35,8 @@ class LiteEthMACCore(Module, AutoCSR):
             self.submodules += ClockDomainsRenamer("eth_rx")(preamble_checker)
 
             # CRC insert/check
-            crc32_inserter = crc.LiteEthMACCRC32Inserter(eth_phy_description(phy.dw))
-            crc32_checker = crc.LiteEthMACCRC32Checker(eth_phy_description(phy.dw))
+            crc32_inserter = crc.LiteEthMACCRC32Inserter(eth_phy_layout(phy.dw))
+            crc32_checker = crc.LiteEthMACCRC32Checker(eth_phy_layout(phy.dw))
             self.submodules += ClockDomainsRenamer("eth_tx")(crc32_inserter)
             self.submodules += ClockDomainsRenamer("eth_rx")(crc32_checker)
 
@@ -67,11 +66,11 @@ class LiteEthMACCore(Module, AutoCSR):
         # Converters
         if dw != phy.dw:
             reverse = endianness == "big"
-            tx_converter = stream.Converter(eth_phy_description(dw),
-                                     eth_phy_description(phy.dw),
+            tx_converter = stream.Converter(eth_phy_layout(dw),
+                                     eth_phy_layout(phy.dw),
                                      reverse=reverse)
-            rx_converter = stream.Converter(eth_phy_description(phy.dw),
-                                     eth_phy_description(dw),
+            rx_converter = stream.Converter(eth_phy_layout(phy.dw),
+                                     eth_phy_layout(dw),
                                      reverse=reverse)
             self.submodules += ClockDomainsRenamer("eth_tx")(tx_converter)
             self.submodules += ClockDomainsRenamer("eth_rx")(rx_converter)
@@ -80,12 +79,8 @@ class LiteEthMACCore(Module, AutoCSR):
             rx_pipeline += [rx_converter]
 
         # Cross Domain Crossing
-        if isinstance(phy, LiteEthPHYMII):
-            fifo_depth = 8
-        else:
-            fifo_depth = 64
-        tx_cdc = stream.AsyncFIFO(eth_phy_description(dw), fifo_depth)
-        rx_cdc = stream.AsyncFIFO(eth_phy_description(dw), fifo_depth)
+        tx_cdc = stream.AsyncFIFO(eth_phy_layout(dw), 64)
+        rx_cdc = stream.AsyncFIFO(eth_phy_layout(dw), 64)
         self.submodules += ClockDomainsRenamer({"write": "sys", "read": "eth_tx"})(tx_cdc)
         self.submodules += ClockDomainsRenamer({"write": "eth_rx", "read": "sys"})(rx_cdc)
 

@@ -6,20 +6,20 @@ from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import *
 
 
-def converter_description(dw):
+def converter_layout(dw):
     return [("data", dw)]
 
 
 class LiteEthPHYMIITX(Module):
     def __init__(self, pads):
-        self.sink = sink = stream.Endpoint(eth_phy_description(8))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
         if hasattr(pads, "tx_er"):
             self.sync += pads.tx_er.eq(0)
-        converter = stream.Converter(converter_description(8),
-                              converter_description(4))
+        converter = stream.Converter(converter_layout(8),
+                              converter_layout(4))
         self.submodules += converter
         self.comb += [
             converter.sink.stb.eq(sink.stb),
@@ -35,12 +35,12 @@ class LiteEthPHYMIITX(Module):
 
 class LiteEthPHYMIIRX(Module):
     def __init__(self, pads):
-        self.source = source = stream.Endpoint(eth_phy_description(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
-        converter = stream.Converter(converter_description(4),
-                              converter_description(8))
+        converter = stream.Converter(converter_layout(4),
+                              converter_layout(8))
         converter = ResetInserter()(converter)
         self.submodules += converter
 

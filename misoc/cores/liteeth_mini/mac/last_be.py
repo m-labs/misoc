@@ -1,13 +1,13 @@
 from migen import *
 
 from misoc.interconnect import stream
-from misoc.cores.liteeth_mini.common import eth_phy_description
+from misoc.cores.liteeth_mini.common import eth_phy_layout
 
 
 class LiteEthMACTXLastBE(Module):
     def __init__(self, dw):
-        self.sink = sink = stream.Endpoint(eth_phy_description(dw))
-        self.source = source = stream.Endpoint(eth_phy_description(dw))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         # # #
 
@@ -30,15 +30,12 @@ class LiteEthMACTXLastBE(Module):
 
 class LiteEthMACRXLastBE(Module):
     def __init__(self, dw):
-        self.sink = sink = stream.Endpoint(eth_phy_description(dw))
-        self.source = source = stream.Endpoint(eth_phy_description(dw))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         # # #
 
         self.comb += [
-            source.stb.eq(sink.stb),
-            source.eop.eq(sink.eop),
-            source.data.eq(sink.data),
-            source.last_be.eq(sink.eop),
-            sink.ack.eq(source.ack)
+            sink.connect(source),
+            source.last_be.eq(sink.eop)
         ]
