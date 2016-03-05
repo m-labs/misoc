@@ -2,7 +2,7 @@ from migen import *
 
 from misoc.interconnect.csr import *
 from misoc.cores.liteeth_mini.common import *
-from misoc.cores.liteeth_mini.mac.core import gap, preamble, crc, padding, last_be
+from misoc.cores.liteeth_mini.mac import gap, preamble, crc, padding, last_be
 from misoc.cores.liteeth_mini.phy.mii import LiteEthPHYMII
 
 

@@ -3,7 +3,7 @@ from migen import *
 from misoc.interconnect.csr import *
 from misoc.cores.liteeth_mini.common import *
 from misoc.cores.liteeth_mini.mac.core import LiteEthMACCore
-from misoc.cores.liteeth_mini.mac.frontend.wishbone import LiteEthMACWishboneInterface
+from misoc.cores.liteeth_mini.mac.wishbone import LiteEthMACWishboneInterface
 
 
 class LiteEthMAC(Module, AutoCSR):
