@@ -11,7 +11,7 @@ def converter_description(dw):
 
 
 class LiteEthPHYMIITX(Module):
-    def __init__(self, pads, pads_register=True):
+    def __init__(self, pads):
         self.sink = sink = Sink(eth_phy_description(8))
 
         # # #
@@ -27,14 +27,10 @@ class LiteEthPHYMIITX(Module):
             sink.ack.eq(converter.sink.ack),
             converter.source.ack.eq(1)
         ]
-        pads_eq = [
+        self.sync += [
             pads.tx_en.eq(converter.source.stb),
             pads.tx_data.eq(converter.source.data)
         ]
-        if pads_register:
-            self.sync += pads_eq
-        else:
-            self.comb += pads_eq
 
 
 class LiteEthPHYMIIRX(Module):

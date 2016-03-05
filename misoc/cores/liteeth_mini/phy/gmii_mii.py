@@ -25,11 +25,11 @@ class LiteEthPHYGMIIMIITX(Module):
         # # #
 
         gmii_tx_pads = Record(tx_pads_layout)
-        gmii_tx = LiteEthPHYGMIITX(gmii_tx_pads, pads_register=False)
+        gmii_tx = LiteEthPHYGMIITX(gmii_tx_pads)
         self.submodules += gmii_tx
 
         mii_tx_pads = Record(tx_pads_layout)
-        mii_tx = LiteEthPHYMIITX(mii_tx_pads, pads_register=False)
+        mii_tx = LiteEthPHYMIITX(mii_tx_pads)
         self.submodules += mii_tx
 
         demux = Demultiplexer(eth_phy_description(8), 2)

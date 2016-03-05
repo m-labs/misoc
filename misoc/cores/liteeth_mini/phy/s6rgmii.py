@@ -11,7 +11,7 @@ from misoc.cores.liteeth_mini.common import *
 
 
 class LiteEthPHYRGMIITX(Module):
-    def __init__(self, pads, pads_register=True):
+    def __init__(self, pads):
         self.sink = sink = Sink(eth_phy_description(8))
 
         # # #
