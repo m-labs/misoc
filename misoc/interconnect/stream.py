@@ -52,9 +52,8 @@ class _FIFOWrapper(Module):
     def __init__(self, fifo_class, layout, depth):
         self.sink = Endpoint(layout)
         self.source = Endpoint(layout)
-        self.busy = Signal()
 
-        ###
+        # # #
 
         description = self.sink.description
         fifo_layout = [("payload", description.payload_layout), ("eop", 1)]
@@ -144,9 +143,7 @@ class Unpack(Module):
         description_from.payload_layout = pack_layout(description_from.payload_layout, n)
         self.sink = sink = Endpoint(description_from)
 
-        self.busy = Signal()
-
-        ###
+        # # #
 
         mux = Signal(max=n)
         last = Signal()
@@ -178,9 +175,8 @@ class Pack(Module):
         description_to = copy(sink.description)
         description_to.payload_layout = pack_layout(description_to.payload_layout, n)
         self.source = source = Endpoint(description_to)
-        self.busy = Signal()
 
-        ###
+        # # #
 
         demux = Signal(max=n)
 
@@ -191,7 +187,6 @@ class Pack(Module):
             chunk = n-i-1 if reverse else i
             cases[i] = [getattr(source.payload, "chunk"+str(chunk)).raw_bits().eq(sink.payload.raw_bits())]
         self.comb += [
-            self.busy.eq(strobe_all),
             sink.ack.eq(~strobe_all | source.ack),
             source.stb.eq(strobe_all),
             load_part.eq(sink.stb & sink.ack)
@@ -276,7 +271,6 @@ class Converter(Module):
     def __init__(self, layout_from, layout_to, reverse=False):
         self.sink = Endpoint(layout_from)
         self.source = Endpoint(layout_to)
-        self.busy = Signal()
 
         # # #
 
@@ -294,8 +288,7 @@ class Converter(Module):
             self.comb += [
                 self.sink.connect(self.chunkerize.sink),
                 self.chunkerize.source.connect(self.unpack.sink),
-                self.unpack.source.connect(self.source),
-                self.busy.eq(self.unpack.busy)
+                self.unpack.source.connect(self.source)
             ]
         # upconverter
         elif width_to > width_from:
@@ -308,8 +301,7 @@ class Converter(Module):
             self.comb += [
                 self.sink.connect(self.pack.sink),
                 self.pack.source.connect(self.unchunkerize.sink),
-                self.unchunkerize.source.connect(self.source),
-                self.busy.eq(self.pack.busy)
+                self.unchunkerize.source.connect(self.source)
             ]
         # direct connection
         else:
