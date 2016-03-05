@@ -59,15 +59,8 @@ class LiteEthPHYRGMIIRX(Module):
         rx_ctl_d = Signal()
         self.sync += rx_ctl_d.eq(rx_ctl)
 
-        sop = Signal()
-        eop = Signal()
-        self.comb += [
-            sop.eq(rx_ctl & ~rx_ctl_d),
-            eop.eq(~rx_ctl & rx_ctl_d)
-        ]
         self.sync += [
             source.stb.eq(rx_ctl),
-            source.sop.eq(sop),
             source.data.eq(rx_data)
         ]
         self.comb += source.eop.eq(eop)

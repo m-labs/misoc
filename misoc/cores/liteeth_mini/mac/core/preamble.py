@@ -32,14 +32,13 @@ class LiteEthMACPreambleInserter(Module):
         fsm.act("IDLE",
             self.sink.ack.eq(1),
             clr_cnt.eq(1),
-            If(self.sink.stb & self.sink.sop,
+            If(self.sink.stb,
                 self.sink.ack.eq(0),
                 NextState("INSERT"),
             )
         )
         fsm.act("INSERT",
             self.source.stb.eq(1),
-            self.source.sop.eq(cnt == 0),
             chooser(preamble, cnt, self.source.data),
             If(cnt == cnt_max,
                 If(self.source.ack, NextState("COPY"))
@@ -54,7 +53,6 @@ class LiteEthMACPreambleInserter(Module):
         ]
         fsm.act("COPY",
             self.sink.connect(self.source, leave_out=set(["data", "last_be"])),
-            self.source.sop.eq(0),
 
             If(self.sink.stb & self.sink.eop & self.source.ack,
                 NextState("IDLE"),
@@ -93,16 +91,6 @@ class LiteEthMACPreambleChecker(Module):
                 discard.eq(1)
             )
 
-        sop = Signal()
-        clr_sop = Signal()
-        set_sop = Signal()
-        self.sync += \
-            If(clr_sop,
-                sop.eq(0)
-            ).Elif(set_sop,
-                sop.eq(1)
-            )
-
         ref = Signal(dw)
         match = Signal()
         self.comb += [
@@ -117,7 +105,7 @@ class LiteEthMACPreambleChecker(Module):
             self.sink.ack.eq(1),
             clr_cnt.eq(1),
             clr_discard.eq(1),
-            If(self.sink.stb & self.sink.sop,
+            If(self.sink.stb,
                 clr_cnt.eq(0),
                 inc_cnt.eq(1),
                 clr_discard.eq(0),
@@ -133,7 +121,6 @@ class LiteEthMACPreambleChecker(Module):
                     If(discard | (~match),
                         NextState("IDLE")
                     ).Else(
-                        set_sop.eq(1),
                         NextState("COPY")
                     )
                 ).Else(
@@ -147,9 +134,6 @@ class LiteEthMACPreambleChecker(Module):
         ]
         fsm.act("COPY",
             self.sink.connect(self.source, leave_out=set(["data", "last_be"])),
-            self.source.sop.eq(sop),
-            clr_sop.eq(self.source.stb & self.source.ack),
-
             If(self.source.stb & self.source.eop & self.source.ack,
                 NextState("IDLE"),
             )

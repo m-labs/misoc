@@ -64,7 +64,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         self.submodules += fsm
 
         fsm.act("IDLE",
-            If(sink.stb & sink.sop,
+            If(sink.stb,
                 If(fifo.sink.ack,
                     ongoing.eq(1),
                     counter_ce.eq(1),
@@ -166,7 +166,6 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
 
 
         # fsm
-        first = Signal()
         last  = Signal()
         last_d = Signal()
 
@@ -202,7 +201,6 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
         ]
         fsm.act("SEND",
             source.stb.eq(1),
-            source.sop.eq(first),
             source.eop.eq(last),
             If(source.ack,
                 counter_ce.eq(~last),
@@ -215,14 +213,7 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
             NextState("IDLE")
         )
 
-        # first/last computation
-        self.sync += [
-            If(fsm.ongoing("IDLE"),
-                first.eq(1)
-            ).Elif(source.stb & source.ack,
-                first.eq(0)
-            )
-        ]
+        # last computation
         self.comb += last.eq((counter + 4) >= fifo.source.length)
         self.sync += last_d.eq(last)
 
