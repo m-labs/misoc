@@ -5,20 +5,24 @@ import struct
 from misoc.integration import cpu_interface, soc_sdram, sdram_init
 
 
-__all__ = ["misoc_software_packages", "misoc_directory",
+__all__ = ["misoc_software_packages", "misoc_extra_software_packages",
+           "misoc_directory",
            "Builder", "builder_args", "builder_argdict"]
 
 
-# in build order (for dependencies)
 misoc_software_packages = [
     "libcompiler_rt",
     "libbase",
+    "libnet",
+    "bios"
+]
+
+
+misoc_extra_software_packages = [
     "liballoc",
     "libm",
     "libdyld",
-    "libunwind",
-    "libnet",
-    "bios"
+    "libunwind"
 ]
 
 
@@ -49,10 +53,15 @@ class Builder:
 
         self.software_packages = []
         for name in misoc_software_packages:
-            self.add_software_package(
-                name, os.path.join(misoc_directory, "software", name))
+            self.add_software_package(name)
 
-    def add_software_package(self, name, src_dir):
+    def add_extra_software_packages(self):
+        for name in misoc_extra_software_packages:
+            self.add_software_package(name)
+
+    def add_software_package(self, name, src_dir=None):
+        if src_dir is None:
+            src_dir = os.path.join(misoc_directory, "software", name)
         self.software_packages.append((name, src_dir))
 
     def _generate_includes(self):
