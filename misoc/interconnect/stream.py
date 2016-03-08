@@ -127,77 +127,29 @@ class Demultiplexer(Module):
             cases[i] = self.sink.connect(source)
         self.comb += Case(self.sel, cases)
 
-# TODO: clean up code below
-# XXX
 
-from copy import copy
-
-def pack_layout(l, n):
-    return [("chunk"+str(i), l) for i in range(n)]
-
-
-class Unpack(Module):
-    def __init__(self, n, layout_to, reverse=False):
-        self.source = source = Endpoint(layout_to)
-        description_from = copy(source.description)
-        description_from.payload_layout = pack_layout(description_from.payload_layout, n)
-        self.sink = sink = Endpoint(description_from)
-
-        # # #
-
-        mux = Signal(max=n)
-        last = Signal()
-        self.comb += [
-            last.eq(mux == (n-1)),
-            source.stb.eq(sink.stb),
-            source.eop.eq(sink.eop & last),
-            sink.ack.eq(last & source.ack)
-        ]
-        self.sync += [
-            If(source.stb & source.ack,
-                If(last,
-                    mux.eq(0)
-                ).Else(
-                    mux.eq(mux + 1)
-                )
-            )
-        ]
-        cases = {}
-        for i in range(n):
-            chunk = n-i-1 if reverse else i
-            cases[i] = [source.payload.raw_bits().eq(getattr(sink.payload, "chunk"+str(chunk)).raw_bits())]
-        self.comb += Case(mux, cases).makedefault()
-
-
-class Pack(Module):
-    def __init__(self, layout_from, n, reverse=False):
+class _UpConverter(Module):
+    def __init__(self, layout_from, layout_to, ratio, reverse):
         self.sink = sink = Endpoint(layout_from)
-        description_to = copy(sink.description)
-        description_to.payload_layout = pack_layout(description_to.payload_layout, n)
-        self.source = source = Endpoint(description_to)
+        self.source = source = Endpoint(layout_to)
 
         # # #
 
-        demux = Signal(max=n)
-
+        # control path
+        demux = Signal(max=ratio)
         load_part = Signal()
         strobe_all = Signal()
-        cases = {}
-        for i in range(n):
-            chunk = n-i-1 if reverse else i
-            cases[i] = [getattr(source.payload, "chunk"+str(chunk)).raw_bits().eq(sink.payload.raw_bits())]
         self.comb += [
             sink.ack.eq(~strobe_all | source.ack),
             source.stb.eq(strobe_all),
             load_part.eq(sink.stb & sink.ack)
         ]
 
-        demux_last = ((demux == (n - 1)) | sink.eop)
+        demux_last = ((demux == (ratio - 1)) | sink.eop)
 
         self.sync += [
             If(source.ack, strobe_all.eq(0)),
             If(load_part,
-                Case(demux, cases),
                 If(demux_last,
                     demux.eq(0),
                     strobe_all.eq(1)
@@ -212,99 +164,117 @@ class Pack(Module):
             )
         ]
 
-
-class Chunkerize(Module):
-    def __init__(self, layout_from, layout_to, n, reverse=False):
-        self.sink = sink = Endpoint(layout_from)
-        if isinstance(layout_to, EndpointDescription):
-            layout_to = copy(layout_to)
-            layout_to.payload_layout = pack_layout(layout_to.payload_layout, n)
-        else:
-            layout_to = pack_layout(layout_to, n)
-        self.source = source = Endpoint(layout_to)
-
-        # # #
-
-        self.comb += [
-            source.stb.eq(sink.stb),
-            sink.ack.eq(source.ack),
-            source.eop.eq(sink.eop)
-        ]
-
-        for i in range(n):
-            chunk = n-i-1 if reverse else i
-            for f in self.sink.description.payload_layout:
-                src = getattr(self.sink, f[0])
-                dst = getattr(getattr(self.source, "chunk"+str(chunk)), f[0])
-                self.comb += dst.eq(src[i*len(src)//n:(i+1)*len(src)//n])
+        # data path
+        cases = {}
+        for i in range(ratio):
+            n = ratio-i-1 if reverse else i
+            cases[i] = []
+            for name, width in layout_from:
+                src = getattr(self.sink, name)
+                dst = getattr(self.source, name)[n*width:(n+1)*width]
+                cases[i].append(dst.eq(src))
+        self.sync +=  If(load_part, Case(demux, cases))
 
 
-class Unchunkerize(Module):
-    def __init__(self, layout_from, n, layout_to, reverse=False):
-        if isinstance(layout_from, EndpointDescription):
-            fields = layout_from.payload_layout
-            layout_from = copy(layout_from)
-            layout_from.payload_layout = pack_layout(layout_from.payload_layout, n)
-        else:
-            fields = layout_from
-            layout_from = pack_layout(layout_from, n)
+class _DownConverter(Module):
+    def __init__(self, layout_from, layout_to, ratio, reverse):
         self.sink = sink = Endpoint(layout_from)
         self.source = source = Endpoint(layout_to)
 
         # # #
 
+        # control path
+        mux = Signal(max=ratio)
+        last = Signal()
         self.comb += [
+            last.eq(mux == (ratio-1)),
             source.stb.eq(sink.stb),
-            sink.ack.eq(source.ack),
-            source.eop.eq(sink.eop)
+            source.eop.eq(sink.eop & last),
+            sink.ack.eq(last & source.ack)
         ]
+        self.sync += \
+            If(source.stb & source.ack,
+                If(last,
+                    mux.eq(0)
+                ).Else(
+                    mux.eq(mux + 1)
+                )
+            )
 
-        for i in range(n):
-            chunk = n-i-1 if reverse else i
-            for f in fields:
-                src = getattr(getattr(self.sink, "chunk"+str(chunk)), f[0])
-                dst = getattr(self.source, f[0])
-                self.comb += dst[i*len(dst)//n:(i+1)*len(dst)//n].eq(src)
+        # data path
+        cases = {}
+        for i in range(ratio):
+            n = ratio-i-1 if reverse else i
+            cases[i] = []
+            for name, width in layout_to:
+                src = getattr(self.sink, name)[n*width:(n+1)*width]
+                dst = getattr(self.source, name)
+                cases[i].append(dst.eq(src))
+        self.comb +=  Case(mux, cases).makedefault()
 
 
-class Converter(Module):
-    def __init__(self, layout_from, layout_to, reverse=False):
+class _IdentityConverter(Module):
+    def __init__(self, layout_from, layout_to, ratio, reverse):
         self.sink = Endpoint(layout_from)
         self.source = Endpoint(layout_to)
 
         # # #
 
-        width_from = len(self.sink.payload.raw_bits())
-        width_to = len(self.source.payload.raw_bits())
+        self.comb += self.sink.connect(self.source)
 
-        # downconverter
+
+def _get_converter_ratio(layout_from, layout_to):
+    if len(layout_from) != len(layout_to):
+        raise ValueError("Incompatible layouts (number of elements)")
+
+    converter = None
+    ratio = None
+    for f_from, f_to in zip(layout_from, layout_to):
+        (name_from, width_from) = f_from
+        (name_to, width_to) = f_to
+
+        # check layouts
+        if not isinstance(width_to, int) or not isinstance(width_to, int):
+            raise ValueError("Sublayouts are not supported")
+        if name_from != name_to:
+            raise ValueError("Incompatible layouts (field names)")
+
+        # get current converter/ratio
         if width_from > width_to:
+            current_converter = _DownConverter
             if width_from % width_to:
-                raise ValueError
-            ratio = width_from//width_to
-            self.submodules.chunkerize = Chunkerize(layout_from, layout_to, ratio, reverse)
-            self.submodules.unpack = Unpack(ratio, layout_to)
-
-            self.comb += [
-                self.sink.connect(self.chunkerize.sink),
-                self.chunkerize.source.connect(self.unpack.sink),
-                self.unpack.source.connect(self.source)
-            ]
-        # upconverter
-        elif width_to > width_from:
+                raise ValueError("Ratio must be an int")
+            current_ratio = width_from//width_to
+        elif width_from < width_to:
+            current_converter = _UpConverter
             if width_to % width_from:
-                raise ValueError
-            ratio = width_to//width_from
-            self.submodules.pack = Pack(layout_from, ratio)
-            self.submodules.unchunkerize = Unchunkerize(layout_from, ratio, layout_to, reverse)
-
-            self.comb += [
-                self.sink.connect(self.pack.sink),
-                self.pack.source.connect(self.unchunkerize.sink),
-                self.unchunkerize.source.connect(self.source)
-            ]
-        # direct connection
+                raise ValueError("Ratio must be an int")
+            current_ratio = width_to//width_from
         else:
-            self.comb += self.sink.connect(self.source)
+            current_converter = _IdentityConverter
+            current_ratio = 1
 
-# XXX
+        # check converter
+        if converter is None:
+            converter = current_converter
+        if current_converter != converter:
+            raise ValueError("Incoherent layout's fields (converter type)")
+
+        # check ratio
+        if ratio is None:
+            ratio = current_ratio
+        if current_ratio != ratio:
+            raise ValueError("Incoherent layout's fields (ratio)")
+
+    return (converter, ratio)
+
+
+class Converter(Module):
+    def __init__(self, layout_from, layout_to, reverse=False):
+        converter, ratio = _get_converter_ratio(layout_from, layout_to)
+
+        # # #
+
+        self.submodules.converter = converter(layout_from, layout_to,
+                                              ratio, reverse)
+        self.sink, self.source = self.converter.sink, self.converter.source
