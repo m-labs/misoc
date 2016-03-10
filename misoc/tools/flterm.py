@@ -1,27 +1,34 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.5
 
 import sys
 import os
 import time
-import serial
-import threading
+import asyncio
+from serial import aio as asyncserial
 import argparse
+
 
 if sys.platform == "win32":
     import msvcrt
+    import threading
 
-    def init_getkey():
-        pass
+    def init_getkey(callback):
+        loop = asyncio.get_event_loop()
+        def getkey_thread():
+            while True:
+                c = msvcrt.getch()
+                # HACK: This may still attempt to use the loop
+                # after it is closed - see comment below.
+                loop.call_soon_threadsafe(callback, c)
+        threading.Thread(target=getkey_thread, daemon=True).start()
 
     def deinit_getkey():
+        # Python threads suck.
         pass
-
-    def getkey():
-        return msvcrt.getch()
 else:
     import termios
 
-    def init_getkey():
+    def init_getkey(callback):
         global old_termios
 
         fd = sys.stdin.fileno()
@@ -30,11 +37,14 @@ else:
         new[3] = new[3] & ~termios.ICANON & ~termios.ECHO
         termios.tcsetattr(fd, termios.TCSANOW, new)
 
+        loop = asyncio.get_event_loop()
+        def callback_wrapper():
+            callback(os.read(sys.stdin.fileno(), 1))
+        loop.add_reader(sys.stdin.fileno(), callback_wrapper)
+
     def deinit_getkey():
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSANOW, old_termios)
 
-    def getkey():
-        return os.read(sys.stdin.fileno(), 1)
 
 
 sfl_magic_req = b"sL5DdSMmkekro\n"
@@ -112,42 +122,32 @@ class SFLFrame:
 
 
 class Flterm:
-    def __init__(self, kernel_image, kernel_address):
+    def __init__(self, port, speed, kernel_image, kernel_address):
         self.kernel_image = kernel_image
         self.kernel_address = kernel_address
 
-        self.reader_alive = False
-        self.writer_alive = False
+        self.port = asyncserial.AsyncSerial(port, baudrate=speed)
+        
+        self.keyqueue = asyncio.Queue(100)
+        def getkey_callback(c):
+            self.keyqueue.put_nowait(c)
+        init_getkey(getkey_callback)
 
-        self.magic_detect_buffer = bytes(len(sfl_magic_req))
+        self.main_task = asyncio.ensure_future(self.main_coro())
 
-    def open(self, port, baudrate):
-        if hasattr(self, "port"):
-            return
-        self.port = serial.serial_for_url(port, baudrate)
-
-    def close(self):
-        if not hasattr(self, "port"):
-            return
-        self.port.close()
-        del self.port
-
-    def send_frame(self, frame):
-        retry = 1
-        while retry:
-            self.port.write(frame.encode())
-            # Get the reply from the device
-            reply = self.port.read()
+    async def send_frame(self, frame):
+        while True:
+            await self.port.write_exactly(frame.encode())
+            reply = await self.port.read(1)
             if reply == sfl_ack_success:
-                retry = 0
+                return
             elif reply == sfl_ack_crcerror:
-                retry = 1
+                pass  # retry
             else:
                 print("[FLTERM] Got unknown reply '{}' from the device, aborting.".format(reply))
-                return 0
-        return 1
+                raise ValueError
 
-    def upload(self, filename, address):
+    async def upload(self, filename, address):
         with open(filename, "rb") as f:
             data = f.read()
         print("[FLTERM] Uploading {} ({} bytes)...".format(filename, len(data)))
@@ -162,7 +162,9 @@ class Flterm:
             frame.cmd = sfl_cmd_load
             frame.payload = current_address.to_bytes(4, "big")
             frame.payload += frame_data
-            if self.send_frame(frame) == 0:
+            try:
+                await self.send_frame(frame)
+            except ValueError:
                 return
             current_address += len(frame_data)
             position += len(frame_data)
@@ -175,87 +177,61 @@ class Flterm:
         print("[FLTERM] Upload complete ({0:.1f}KB/s).".format(length/(elapsed*1024)))
         return length
 
-    def boot(self):
+    async def boot(self):
         print("[FLTERM] Booting the device.")
         frame = SFLFrame()
         frame.cmd = sfl_cmd_jump
-        frame.payload = self.kernel_address.to_bytes(4, "big")
-        self.send_frame(frame)
+        frame.payload = self.kernel_address.to_bytes(4, "big") 
+        await self.send_frame(frame)
 
-    def detect_magic(self, data):
-        if len(data):
-            self.magic_detect_buffer = self.magic_detect_buffer[1:] + data
-            return self.magic_detect_buffer == sfl_magic_req
-        else:
-            return False
-
-    def answer_magic(self):
+    async def answer_magic(self):
         print("[FLTERM] Received firmware download request from the device.")
-        if os.path.exists(self.kernel_image):
-            self.port.write(sfl_magic_ack)
-            self.upload(self.kernel_image, self.kernel_address)
-            self.boot()
+        await self.port.write_exactly(sfl_magic_ack)
+        try:
+            await self.upload(self.kernel_image, self.kernel_address)
+        except FileNotFoundError:
+            print("[FLTERM] File not found")
+        else:
+            await self.boot()
         print("[FLTERM] Done.");
 
-    def reader(self):
-        try:
-            while self.reader_alive:
-                c = self.port.read()
-                if c == b"\r":
-                    sys.stdout.write(b"\n")
-                else:
-                    sys.stdout.buffer.write(c)
+    async def main_coro(self):
+        magic_detect_buffer = b"\x00"*len(sfl_magic_req)
+        while True:
+            fs = [asyncio.ensure_future(self.port.read(1024)),
+                  asyncio.ensure_future(self.keyqueue.get())]
+            try:
+                done, pending = await asyncio.wait(
+                    fs, return_when=asyncio.FIRST_COMPLETED)
+            except:
+                for f in fs:
+                    f.cancel()
+                raise
+            for f in pending:
+                f.cancel()
+                await asyncio.wait([f])
+
+            if fs[0] in done:
+                data = fs[0].result()
+                sys.stdout.buffer.write(data)
                 sys.stdout.flush()
 
                 if self.kernel_image is not None:
-                    if self.detect_magic(c):
-                        self.answer_magic()
+                    for c in data:
+                        magic_detect_buffer = magic_detect_buffer[1:] + bytes([c])
+                        if magic_detect_buffer == sfl_magic_req:
+                            await self.answer_magic()
+                            break
 
-        except serial.SerialException:
-            self.reader_alive = False
-            raise
+            if fs[1] in done:
+                await self.port.write(fs[1].result())
 
-    def start_reader(self):
-        self.reader_alive = True
-        self.reader_thread = threading.Thread(target=self.reader)
-        self.reader_thread.setDaemon(True)
-        self.reader_thread.start()
 
-    def stop_reader(self):
-        self.reader_alive = False
-        self.reader_thread.join()
-
-    def writer(self):
-        try:
-            while self.writer_alive:
-                self.port.write(getkey())
-        except:
-            self.writer_alive = False
-            raise
-
-    def start_writer(self):
-        self.writer_alive = True
-        self.writer_thread = threading.Thread(target=self.writer)
-        self.writer_thread.setDaemon(True)
-        self.writer_thread.start()
-
-    def stop_writer(self):
-        self.writer_alive = False
-        self.writer_thread.join()
-
-    def start(self):
-        print("[FLTERM] Starting....")
-        self.start_reader()
-        self.start_writer()
-
-    def stop(self):
-        self.reader_alive = False
-        self.writer_alive = False
-
-    def join(self, writer_only=False):
-        self.writer_thread.join()
-        if not writer_only:
-            self.reader_thread.join()
+    async def close(self):
+        deinit_getkey()
+        self.main_task.cancel()
+        await asyncio.wait([self.main_task])
+        self.port.close()
 
 
 def _get_args():
@@ -263,23 +239,26 @@ def _get_args():
     parser.add_argument("port", help="serial port")
     parser.add_argument("--speed", default=115200, help="serial baudrate")
     parser.add_argument("--kernel", default=None, help="kernel image")
-    parser.add_argument("--kernel-addr", type=lambda a: int(a, 0), default=0x40000000, help="kernel address")
+    parser.add_argument("--kernel-addr", type=lambda a: int(a, 0),
+                        default=0x40000000, help="kernel address")
     return parser.parse_args()
 
 
 def main():
-    args = _get_args()
-    flterm = Flterm(args.kernel, args.kernel_addr)
-    init_getkey()
+    if os.name == "nt":
+        loop = asyncio.ProactorEventLoop()
+        asyncio.set_event_loop(loop)
+    else:
+        loop = asyncio.get_event_loop()
     try:
+        args = _get_args()
+        flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_addr)
         try:
-            flterm.open(args.port, args.speed)
-            flterm.start()
-            flterm.join(True)
+            loop.run_forever()
         finally:
-            flterm.close()
+            loop.run_until_complete(flterm.close())
     finally:
-        deinit_getkey()
+        loop.close()
 
 
 if __name__ == "__main__":
