@@ -4,7 +4,7 @@ import sys
 import os
 import time
 import asyncio
-from serial import aio as asyncserial
+import asyncserial
 import argparse
 
 
