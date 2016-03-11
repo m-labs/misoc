@@ -230,8 +230,8 @@ def _get_converter_ratio(layout_from, layout_to):
     converter = None
     ratio = None
     for f_from, f_to in zip(layout_from, layout_to):
-        (name_from, width_from) = f_from
-        (name_to, width_to) = f_to
+        name_from, width_from = f_from
+        name_to, width_to = f_to
 
         # check layouts
         if not isinstance(width_to, int) or not isinstance(width_to, int):
@@ -258,15 +258,15 @@ def _get_converter_ratio(layout_from, layout_to):
         if converter is None:
             converter = current_converter
         if current_converter != converter:
-            raise ValueError("Incoherent layout's fields (converter type)")
+            raise ValueError("Incoherent layout fields (converter type)")
 
         # check ratio
         if ratio is None:
             ratio = current_ratio
         if current_ratio != ratio:
-            raise ValueError("Incoherent layout's fields (ratio)")
+            raise ValueError("Incoherent layout fields (ratio)")
 
-    return (converter, ratio)
+    return converter, ratio
 
 
 class Converter(Module):
