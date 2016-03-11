@@ -13,12 +13,15 @@ build:
 
 requirements:
   build:
+    - python >=3.5.0
     - migen
-    - python
-  run:
-    - migen
-    - python
     - pyserial
+    - asyncserial
+  run:
+    - python >=3.5.0
+    - migen
+    - pyserial
+    - asyncserial
 
 test:
   imports:

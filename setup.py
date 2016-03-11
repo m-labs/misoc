@@ -5,8 +5,8 @@ from setuptools import setup
 from setuptools import find_packages
 
 
-if sys.version_info[:3] < (3, 3):
-    raise SystemExit("You need Python 3.3+")
+if sys.version_info[:3] < (3, 5):
+    raise SystemExit("You need Python 3.5+")
 
 
 setup(
@@ -31,6 +31,7 @@ setup(
         "Programming Language :: Python",
     ],
     packages=find_packages(),
+    install_requires=["pyserial", "asyncserial"],
     include_package_data=True,
     entry_points={
         "console_scripts": [
