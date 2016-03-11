@@ -165,15 +165,16 @@ class _UpConverter(Module):
         ]
 
         # data path
+        source_payload_raw_bits = Signal(len(source.payload.raw_bits()))
         cases = {}
         for i in range(ratio):
             n = ratio-i-1 if reverse else i
-            cases[i] = []
-            for name, width in layout_from:
-                src = getattr(self.sink, name)
-                dst = getattr(self.source, name)[n*width:(n+1)*width]
-                cases[i].append(dst.eq(src))
-        self.sync +=  If(load_part, Case(demux, cases))
+            width = len(sink.payload.raw_bits())
+            src = sink.payload.raw_bits()
+            dst = source_payload_raw_bits[n*width:(n+1)*width]
+            cases[i] = dst.eq(src)
+        self.sync += If(load_part, Case(demux, cases))
+        self.comb += source.payload.raw_bits().eq(source_payload_raw_bits)
 
 
 class _DownConverter(Module):
@@ -202,79 +203,109 @@ class _DownConverter(Module):
             )
 
         # data path
+        sink_payload_raw_bits = Signal(len(sink.payload.raw_bits()))
+        self.comb += sink_payload_raw_bits.eq(sink.payload.raw_bits())
         cases = {}
         for i in range(ratio):
             n = ratio-i-1 if reverse else i
-            cases[i] = []
-            for name, width in layout_to:
-                src = getattr(self.sink, name)[n*width:(n+1)*width]
-                dst = getattr(self.source, name)
-                cases[i].append(dst.eq(src))
-        self.comb +=  Case(mux, cases).makedefault()
+            width = len(source.payload.raw_bits())
+            src = sink_payload_raw_bits[n*width:(n+1)*width]
+            dst = source.payload.raw_bits()
+            cases[i] = dst.eq(src)
+        self.comb += Case(mux, cases).makedefault(),
 
 
 class _IdentityConverter(Module):
     def __init__(self, layout_from, layout_to, ratio, reverse):
-        self.sink = Endpoint(layout_from)
-        self.source = Endpoint(layout_to)
+        self.sink = sink = Endpoint(layout_from)
+        self.source = source = Endpoint(layout_to)
 
         # # #
 
-        self.comb += self.sink.connect(self.source)
+        self.comb += sink.connect(source)
 
 
 def _get_converter_ratio(layout_from, layout_to):
-    if len(layout_from) != len(layout_to):
-        raise ValueError("Incompatible layouts (number of elements)")
+    width_from = len(Endpoint(layout_from).payload.raw_bits())
+    width_to = len(Endpoint(layout_to).payload.raw_bits())
 
-    converter = None
-    ratio = None
-    for f_from, f_to in zip(layout_from, layout_to):
-        name_from, width_from = f_from
-        name_to, width_to = f_to
+    if width_from > width_to:
+        converter_cls = _DownConverter
+        if width_from % width_to:
+            raise ValueError("Ratio must be an int")
+        ratio = width_from//width_to
+    elif width_from < width_to:
+        converter_cls = _UpConverter
+        if width_to % width_from:
+            raise ValueError("Ratio must be an int")
+        ratio = width_to//width_from
+    else:
+        converter_cls = _IdentityConverter
+        ratio = 1
 
-        # check layouts
-        if not isinstance(width_to, int) or not isinstance(width_to, int):
-            raise ValueError("Sublayouts are not supported")
-        if name_from != name_to:
-            raise ValueError("Incompatible layouts (field names)")
-
-        # get current converter/ratio
-        if width_from > width_to:
-            current_converter = _DownConverter
-            if width_from % width_to:
-                raise ValueError("Ratio must be an int")
-            current_ratio = width_from//width_to
-        elif width_from < width_to:
-            current_converter = _UpConverter
-            if width_to % width_from:
-                raise ValueError("Ratio must be an int")
-            current_ratio = width_to//width_from
-        else:
-            current_converter = _IdentityConverter
-            current_ratio = 1
-
-        # check converter
-        if converter is None:
-            converter = current_converter
-        if current_converter != converter:
-            raise ValueError("Incoherent layout fields (converter type)")
-
-        # check ratio
-        if ratio is None:
-            ratio = current_ratio
-        if current_ratio != ratio:
-            raise ValueError("Incoherent layout fields (ratio)")
-
-    return converter, ratio
+    return converter_cls, ratio
 
 
 class Converter(Module):
     def __init__(self, layout_from, layout_to, reverse=False):
-        converter, ratio = _get_converter_ratio(layout_from, layout_to)
+        self.cls, self.ratio = _get_converter_ratio(layout_from, layout_to)
 
         # # #
 
-        self.submodules.converter = converter(layout_from, layout_to,
-                                              ratio, reverse)
-        self.sink, self.source = self.converter.sink, self.converter.source
+        converter = self.cls(layout_from, layout_to, self.ratio, reverse)
+        self.submodules += converter
+
+        self.sink, self.source = converter.sink, converter.source
+
+
+class StrideConverter(Module):
+    def __init__(self, layout_from, layout_to, reverse=False):
+        self.sink = sink = Endpoint(layout_from)
+        self.source = source = Endpoint(layout_to)
+
+        # # #
+
+        width_from = len(sink.payload.raw_bits())
+        width_to = len(source.payload.raw_bits())
+
+        converter = Converter([("data", width_from)],
+                              [("data", width_to)],
+                              reverse)
+        self.submodules += converter
+
+        # cast sink to converter.sink (user fields --> raw bits)
+        self.comb += [
+            converter.sink.stb.eq(sink.stb),
+            converter.sink.eop.eq(sink.eop),
+            sink.ack.eq(converter.sink.ack)
+        ]
+        if converter.cls == _DownConverter:
+            ratio = converter.ratio
+            for i in range(ratio):
+                j = 0
+                for name, width in layout_to:
+                    src = getattr(sink, name)[i*width:(i+1)*width]
+                    dst = converter.sink.data[i*width_to+j:i*width_to+j+width]
+                    self.comb += dst.eq(src)
+                    j += width
+        else:
+            self.comb += converter.sink.data.eq(sink.payload.raw_bits())
+
+
+        # cast converter.source to source (raw bits --> user fields)
+        self.comb += [
+            source.stb.eq(converter.source.stb),
+            source.eop.eq(converter.source.eop),
+            converter.source.ack.eq(source.ack)
+        ]
+        if converter.cls == _UpConverter:
+            ratio = converter.ratio
+            for i in range(ratio):
+                j = 0
+                for name, width in layout_from:
+                    src = converter.source.data[i*width_from+j:i*width_from+j+width]
+                    dst = getattr(source, name)[i*width:(i+1)*width]
+                    self.comb += dst.eq(src)
+                    j += width
+        else:
+            self.comb += source.payload.raw_bits().eq(converter.source.data)
