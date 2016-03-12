@@ -132,6 +132,7 @@ class _UpConverter(Module):
     def __init__(self, layout_from, layout_to, ratio, reverse):
         self.sink = sink = Endpoint(layout_from)
         self.source = source = Endpoint(layout_to)
+        self.chunks = Signal(bits_for(ratio))
 
         # # #
 
@@ -176,11 +177,15 @@ class _UpConverter(Module):
         self.sync += If(load_part, Case(demux, cases))
         self.comb += source.payload.raw_bits().eq(source_payload_raw_bits)
 
+        # chunks
+        self.sync += If(load_part, self.chunks.eq(demux + 1))
+
 
 class _DownConverter(Module):
     def __init__(self, layout_from, layout_to, ratio, reverse):
         self.sink = sink = Endpoint(layout_from)
         self.source = source = Endpoint(layout_to)
+        self.chunks = Signal()
 
         # # #
 
@@ -212,17 +217,24 @@ class _DownConverter(Module):
             src = sink_payload_raw_bits[n*width:(n+1)*width]
             dst = source.payload.raw_bits()
             cases[i] = dst.eq(src)
-        self.comb += Case(mux, cases).makedefault(),
+        self.comb += Case(mux, cases).makedefault()
+
+        # chunks
+        self.comb += self.chunks.eq(last)
 
 
 class _IdentityConverter(Module):
     def __init__(self, layout_from, layout_to, ratio, reverse):
         self.sink = sink = Endpoint(layout_from)
         self.source = source = Endpoint(layout_to)
+        self.chunks = Signal()
 
         # # #
 
-        self.comb += sink.connect(source)
+        self.comb += [
+            sink.connect(source),
+            self.chunks.eq(1)
+        ]
 
 
 def _get_converter_ratio(layout_from, layout_to):
@@ -247,7 +259,7 @@ def _get_converter_ratio(layout_from, layout_to):
 
 
 class Converter(Module):
-    def __init__(self, layout_from, layout_to, reverse=False):
+    def __init__(self, layout_from, layout_to, reverse=False, insert_chunks=False):
         self.cls, self.ratio = _get_converter_ratio(layout_from, layout_to)
 
         # # #
@@ -255,7 +267,15 @@ class Converter(Module):
         converter = self.cls(layout_from, layout_to, self.ratio, reverse)
         self.submodules += converter
 
-        self.sink, self.source = converter.sink, converter.source
+        self.sink = converter.sink
+        if insert_chunks:
+            self.source = Endpoint(layout_to + [("chunks", bits_for(self.ratio))])
+            self.comb += [
+                converter.source.connect(self.source),
+                self.source.chunks.eq(converter.chunks)
+            ]
+        else:
+            self.source = converter.source
 
 
 class StrideConverter(Module):
