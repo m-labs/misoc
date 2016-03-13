@@ -129,10 +129,10 @@ class Demultiplexer(Module):
 
 
 class _UpConverter(Module):
-    def __init__(self, layout_from, layout_to, ratio, reverse):
-        self.sink = sink = Endpoint(layout_from)
-        self.source = source = Endpoint(layout_to)
-        self.chunks = Signal(bits_for(ratio))
+    def __init__(self, nbits_from, nbits_to, ratio, reverse):
+        self.sink = sink = Endpoint([("data", nbits_from)])
+        self.source = source = Endpoint([("data", nbits_to)])
+        self.valid_token_count = Signal(bits_for(ratio))
 
         # # #
 
@@ -166,26 +166,21 @@ class _UpConverter(Module):
         ]
 
         # data path
-        source_payload_raw_bits = Signal(len(source.payload.raw_bits()))
         cases = {}
         for i in range(ratio):
             n = ratio-i-1 if reverse else i
-            width = len(sink.payload.raw_bits())
-            src = sink.payload.raw_bits()
-            dst = source_payload_raw_bits[n*width:(n+1)*width]
-            cases[i] = dst.eq(src)
+            cases[i] = source.data[n*nbits_from:(n+1)*nbits_from].eq(sink.data)
         self.sync += If(load_part, Case(demux, cases))
-        self.comb += source.payload.raw_bits().eq(source_payload_raw_bits)
 
-        # chunks
-        self.sync += If(load_part, self.chunks.eq(demux + 1))
+        # valid token count
+        self.sync += If(load_part, self.valid_token_count.eq(demux + 1))
 
 
 class _DownConverter(Module):
-    def __init__(self, layout_from, layout_to, ratio, reverse):
-        self.sink = sink = Endpoint(layout_from)
-        self.source = source = Endpoint(layout_to)
-        self.chunks = Signal()
+    def __init__(self, nbits_from, nbits_to, ratio, reverse):
+        self.sink = sink = Endpoint([("data", nbits_from)])
+        self.source = source = Endpoint([("data", nbits_to)])
+        self.valid_token_count = Signal()
 
         # # #
 
@@ -208,49 +203,38 @@ class _DownConverter(Module):
             )
 
         # data path
-        sink_payload_raw_bits = Signal(len(sink.payload.raw_bits()))
-        self.comb += sink_payload_raw_bits.eq(sink.payload.raw_bits())
         cases = {}
         for i in range(ratio):
             n = ratio-i-1 if reverse else i
-            width = len(source.payload.raw_bits())
-            src = sink_payload_raw_bits[n*width:(n+1)*width]
-            dst = source.payload.raw_bits()
-            cases[i] = dst.eq(src)
+            cases[i] = source.data.eq(sink.data[n*nbits_to:(n+1)*nbits_to])
         self.comb += Case(mux, cases).makedefault()
 
-        # chunks
-        self.comb += self.chunks.eq(last)
+        # valid token count
+        self.comb += self.valid_token_count.eq(last)
 
 
 class _IdentityConverter(Module):
-    def __init__(self, layout_from, layout_to, ratio, reverse):
-        self.sink = sink = Endpoint(layout_from)
-        self.source = source = Endpoint(layout_to)
-        self.chunks = Signal()
+    def __init__(self, nbits_from, nbits_to, ratio, reverse):
+        self.sink = sink = Endpoint([("data", nbits_from)])
+        self.source = source = Endpoint([("data", nbits_to)])
+        self.valid_token_count = Signal(reset=1)
 
         # # #
 
-        self.comb += [
-            sink.connect(source),
-            self.chunks.eq(1)
-        ]
+        self.comb += sink.connect(source)
 
 
-def _get_converter_ratio(layout_from, layout_to):
-    width_from = len(Endpoint(layout_from).payload.raw_bits())
-    width_to = len(Endpoint(layout_to).payload.raw_bits())
-
-    if width_from > width_to:
+def _get_converter_ratio(nbits_from, nbits_to):
+    if nbits_from > nbits_to:
         converter_cls = _DownConverter
-        if width_from % width_to:
+        if nbits_from % nbits_to:
             raise ValueError("Ratio must be an int")
-        ratio = width_from//width_to
-    elif width_from < width_to:
+        ratio = nbits_from//nbits_to
+    elif nbits_from < nbits_to:
         converter_cls = _UpConverter
-        if width_to % width_from:
+        if nbits_to % nbits_from:
             raise ValueError("Ratio must be an int")
-        ratio = width_to//width_from
+        ratio = nbits_to//nbits_from
     else:
         converter_cls = _IdentityConverter
         ratio = 1
@@ -259,20 +243,21 @@ def _get_converter_ratio(layout_from, layout_to):
 
 
 class Converter(Module):
-    def __init__(self, layout_from, layout_to, reverse=False, insert_chunks=False):
-        self.cls, self.ratio = _get_converter_ratio(layout_from, layout_to)
+    def __init__(self, nbits_from, nbits_to, reverse=False, report_valid_token_count=False):
+        self.cls, self.ratio = _get_converter_ratio(nbits_from, nbits_to)
 
         # # #
 
-        converter = self.cls(layout_from, layout_to, self.ratio, reverse)
+        converter = self.cls(nbits_from, nbits_to, self.ratio, reverse)
         self.submodules += converter
 
         self.sink = converter.sink
-        if insert_chunks:
-            self.source = Endpoint(layout_to + [("chunks", bits_for(self.ratio))])
+        if report_valid_token_count:
+            self.source = Endpoint([("data", nbits_to),
+                                    ("valid_token_count", bits_for(self.ratio))])
             self.comb += [
                 converter.source.connect(self.source),
-                self.source.chunks.eq(converter.chunks)
+                self.source.valid_token_count.eq(converter.valid_token_count)
             ]
         else:
             self.source = converter.source
@@ -285,12 +270,10 @@ class StrideConverter(Module):
 
         # # #
 
-        width_from = len(sink.payload.raw_bits())
-        width_to = len(source.payload.raw_bits())
+        nbits_from = len(sink.payload.raw_bits())
+        nbits_to = len(source.payload.raw_bits())
 
-        converter = Converter([("data", width_from)],
-                              [("data", width_to)],
-                              reverse)
+        converter = Converter(nbits_from, nbits_to, reverse)
         self.submodules += converter
 
         # cast sink to converter.sink (user fields --> raw bits)
@@ -305,7 +288,7 @@ class StrideConverter(Module):
                 j = 0
                 for name, width in layout_to:
                     src = getattr(sink, name)[i*width:(i+1)*width]
-                    dst = converter.sink.data[i*width_to+j:i*width_to+j+width]
+                    dst = converter.sink.data[i*nbits_to+j:i*nbits_to+j+width]
                     self.comb += dst.eq(src)
                     j += width
         else:
@@ -323,7 +306,7 @@ class StrideConverter(Module):
             for i in range(ratio):
                 j = 0
                 for name, width in layout_from:
-                    src = converter.source.data[i*width_from+j:i*width_from+j+width]
+                    src = converter.source.data[i*nbits_from+j:i*nbits_from+j+width]
                     dst = getattr(source, name)[i*width:(i+1)*width]
                     self.comb += dst.eq(src)
                     j += width
