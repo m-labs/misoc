@@ -131,8 +131,8 @@ class Demultiplexer(Module):
 class _UpConverter(Module):
     def __init__(self, nbits_from, nbits_to, ratio, reverse):
         self.sink = sink = Endpoint([("data", nbits_from)])
-        self.source = source = Endpoint([("data", nbits_to)])
-        self.valid_token_count = Signal(bits_for(ratio))
+        self.source = source = Endpoint([("data", nbits_to),
+                                         ("valid_token_count", bits_for(ratio))])
 
         # # #
 
@@ -173,14 +173,14 @@ class _UpConverter(Module):
         self.sync += If(load_part, Case(demux, cases))
 
         # valid token count
-        self.sync += If(load_part, self.valid_token_count.eq(demux + 1))
+        self.sync += If(load_part, source.valid_token_count.eq(demux + 1))
 
 
 class _DownConverter(Module):
     def __init__(self, nbits_from, nbits_to, ratio, reverse):
         self.sink = sink = Endpoint([("data", nbits_from)])
-        self.source = source = Endpoint([("data", nbits_to)])
-        self.valid_token_count = Signal()
+        self.source = source = Endpoint([("data", nbits_to),
+                                         ("valid_token_count", 1)])
 
         # # #
 
@@ -210,18 +210,21 @@ class _DownConverter(Module):
         self.comb += Case(mux, cases).makedefault()
 
         # valid token count
-        self.comb += self.valid_token_count.eq(last)
+        self.comb += source.valid_token_count.eq(last)
 
 
 class _IdentityConverter(Module):
     def __init__(self, nbits_from, nbits_to, ratio, reverse):
         self.sink = sink = Endpoint([("data", nbits_from)])
-        self.source = source = Endpoint([("data", nbits_to)])
-        self.valid_token_count = Signal(reset=1)
+        self.source = source = Endpoint([("data", nbits_to),
+                                         ("valid_token_count", 1)])
 
         # # #
 
-        self.comb += sink.connect(source)
+        self.comb += [
+            sink.connect(source),
+            source.valid_token_count.eq(1)
+        ]
 
 
 def _get_converter_ratio(nbits_from, nbits_to):
@@ -243,7 +246,8 @@ def _get_converter_ratio(nbits_from, nbits_to):
 
 
 class Converter(Module):
-    def __init__(self, nbits_from, nbits_to, reverse=False, report_valid_token_count=False):
+    def __init__(self, nbits_from, nbits_to, reverse=False,
+        report_valid_token_count=False):
         self.cls, self.ratio = _get_converter_ratio(nbits_from, nbits_to)
 
         # # #
@@ -253,14 +257,11 @@ class Converter(Module):
 
         self.sink = converter.sink
         if report_valid_token_count:
-            self.source = Endpoint([("data", nbits_to),
-                                    ("valid_token_count", bits_for(self.ratio))])
-            self.comb += [
-                converter.source.connect(self.source),
-                self.source.valid_token_count.eq(converter.valid_token_count)
-            ]
-        else:
             self.source = converter.source
+        else:
+            self.source = Endpoint([("data", nbits_to)])
+            self.comb += converter.source.connect(self.source,
+                            leave_out=set(["valid_token_count"]))
 
 
 class StrideConverter(Module):
