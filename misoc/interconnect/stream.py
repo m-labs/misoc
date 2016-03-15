@@ -129,10 +129,14 @@ class Demultiplexer(Module):
 
 
 class _UpConverter(Module):
-    def __init__(self, nbits_from, nbits_to, ratio, reverse):
+    def __init__(self, nbits_from, nbits_to, ratio, reverse,
+                 report_valid_token_count):
         self.sink = sink = Endpoint([("data", nbits_from)])
-        self.source = source = Endpoint([("data", nbits_to),
-                                         ("valid_token_count", bits_for(ratio))])
+        source_layout = [("data", nbits_to)]
+        if report_valid_token_count:
+            source_layout.append(("valid_token_count", bits_for(ratio)))
+        self.source = source = Endpoint(source_layout)
+        self.ratio = ratio
 
         # # #
 
@@ -172,15 +176,19 @@ class _UpConverter(Module):
             cases[i] = source.data[n*nbits_from:(n+1)*nbits_from].eq(sink.data)
         self.sync += If(load_part, Case(demux, cases))
 
-        # valid token count
-        self.sync += If(load_part, source.valid_token_count.eq(demux + 1))
+        if report_valid_token_count:
+            self.sync += If(load_part, source.valid_token_count.eq(demux + 1))
 
 
 class _DownConverter(Module):
-    def __init__(self, nbits_from, nbits_to, ratio, reverse):
+    def __init__(self, nbits_from, nbits_to, ratio, reverse,
+                 report_valid_token_count):
         self.sink = sink = Endpoint([("data", nbits_from)])
-        self.source = source = Endpoint([("data", nbits_to),
-                                         ("valid_token_count", 1)])
+        source_layout = [("data", nbits_to)]
+        if report_valid_token_count:
+            source_layout.append(("valid_token_count", 1))
+        self.source = source = Endpoint(source_layout)
+        self.ratio = ratio
 
         # # #
 
@@ -209,63 +217,58 @@ class _DownConverter(Module):
             cases[i] = source.data.eq(sink.data[n*nbits_to:(n+1)*nbits_to])
         self.comb += Case(mux, cases).makedefault()
 
-        # valid token count
-        self.comb += source.valid_token_count.eq(last)
+        if report_valid_token_count:
+            self.comb += source.valid_token_count.eq(last)
 
 
 class _IdentityConverter(Module):
-    def __init__(self, nbits_from, nbits_to, ratio, reverse):
+    def __init__(self, nbits_from, nbits_to, ratio, reverse,
+                 report_valid_token_count):
         self.sink = sink = Endpoint([("data", nbits_from)])
-        self.source = source = Endpoint([("data", nbits_to),
-                                         ("valid_token_count", 1)])
+        source_layout = [("data", nbits_to)]
+        if report_valid_token_count:
+            source_layout.append(("valid_token_count", 1))
+        self.source = source = Endpoint(source_layout)
+        assert ratio == 1
+        self.ratio = ratio
 
         # # #
 
-        self.comb += [
-            sink.connect(source),
-            source.valid_token_count.eq(1)
-        ]
+        self.comb += sink.connect(source)
+        if report_valid_token_count:
+            self.comb += source.valid_token_count.eq(1)
 
 
 def _get_converter_ratio(nbits_from, nbits_to):
     if nbits_from > nbits_to:
-        converter_cls = _DownConverter
+        specialized_cls = _DownConverter
         if nbits_from % nbits_to:
             raise ValueError("Ratio must be an int")
         ratio = nbits_from//nbits_to
     elif nbits_from < nbits_to:
-        converter_cls = _UpConverter
+        specialized_cls = _UpConverter
         if nbits_to % nbits_from:
             raise ValueError("Ratio must be an int")
         ratio = nbits_to//nbits_from
     else:
-        converter_cls = _IdentityConverter
+        specialized_cls = _IdentityConverter
         ratio = 1
 
-    return converter_cls, ratio
+    return specialized_cls, ratio
 
 
 class Converter(Module):
     def __init__(self, nbits_from, nbits_to, reverse=False,
-        report_valid_token_count=False):
-        self.cls, self.ratio = _get_converter_ratio(nbits_from, nbits_to)
-
-        # # #
-
-        converter = self.cls(nbits_from, nbits_to, self.ratio, reverse)
-        self.submodules += converter
-
-        self.sink = converter.sink
-        if report_valid_token_count:
-            self.source = converter.source
-        else:
-            self.source = Endpoint([("data", nbits_to)])
-            self.comb += converter.source.connect(self.source,
-                            leave_out=set(["valid_token_count"]))
+                 report_valid_token_count=False):
+        cls, ratio = _get_converter_ratio(nbits_from, nbits_to)
+        self.submodules.specialized = cls(nbits_from, nbits_to, ratio,
+                                          reverse, report_valid_token_count)
+        self.sink = self.specialized.sink
+        self.source = self.specialized.source
 
 
 class StrideConverter(Module):
-    def __init__(self, layout_from, layout_to, reverse=False):
+    def __init__(self, layout_from, layout_to, *args, **kwargs):
         self.sink = sink = Endpoint(layout_from)
         self.source = source = Endpoint(layout_to)
 
@@ -274,7 +277,7 @@ class StrideConverter(Module):
         nbits_from = len(sink.payload.raw_bits())
         nbits_to = len(source.payload.raw_bits())
 
-        converter = Converter(nbits_from, nbits_to, reverse)
+        converter = Converter(nbits_from, nbits_to, *args, **kwargs)
         self.submodules += converter
 
         # cast sink to converter.sink (user fields --> raw bits)
@@ -283,8 +286,8 @@ class StrideConverter(Module):
             converter.sink.eop.eq(sink.eop),
             sink.ack.eq(converter.sink.ack)
         ]
-        if converter.cls == _DownConverter:
-            ratio = converter.ratio
+        if isinstance(converter.specialized, _DownConverter):
+            ratio = converter.specialized.ratio
             for i in range(ratio):
                 j = 0
                 for name, width in layout_to:
@@ -302,8 +305,8 @@ class StrideConverter(Module):
             source.eop.eq(converter.source.eop),
             converter.source.ack.eq(source.ack)
         ]
-        if converter.cls == _UpConverter:
-            ratio = converter.ratio
+        if isinstance(converter.specialized, _UpConverter):
+            ratio = converter.specialized.ratio
             for i in range(ratio):
                 j = 0
                 for name, width in layout_from:
