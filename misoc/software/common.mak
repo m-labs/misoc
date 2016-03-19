@@ -38,7 +38,7 @@ endif
 #
 INCLUDES = -I$(MISOC_DIRECTORY)/software/include/base -I$(MISOC_DIRECTORY)/software/include -I$(MISOC_DIRECTORY)/common -I$(BUILDINC_DIRECTORY)
 COMMONFLAGS = -Os $(CPUFLAGS) -fomit-frame-pointer -Wall -fno-builtin -nostdinc $(INCLUDES)
-CFLAGS = $(COMMONFLAGS) -fexceptions -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes
+CFLAGS = $(COMMONFLAGS) -fexceptions -Wstrict-prototypes -Wold-style-definition -Wmissing-prototypes -Werror=incompatible-pointer-types
 CXXFLAGS = $(COMMONFLAGS) -std=c++11 -I$(MISOC_DIRECTORY)/software/include/basec++ -fexceptions -fno-rtti -ffreestanding
 LDFLAGS = -nostdlib -nodefaultlibs -L$(BUILDINC_DIRECTORY)
 
