@@ -40,29 +40,20 @@ modules.
 
 1. Install Python 3.3+, Migen and FPGA vendor's development tools.
    Get Migen from: https://github.com/m-labs/migen
+   For flterm, you will also need asyncserial and pyserial:
+   https://github.com/m-labs/asyncserial
+   https://github.com/pyserial/pyserial
 
-2. Install JTAG tools.
+2. Install JTAG tools. We recommend using OpenOCD, but other tools (e.g. from
+   the FPGA vendor) may be used as well.
 
-   For Mixxeo and M1:          http://urjtag.org
-   For Papilio Pro and KC705:  http://xc3sprog.sourceforge.net
-   For De0 Nano:               USBBlaster from Altera
-
-3. (Optional, only needed if you want to flash the bitstream/BIOS/software)
-   Obtain and build any required flash proxy bitstreams. Flash proxy bitstreams
-   give JTAG access to a flash chip through the FPGA.
-
-   For Mixxeo and M1: https://github.com/m-labs/fjmem-m1
-   For Papilio Pro:   https://github.com/GadgetFactory/Papilio-Loader
-     (xc3sprog/trunk/bscan_spi/bscan_spi_lx9_papilio.bit)
-   For KC705: https://github.com/m-labs/bscan_spi_kc705
-
-4. Compile and install binutils. Take the latest version from GNU.
+3. Compile and install binutils. Take the latest version from GNU.
    mkdir build && cd build
    ../configure --target=lm32-elf
    make
    make install
 
-5. Compile and install GCC. Take gcc-core and gcc-g++ from GNU
+4. Compile and install GCC. Take gcc-core and gcc-g++ from GNU
    (version 4.5 or >=4.9).
    rm -rf libstdc++-v3
    mkdir build && cd build
@@ -71,10 +62,10 @@ modules.
    make
    make install
 
-6. Install MiSoC with:
+5. Install MiSoC with:
    python3 setup.py install
 
-7. Build the bitstream and BIOS for your board by executing the corresponding
+6. Build the bitstream and BIOS for your board by executing the corresponding
    target file (see misoc/targets), e.g.
    python3 -m misoc.targets.kc705
 
