@@ -81,7 +81,7 @@ class BaseSoC(SoCSDRAM):
         self.submodules.crg = _CRG(platform, clk_freq)
 
         self.submodules.sdrphy = GENSDRPHY(platform.request("sdram"))
-        sdram_module = MT48LC4M16(clk_freq)
+        sdram_module = MT48LC4M16(clk_freq, "1:1")
         self.register_sdram(self.sdrphy, "minicon",
                             sdram_module.geom_settings, sdram_module.timing_settings)
 

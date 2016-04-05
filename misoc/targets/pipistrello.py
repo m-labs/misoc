@@ -108,7 +108,7 @@ class BaseSoC(SoCSDRAM):
 
         self.submodules.crg = _CRG(platform, clk_freq)
 
-        sdram_module = MT46H32M16(self.clk_freq)
+        sdram_module = MT46H32M16(self.clk_freq, "1:2")
         self.submodules.ddrphy = S6HalfRateDDRPHY(platform.request("ddram"),
                                                   sdram_module.memtype,
                                                   rd_bitslip=1,

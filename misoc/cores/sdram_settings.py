@@ -27,8 +27,9 @@ TimingSettings = namedtuple("TimingSettings", "tRP tRCD tWR tWTR tREFI tRFC")
 
 
 class SDRAMModule:
-    def __init__(self, clk_freq):
+    def __init__(self, clk_freq, rate):
         self.clk_freq = clk_freq
+        self.rate = rate
         self.geom_settings = GeomSettings(
             bankbits=log2_int(self.nbanks),
             rowbits=log2_int(self.nrows),
@@ -46,7 +47,12 @@ class SDRAMModule:
     def ns(self, t, margin=True):
         clk_period_ns = 1000000000/self.clk_freq
         if margin:
-            t += clk_period_ns/2
+            margins = {
+                "1:1" : 0,
+                "1:2" : clk_period_ns/2,
+                "1:4" : 3*clk_period_ns/4
+            }
+            t += margins[self.rate]
         return ceil(t/clk_period_ns)
 
 

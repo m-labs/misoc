@@ -91,7 +91,7 @@ class BaseSoC(SoCSDRAM):
         self.submodules.crg = _CRG(platform)
 
         self.submodules.ddrphy = k7ddrphy.K7DDRPHY(platform.request("ddram"))
-        sdram_module = MT8JTF12864(self.clk_freq)
+        sdram_module = MT8JTF12864(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy, sdram_controller_type,
                             sdram_module.geom_settings, sdram_module.timing_settings)
 
