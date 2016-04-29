@@ -130,7 +130,7 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
         self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         slotbits = max(log2_int(nslots), 1)
-        lengthbits = log2_int(depth*4)  # length in bytes
+        lengthbits = bits_for(depth*4)  # length in bytes
         self.lengthbits = lengthbits
 
         self._start = CSR()

@@ -4,7 +4,7 @@ from migen.fhdl.simplify import FullMemoryWE
 from misoc.interconnect import wishbone
 from misoc.interconnect.csr import *
 from misoc.interconnect import stream
-from misoc.cores.liteeth_mini.common import eth_phy_layout, buffer_depth
+from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_mtu
 from misoc.cores.liteeth_mini.mac import sram
 
 
@@ -17,7 +17,7 @@ class LiteEthMACWishboneInterface(Module, AutoCSR):
         # # #
 
         # storage in SRAM
-        sram_depth = buffer_depth//(dw//8)
+        sram_depth = eth_mtu//(dw//8)
         self.submodules.sram = sram.LiteEthMACSRAM(dw, sram_depth, nrxslots, ntxslots)
         self.comb += [
             self.sink.connect(self.sram.sink),
@@ -33,7 +33,7 @@ class LiteEthMACWishboneInterface(Module, AutoCSR):
         wb_sram_ifs = wb_rx_sram_ifs + wb_tx_sram_ifs
 
         wb_slaves = []
-        decoderoffset = log2_int(sram_depth)
+        decoderoffset = log2_int(sram_depth, need_pow2=False)
         decoderbits = log2_int(len(wb_sram_ifs))
         for n, wb_sram_if in enumerate(wb_sram_ifs):
             def slave_filter(a, v=n):
