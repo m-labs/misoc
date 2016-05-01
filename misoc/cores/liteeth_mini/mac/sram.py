@@ -3,7 +3,7 @@ from misoc import *
 from misoc.interconnect.csr import *
 from misoc.interconnect.csr_eventmanager import *
 from misoc.interconnect import stream
-from misoc.cores.liteeth_mini.common import eth_phy_layout
+from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_mtu
 
 
 class LiteEthMACSRAMWriter(Module, AutoCSR):
@@ -12,7 +12,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         self.crc_error = Signal()
 
         slotbits = max(log2_int(nslots), 1)
-        lengthbits = log2_int(depth*4)  # length in bytes
+        lengthbits = 32
 
         self._slot = CSRStatus(slotbits)
         self._length = CSRStatus(lengthbits)
@@ -74,7 +74,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         )
         fsm.act("WRITE",
             counter_ce.eq(sink.stb),
-            ongoing.eq(1),
+            ongoing.eq(counter < eth_mtu),
             If(sink.stb & sink.eop,
                 If((sink.error & sink.last_be) != 0,
                     NextState("DISCARD")
