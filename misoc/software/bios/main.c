@@ -305,6 +305,7 @@ static void help(void)
 	puts("mw         - write address space");
 	puts("mc         - copy address space");
 	puts("crc        - compute CRC32 of a part of the address space");
+	puts("ident      - display identifier");
 #ifdef __lm32__
 	puts("rcsr       - read processor CSR");
 	puts("wcsr       - write processor CSR");
@@ -319,7 +320,6 @@ static void help(void)
 #ifdef ROM_BOOT_ADDRESS
 	puts("romboot    - boot from embedded rom");
 #endif
-	puts("revision   - display revision");
 #ifdef CSR_DFII_BASE
 	puts("memtest    - run a memory test");
 #endif
