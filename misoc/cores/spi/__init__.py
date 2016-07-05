@@ -1,1 +1,1 @@
-from misoc.spi.core import SPIMaster
+from misoc.cores.spi.core import SPIMaster
