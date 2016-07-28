@@ -82,7 +82,7 @@ class BaseSoC(SoCSDRAM):
     }
     csr_map.update(SoCSDRAM.csr_map)
 
-    def __init__(self, toolchain="ise", sdram_controller_type="minicon", **kwargs):
+    def __init__(self, toolchain="vivado", sdram_controller_type="minicon", **kwargs):
         platform = kc705.Platform(toolchain=toolchain)
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125*1000000, cpu_reset_address=0xaf0000,
@@ -137,7 +137,7 @@ class MiniSoC(BaseSoC):
 
 def soc_kc705_args(parser):
     soc_sdram_args(parser)
-    parser.add_argument("--toolchain", default="ise",
+    parser.add_argument("--toolchain", default="vivado",
                         help="FPGA toolchain to use: ise, vivado")
 
 
