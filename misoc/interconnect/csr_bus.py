@@ -1,3 +1,11 @@
+"""
+CSR-2 bus
+=========
+
+The CSR-2 bus is a low-bandwidth, resource-sensitive bus designed for accessing
+the configuration and status registers of cores from software.
+"""
+
 from migen import *
 from migen.genlib.record import *
 from migen.genlib.misc import chooser
