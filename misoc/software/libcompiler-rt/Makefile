@@ -8,10 +8,10 @@ OBJECTS=divsi3.o modsi3.o comparesf2.o comparedf2.o negsf2.o negdf2.o addsf3.o s
   clzsi2.o ctzsi2.o udivdi3.o umoddi3.o moddi3.o ucmpdi2.o \
   powidf2.o
 
-all: libcompiler_rt.a
+all: libcompiler-rt.a
 
-libcompiler_rt.a: $(OBJECTS)
-	$(AR) crs libcompiler_rt.a $(OBJECTS)
+libcompiler-rt.a: $(OBJECTS)
+	$(AR) crs libcompiler-rt.a $(OBJECTS)
 
 %.o: $(MISOC_DIRECTORY)/software/compiler_rt/lib/builtins/%.c
 	$(compile)
@@ -19,4 +19,4 @@ libcompiler_rt.a: $(OBJECTS)
 .PHONY: all clean
 
 clean:
-	$(RM) $(OBJECTS) $(OBJECTS:.o=.ts) $(OBJECTS:.o=.d) libcompiler_rt.a .*~ *~
+	$(RM) $(OBJECTS) $(OBJECTS:.o=.ts) $(OBJECTS:.o=.d) libcompiler-rt.a .*~ *~

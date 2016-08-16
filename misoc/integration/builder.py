@@ -11,7 +11,7 @@ __all__ = ["misoc_software_packages", "misoc_extra_software_packages",
 
 
 misoc_software_packages = [
-    "libcompiler_rt",
+    "libcompiler-rt",
     "libbase",
     "libnet",
     "bios"

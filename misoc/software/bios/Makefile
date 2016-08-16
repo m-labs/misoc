@@ -18,8 +18,8 @@ bios.elf: $(BIOS_DIRECTORY)/linker.ld $(OBJECTS)
 		$(OBJECTS) \
 		-L../libnet \
 		-L../libbase \
-		-L../libcompiler_rt \
-		-lnet -lbase-nofloat -lcompiler_rt
+		-L../libcompiler-rt \
+		-lnet -lbase-nofloat -lcompiler-rt
 	chmod -x $@
 
 main.o: $(BIOS_DIRECTORY)/main.c
