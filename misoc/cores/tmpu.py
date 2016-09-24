@@ -29,9 +29,9 @@ class TMPU(Module, AutoCSR):
         self.output_bus = wishbone.Interface.like(input_bus)
 
         word_bits = log2_int(len(input_bus.dat_w)//8)
-        page_bits = log2_int(page_size//8) - word_bits
+        page_bits = log2_int(page_size) - word_bits
 
-        self.page_size = CSRConstant(2**(word_bits+page_bits))
+        self.page_size = CSRConstant(page_size)
         self.enable_null = CSRStorage()
         self.enable_prog = CSRStorage()
         self.prog_address = CSRStorage(len(input_bus.adr),
