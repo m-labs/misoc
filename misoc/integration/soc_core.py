@@ -1,5 +1,3 @@
-from operator import itemgetter
-
 from migen import *
 
 from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart
@@ -15,20 +13,6 @@ def mem_decoder(address, start=26, end=29):
 
 
 class SoCCore(Module):
-    csr_map = {
-        "crg":            0,  # user
-        "uart_phy":       1,  # provided by default (optional)
-        "uart":           2,  # provided by default (optional)
-        "identifier_mem": 3,  # provided by default (optional)
-        "timer0":         4,  # provided by default (optional)
-        "buttons":        5,  # user
-        "leds":           6,  # user
-        "tmpu":           31, # provided
-    }
-    interrupt_map = {
-        "uart":   0,
-        "timer0": 1,
-    }
     mem_map = {
         "rom":      0x00000000,  # (default shadow @0x80000000)
         "sram":     0x10000000,  # (default shadow @0x90000000)
@@ -74,6 +58,15 @@ class SoCCore(Module):
 
         self.config = Config()
 
+        self.csr_devices = [
+            "uart_phy",
+            "uart",
+            "identifier_mem",
+            "timer0",
+            "tmpu"
+        ]
+        self.interrupt_devices = []
+
         if cpu_type == "lm32":
             self.submodules.cpu = lm32.LM32(platform, self.cpu_reset_address)
         elif cpu_type == "or1k":
@@ -104,6 +97,7 @@ class SoCCore(Module):
         if with_uart:
             self.submodules.uart_phy = uart.RS232PHY(platform.request("serial"), clk_freq, uart_baudrate)
             self.submodules.uart = uart.UART(self.uart_phy)
+            self.interrupt_devices.append("uart")
 
         if ident:
             self.submodules.identifier = identifier.Identifier(ident)
@@ -111,6 +105,7 @@ class SoCCore(Module):
 
         if with_timer:
             self.submodules.timer0 = timer.Timer()
+            self.interrupt_devices.append("timer0")
 
     def initialize_rom(self, data):
         self.rom.mem.init = data
@@ -160,10 +155,18 @@ class SoCCore(Module):
 
     def get_constants(self):
         r = []
-        for name, interrupt in sorted(self.interrupt_map.items(), key=itemgetter(1)):
-            r.append((name.upper() + "_INTERRUPT", interrupt))
+        for nr, name in enumerate(self.interrupt_devices):
+            r.append((name.upper() + "_INTERRUPT", nr))
         r += self._constants
         return r
+
+    def get_csr_dev_address(self, name, memory):
+        if memory is not None:
+            name = name + "_" + memory.name_override
+        try:
+            return self.csr_devices.index(name)
+        except ValueError:
+            return None
 
     def do_finalize(self):
         registered_mems = {regions[0] for regions in self._memory_regions}
@@ -177,7 +180,7 @@ class SoCCore(Module):
 
         # CSR
         self.submodules.csrbankarray = csr_bus.CSRBankArray(self,
-            lambda name, memory: self.csr_map[name if memory is None else name + "_" + memory.name_override],
+            self.get_csr_dev_address,
             data_width=self.csr_data_width, address_width=self.csr_address_width)
         self.submodules.csrcon = csr_bus.Interconnect(
             self.wishbone2csr.csr, self.csrbankarray.get_buses())
@@ -189,9 +192,8 @@ class SoCCore(Module):
             self._constants.append(((name + "_" + constant.name).upper(), constant.value.value))
 
         # Interrupts
-        for k, v in sorted(self.interrupt_map.items(), key=itemgetter(1)):
-            if hasattr(self, k):
-                self.comb += self.cpu.interrupt[v].eq(getattr(self, k).ev.irq)
+        for nr, name in enumerate(self.interrupt_devices):
+            self.comb += self.cpu.interrupt[nr].eq(getattr(self, name).ev.irq)
 
     def build(self, *args, **kwargs):
         self.platform.build(self, *args, **kwargs)

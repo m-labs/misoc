@@ -11,15 +11,10 @@ __all__ = ["SoCSDRAM", "soc_sdram_args", "soc_sdram_argdict"]
 
 
 class SoCSDRAM(SoCCore):
-    csr_map = {
-        "dfii":      7,
-        "l2_cache":  8
-    }
-    csr_map.update(SoCCore.csr_map)
-
     def __init__(self, platform, clk_freq, l2_size=8192, **kwargs):
         SoCCore.__init__(self, platform, clk_freq,
                          integrated_main_ram_size=0, **kwargs)
+        self.csr_devices += ["dfii", "l2_cache"]
 
         if l2_size:
             self.config["L2_SIZE"] = l2_size

@@ -66,11 +66,6 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    csr_map = {
-        "spiflash": 16,
-    }
-    csr_map.update(SoCSDRAM.csr_map)
-
     def __init__(self, **kwargs):
         platform = papilio_pro.Platform()
         clk_freq = 80*1000000
@@ -90,6 +85,7 @@ class BaseSoC(SoCSDRAM):
                                                           dummy=4, div=6)
             self.flash_boot_address = 0x70000
             self.register_rom(self.spiflash.bus)
+            self.csr_devices.append("spiflash")
 
 
 def main():

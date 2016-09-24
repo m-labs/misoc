@@ -76,17 +76,12 @@ class _CRG(Module):
 class BaseSoC(SoCSDRAM):
     default_platform = "kc705"
 
-    csr_map = {
-        "spiflash": 9,
-        "ddrphy":   10,
-    }
-    csr_map.update(SoCSDRAM.csr_map)
-
     def __init__(self, toolchain="vivado", sdram_controller_type="minicon", **kwargs):
         platform = kc705.Platform(toolchain=toolchain)
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125*1000000, cpu_reset_address=0xaf0000,
                           **kwargs)
+        self.csr_devices += ["spiflash", "ddrphy"]
 
         self.submodules.crg = _CRG(platform)
 
@@ -109,17 +104,6 @@ class BaseSoC(SoCSDRAM):
 
 
 class MiniSoC(BaseSoC):
-    csr_map = {
-        "ethphy": 11,
-        "ethmac": 12,
-    }
-    csr_map.update(BaseSoC.csr_map)
-
-    interrupt_map = {
-        "ethmac": 2,
-    }
-    interrupt_map.update(BaseSoC.interrupt_map)
-
     mem_map = {
         "ethmac": 0x30000000,  # (shadow @0xb0000000)
     }
@@ -127,6 +111,9 @@ class MiniSoC(BaseSoC):
 
     def __init__(self, *args, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
+
+        self.csr_devices += ["ethphy", "ethmac"]
+        self.interrupt_devices.append("ethmac")
 
         self.submodules.ethphy = LiteEthPHY(self.platform.request("eth_clocks"),
                                             self.platform.request("eth"), clk_freq=self.clk_freq)

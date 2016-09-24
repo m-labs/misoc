@@ -117,17 +117,6 @@ INST "mxcrg/rd_bufpll" LOC = "BUFPLL_X0Y3";
 
 
 class MiniSoC(BaseSoC):
-    csr_map = {
-        "ethphy": 16,
-        "ethmac": 17,
-    }
-    csr_map.update(BaseSoC.csr_map)
-
-    interrupt_map = {
-        "ethmac": 2,
-    }
-    interrupt_map.update(BaseSoC.interrupt_map)
-
     mem_map = {
         "ethmac": 0x30000000,  # (shadow @0xb0000000)
     }
@@ -139,16 +128,20 @@ class MiniSoC(BaseSoC):
         platform = self.platform
         if platform.name == "mixxeo":
             self.submodules.leds = gpio.GPIOOut(platform.request("user_led"))
+            self.csr_devices.append("leds")
         if platform.name == "m1":
             self.submodules.buttons = gpio.GPIOIn(Cat(platform.request("user_btn", 0),
                                                       platform.request("user_btn", 2)))
             self.submodules.leds = gpio.GPIOOut(Cat(platform.request("user_led", i) for i in range(2)))
+            self.csr_devices += ["buttons", "leds"]
 
         self.submodules.ethphy = LiteEthPHY(platform.request("eth_clocks"),
                                             platform.request("eth"))
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone")
         self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
+        self.csr_devices += ["ethphy", "ethmac"]
+        self.interrupt_devices.append("ethmac")
 
 
 def get_vga_dvi(platform):
@@ -177,17 +170,13 @@ TIMESPEC "TSise_sucks2" = FROM "GRPsys_clk" TO "GRPvga_clk" TIG;
 
 
 class FramebufferSoC(MiniSoC):
-    csr_map = {
-        "fb": 18,
-    }
-    csr_map.update(MiniSoC.csr_map)
-
     def __init__(self, *args, **kwargs):
         MiniSoC.__init__(self, *args, **kwargs)
         pads_vga, pads_dvi = get_vga_dvi(platform)
         self.submodules.fb = framebuffer.Framebuffer(pads_vga, pads_dvi,
                                                      self.get_native_sdram_if())
         add_vga_tig(platform, self.fb)
+        self.csr_devices.append("fb")
 
 
 def main():

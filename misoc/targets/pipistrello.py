@@ -95,11 +95,6 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    csr_map = {
-        "spiflash": 9,
-    }
-    csr_map.update(SoCSDRAM.csr_map)
-
     def __init__(self, clk_freq=(83 + Fraction(1, 3))*1000*1000, **kwargs):
         platform = pipistrello.Platform()
         SoCSDRAM.__init__(self, platform, clk_freq,
@@ -128,6 +123,7 @@ class BaseSoC(SoCSDRAM):
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.flash_boot_address = 0x180000
             self.register_rom(self.spiflash.bus, 0x1000000)
+            self.csr_devices.append("spiflash")
 
 
 soc_pipistrello_args = soc_sdram_args

@@ -23,17 +23,6 @@ class BaseSoC(SoCCore):
 
 
 class MiniSoC(BaseSoC):
-    csr_map = {
-        "ethphy": 20,
-        "ethmac": 21
-    }
-    csr_map.update(BaseSoC.csr_map)
-
-    interrupt_map = {
-        "ethmac": 2,
-    }
-    interrupt_map.update(BaseSoC.interrupt_map)
-
     mem_map = {
         "ethmac": 0x30000000,  # (shadow @0xb0000000)
     }
@@ -49,6 +38,8 @@ class MiniSoC(BaseSoC):
                                             with_preamble_crc=False)
         self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
+        self.csr_devices += ["ethphy", "ethmac"]
+        self.interrupt_devices.append("ethmac")
 
 
 def main():
