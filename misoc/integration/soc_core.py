@@ -2,7 +2,7 @@ from operator import itemgetter
 
 from migen import *
 
-from misoc.cores import lm32, mor1kx, identifier, timer, uart
+from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart
 from misoc.interconnect import wishbone, csr_bus, wishbone2csr
 from misoc.integration.config import Config
 
@@ -23,6 +23,7 @@ class SoCCore(Module):
         "timer0":         4,  # provided by default (optional)
         "buttons":        5,  # user
         "leds":           6,  # user
+        "tmpu":           31, # provided
     }
     interrupt_map = {
         "uart":   0,
@@ -79,8 +80,9 @@ class SoCCore(Module):
             self.submodules.cpu = mor1kx.MOR1KX(platform, self.cpu_reset_address)
         else:
             raise ValueError("Unsupported CPU type: {}".format(cpu_type))
+        self.submodules.tmpu = tmpu.TMPU(self.cpu.dbus)
         self.add_wb_master(self.cpu.ibus)
-        self.add_wb_master(self.cpu.dbus)
+        self.add_wb_master(self.tmpu.output_bus)
 
         if integrated_rom_size:
             self.submodules.rom = wishbone.SRAM(integrated_rom_size, read_only=True)
