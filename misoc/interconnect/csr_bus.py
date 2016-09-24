@@ -20,6 +20,11 @@ class Interface(Record):
         Record.__init__(self, set_layout_parameters(_layout,
             data_width=data_width, address_width=address_width))
 
+    @classmethod
+    def like(self, other):
+        return Interface(len(other.dat_w),
+                         len(other.adr))
+
     def write(self, adr, dat):
         yield self.adr.eq(adr)
         yield self.dat_w.eq(dat)

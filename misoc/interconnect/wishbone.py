@@ -33,6 +33,10 @@ class Interface(Record):
             data_width=data_width,
             sel_width=data_width//8))
 
+    @staticmethod
+    def like(other):
+        return Interface(len(other.dat_w))
+
     def _do_transaction(self):
         yield self.cyc.eq(1)
         yield self.stb.eq(1)
