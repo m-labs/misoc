@@ -58,6 +58,8 @@ class TestLineCoding(unittest.TestCase):
     def setUpClass(cls):
         prng = random.Random(42)
         cls.input_sequence = []
+        for i in 23, 27, 29, 30:
+            cls.input_sequence += [Control((7 << 5) | i)]*2
         for i in range(8):
             cls.input_sequence += [Control((i << 5) | 28)]*2
         cls.input_sequence += [prng.randrange(256) for _ in range(10000)]
@@ -65,6 +67,11 @@ class TestLineCoding(unittest.TestCase):
 
     def test_comma(self):
         control_chars = [
+            0b1110101000,
+            0b1101101000,
+            0b1011101000,
+            0b0111101000,
+
             0b0011110100,
             0b0011111001,
             0b0011110101,
@@ -87,7 +94,7 @@ class TestLineCoding(unittest.TestCase):
             self.assertIn(rd, {-1, 1})
 
     def test_no_spurious_commas(self):
-        for w1, w2 in zip(self.output_sequence[16:], self.output_sequence[17:]):
+        for w1, w2 in zip(self.output_sequence[16+8:], self.output_sequence[16+8+1:]):
             for shift in range(10):
                 cw = (w1 << shift) | (w2 >> (10-shift))
                 self.assertNotIn(cw, {0b0011111001, 0b1100000110,   # K28.1

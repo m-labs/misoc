@@ -1,5 +1,3 @@
-# only K.28.y control symbols are supported
-
 from migen import *
 
 
@@ -138,7 +136,7 @@ class SingleEncoder(Module):
         code6b_unbalanced = Signal()
         code6b_flip = Signal()
         self.sync += [
-            If(self.k,
+            If(self.k & (code5b == 28),
                 code6b.eq(0b110000),
                 code6b_unbalanced.eq(1),
                 code6b_flip.eq(1)
@@ -270,6 +268,14 @@ class Decoder(Module):
                 self.k.eq(1),
                 code3b.eq(Array(table_4b3b_kp)[code4b])
             ).Else(
+                If((code4b == 0b0111) | (code4b == 0b1000),  # D.x.A7/K.x.7
+                    If((code6b != 0b100011) &
+                       (code6b != 0b010011) &
+                       (code6b != 0b001011) &
+                       (code6b != 0b110100) &
+                       (code6b != 0b101100) &
+                       (code6b != 0b011100), self.k.eq(1))
+                ),
                 code3b.eq(Array(table_4b3b)[code4b])
             ),
             code5b.eq(Array(table_6b5b)[code6b])
