@@ -85,6 +85,7 @@ class Builder:
                 define(k, v)
             define("MISOC_DIRECTORY", misoc_directory)
             define("BUILDINC_DIRECTORY", buildinc_dir)
+            f.write("export BUILDINC_DIRECTORY\n")
             for name, src_dir in self.software_packages:
                 define(name.upper() + "_DIRECTORY", src_dir)
 
@@ -97,6 +98,11 @@ class Builder:
             f.write(cpu_interface.get_mem_header(memory_regions, flash_boot_address))
         with open(os.path.join(generated_dir, "csr.h"), "w") as f:
             f.write(cpu_interface.get_csr_header(csr_regions, constants))
+
+        with open(os.path.join(generated_dir, "mem.rs"), "w") as f:
+            f.write(cpu_interface.get_mem_rust(memory_regions, flash_boot_address))
+        with open(os.path.join(generated_dir, "csr.rs"), "w") as f:
+            f.write(cpu_interface.get_csr_rust(csr_regions, constants))
 
         if sdram_phy_settings is not None:
             with open(os.path.join(generated_dir, "sdram_phy.h"), "w") as f:

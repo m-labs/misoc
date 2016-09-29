@@ -44,7 +44,23 @@ def get_mem_header(regions, flash_boot_address):
     return r
 
 
-def _get_rw_functions(reg_name, reg_base, nwords, busword, read_only, with_access_functions):
+def get_mem_rust(regions, flash_boot_address):
+    r  = "// Include this file as:\n"
+    r += "//     include!(concat!(env!(\"BUILDINC_DIRECTORY\"), \"/generated/mem.rs\"));\n"
+    r += "pub mod mem {\n"
+    for name, base, size in regions:
+        r += "  pub const {name}_BASE: usize = 0x{base:08x};\n". \
+            format(name=name.upper(), base=base)
+        r += "  pub const {name}_SIZE: usize = 0x{size:08x};\n\n". \
+            format(name=name.upper(), size=size)
+    if flash_boot_address is not None:
+        r += "  pub const FLASH_BOOT_ADDRESS: usize = 0x{:08x};\n\n". \
+            format(flash_boot_address)
+    r += "}\n"
+    return r
+
+
+def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only, with_access_functions):
     r = ""
 
     r += "#define CSR_"+reg_name.upper()+"_ADDR "+hex(reg_base)+"\n"
@@ -97,7 +113,7 @@ def get_csr_header(regions, constants, with_access_functions=True):
             r += "#define CSR_"+name.upper()+"_BASE "+hex(origin)+"\n"
             for csr in obj:
                 nr = (csr.size + busword - 1)//busword
-                r += _get_rw_functions(name + "_" + csr.name, origin, nr, busword, isinstance(csr, CSRStatus), with_access_functions)
+                r += _get_rw_functions_c(name + "_" + csr.name, origin, nr, busword, isinstance(csr, CSRStatus), with_access_functions)
                 origin += 4*nr
 
     r += "\n/* constants */\n"
@@ -116,6 +132,86 @@ def get_csr_header(regions, constants, with_access_functions=True):
         r += "\treturn "+value+";\n}\n"
 
     r += "\n#endif\n"
+    return r
+
+
+def _get_rw_functions_rs(reg_name, reg_base, nwords, busword, read_only):
+    r = ""
+
+    r += "    pub const "+reg_name.upper()+"_ADDR: *mut u32 = "+hex(reg_base)+" as *mut u32;\n"
+    r += "    pub const "+reg_name.upper()+"_SIZE: usize = "+str(nwords)+";\n\n"
+
+    size = nwords*busword
+    if size > 64:
+        return r
+    elif size > 32:
+        rstype = "u64"
+    elif size > 16:
+        rstype = "u32"
+    elif size > 8:
+        rstype = "u16"
+    elif size > 1:
+        rstype = "u8"
+    else:
+        rstype = "bool"
+
+    rsname = reg_name.upper()+"_ADDR"
+
+    r += "    #[inline(always)]\n"
+    r += "    pub unsafe fn "+reg_name+"_read() -> "+rstype+" {\n"
+    if size > 1:
+        r += "      let r = read_volatile("+rsname+") as "+rstype+";\n"
+        for word in range(1, nwords):
+            r += "      let r = r << "+str(busword)+" | " + \
+                 "read_volatile("+rsname+".offset("+str(word)+")) as "+rstype+";\n"
+        r += "      r\n"
+    else:
+        r += "      read_volatile("+rsname+") as "+rstype+"\n"
+    r += "    }\n\n"
+
+    if not read_only:
+        r += "    #[inline(always)]\n"
+        r += "    pub unsafe fn "+reg_name+"_write(w: "+rstype+") {\n"
+        for word in range(nwords):
+            shift = (nwords-word-1)*busword
+            if shift:
+                value_shifted = "w >> "+str(shift)
+            else:
+                value_shifted = "w"
+            r += "      write_volatile("+rsname+".offset("+str(word)+"), "+\
+                 "("+value_shifted+") as u32);\n"
+        r += "    }\n\n"
+    return r
+
+
+def get_csr_rust(regions, constants, with_access_functions=True):
+    r  = "// Include this file as:\n"
+    r += "//     include!(concat!(env!(\"BUILDINC_DIRECTORY\"), \"/generated/csr.rs\"));\n"
+    r += "pub mod csr {\n"
+
+    for name, origin, busword, obj in regions:
+        r += "  const "+name.upper()+"_BASE: *mut u32 = "+hex(origin)+" as *mut u32;\n"
+        if not isinstance(obj, Memory):
+            r += "\n"
+            r += "  pub mod "+name+" {\n"
+            r += "    use core::ptr::{read_volatile, write_volatile};\n\n"
+            for csr in obj:
+                nr = (csr.size + busword - 1)//busword
+                r += _get_rw_functions_rs(csr.name, origin, nr, busword,
+                                          isinstance(csr, CSRStatus))
+                origin += 4*nr
+            r += "  }\n\n"
+
+    for name, value in constants:
+        if isinstance(value, str):
+            value = "\"" + value + "\""
+            rstype = "&'static str"
+        else:
+            value = str(value)
+            rstype = "u32"
+        r += "  const "+name.upper()+": "+rstype+" = "+value+";\n"
+
+    r += "}\n"
     return r
 
 
