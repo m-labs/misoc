@@ -159,7 +159,7 @@ def _get_rw_functions_rs(reg_name, reg_base, nwords, busword, read_only):
 
     r += "    #[inline(always)]\n"
     r += "    pub unsafe fn "+reg_name+"_read() -> "+rstype+" {\n"
-    if size > 1:
+    if nwords > 1:
         r += "      let r = read_volatile("+rsname+") as "+rstype+";\n"
         for word in range(1, nwords):
             r += "      let r = r << "+str(busword)+" | " + \
