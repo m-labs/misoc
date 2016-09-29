@@ -190,7 +190,7 @@ def get_csr_rust(regions, constants, with_access_functions=True):
     r += "pub mod csr {\n"
 
     for name, origin, busword, obj in regions:
-        r += "  const "+name.upper()+"_BASE: *mut u32 = "+hex(origin)+" as *mut u32;\n"
+        r += "  pub const "+name.upper()+"_BASE: *mut u32 = "+hex(origin)+" as *mut u32;\n"
         if not isinstance(obj, Memory):
             r += "\n"
             r += "  pub mod "+name+" {\n"
@@ -209,7 +209,7 @@ def get_csr_rust(regions, constants, with_access_functions=True):
         else:
             value = str(value)
             rstype = "u32"
-        r += "  const "+name.upper()+": "+rstype+" = "+value+";\n"
+        r += "  pub const "+name.upper()+": "+rstype+" = "+value+";\n"
 
     r += "}\n"
     return r
