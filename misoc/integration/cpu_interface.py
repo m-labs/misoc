@@ -217,6 +217,16 @@ def get_csr_rust(regions, constants, with_access_functions=True):
     return r
 
 
+def get_rust_cfg(regions, constants):
+    r = ""
+    for name, origin, busword, obj in regions:
+        r += "--cfg has_"+name.lower()+"\n"
+    for name, value in constants:
+        if name.upper().startswith("CONFIG_"):
+            r += "--cfg '"+name.lower()[7:]+"=\""+str(value)+"\"'\n"
+    return r
+
+
 def get_csr_csv(regions):
     r = ""
     for name, origin, busword, obj in regions:

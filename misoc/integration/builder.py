@@ -103,6 +103,8 @@ class Builder:
             f.write(cpu_interface.get_mem_rust(memory_regions, flash_boot_address))
         with open(os.path.join(generated_dir, "csr.rs"), "w") as f:
             f.write(cpu_interface.get_csr_rust(csr_regions, constants))
+        with open(os.path.join(generated_dir, "rust-cfg"), "w") as f:
+            f.write(cpu_interface.get_rust_cfg(csr_regions, constants))
 
         if sdram_phy_settings is not None:
             with open(os.path.join(generated_dir, "sdram_phy.h"), "w") as f:
