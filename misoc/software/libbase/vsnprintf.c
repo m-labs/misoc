@@ -200,31 +200,33 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 
 				f = va_arg(args, double);
 				if(f < 0.0) {
-					*str = '-';
+					if(str < end)
+						*str = '-';
 					str++;
 					f = -f;
 				}
 
 				g = pow(10.0, floor(log10(f)));
 				if(g < 1.0) {
-					*str = '0';
+					if(str < end)
+						*str = '0';
 					str++;
 				}
 				while(g >= 1.0) {
-					*str = '0' + fmod(f/g, 10.0);
+					if(str < end)
+						*str = '0' + fmod(f/g, 10.0);
 					str++;
 					g /= 10.0;
 				}
 
-				if(str < end) {
+				if(str < end)
 					*str = '.';
-					str++;
-				}
+				str++;
 
 				for(i=0;i<6;i++) {
 					f = fmod(f*10.0, 10.0);
-					if(str >= end) break;
-					*str = '0' + f;
+					if(str < end)
+						*str = '0' + f;
 					str++;
 				}
 
