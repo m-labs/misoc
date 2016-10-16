@@ -109,7 +109,6 @@ int dyld_load(const void *shlib, Elf32_Addr base,
             case DT_JMPREL:   pltrel    = (const Elf32_Rela *)(base + dyn->d_un.d_ptr); break;
             case DT_PLTRELSZ: pltrelnum = dyn->d_un.d_val / sizeof(Elf32_Rela); break;
             case DT_HASH:     hash      = (const Elf32_Word *)(base + dyn->d_un.d_ptr); break;
-            case DT_INIT:     init      = dyn->d_un.d_val; break;
 
             case DT_REL:
             *error_out = "ELF object uses Rel relocations, which are not supported";
@@ -130,7 +129,6 @@ int dyld_load(const void *shlib, Elf32_Addr base,
     }
 
     info->base         = base;
-    info->init         = (void*)(base + init);
     info->strtab       = strtab;
     info->symtab       = symtab;
     info->hash.nbucket = hash[0];

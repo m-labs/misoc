@@ -5,7 +5,6 @@
 
 struct dyld_info {
     Elf32_Addr base;
-    const void *init;
     const char *strtab;
     const Elf32_Sym *symtab;
     struct {
