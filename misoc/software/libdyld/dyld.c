@@ -4,7 +4,7 @@
 #include <dyld.h>
 
 static int fixup_rela(struct dyld_info *info, const Elf32_Rela *rela,
-                      Elf32_Addr (*resolve_import)(const char *),
+                      Elf32_Addr (*resolve)(void *, const char *), void *resolve_data,
                       const char **error_out)
 {
     const Elf32_Sym *sym = NULL;
@@ -27,7 +27,7 @@ static int fixup_rela(struct dyld_info *info, const Elf32_Rela *rela,
         if(value != 0)
             break;
 
-        value = resolve_import(&info->strtab[sym->st_name]);
+        value = resolve(resolve_data, &info->strtab[sym->st_name]);
         if(value == 0) {
             static char error[256];
             snprintf(error, sizeof(error),
@@ -50,7 +50,7 @@ static int fixup_rela(struct dyld_info *info, const Elf32_Rela *rela,
 }
 
 int dyld_load(const void *shlib, Elf32_Addr base,
-              Elf32_Addr (*resolve_import)(const char *),
+              Elf32_Addr (*resolve)(void *, const char *), void *resolve_data,
               struct dyld_info *info, const char **error_out)
 {
     const Elf32_Ehdr *ehdr = (const Elf32_Ehdr *)shlib;
@@ -137,12 +137,12 @@ int dyld_load(const void *shlib, Elf32_Addr base,
     info->hash.chain   = &hash[2 + info->hash.nbucket];
 
     for(int i = 0; i < relanum; i++) {
-        if(!fixup_rela(info, &rela[i], resolve_import, error_out))
+        if(!fixup_rela(info, &rela[i], resolve, resolve_data, error_out))
             return 0;
     }
 
     for(int i = 0; i < pltrelnum; i++) {
-        if(!fixup_rela(info, &pltrel[i], resolve_import, error_out))
+        if(!fixup_rela(info, &pltrel[i], resolve, resolve_data, error_out))
             return 0;
     }
 

@@ -20,7 +20,7 @@ extern "C" {
 #endif
 
 int dyld_load(const void *shlib, Elf32_Addr base,
-              Elf32_Addr (*resolve_import)(const char *),
+              Elf32_Addr (*resolve)(void *, const char *), void *resolve_data,
               struct dyld_info *info, const char **error_out);
 void *dyld_lookup(const char *symbol, struct dyld_info *info);
 
