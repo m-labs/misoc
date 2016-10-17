@@ -12,7 +12,7 @@ class _MockPads:
         self.sda = Signal()
 
 
-class _MockTristate(Module):
+class _MockTristateImpl(Module):
     def __init__(self, t):
         oe = Signal()
         self.comb += [
@@ -20,7 +20,11 @@ class _MockTristate(Module):
             oe.eq(t.oe),
         ]
 
-Tristate.lower = _MockTristate
+
+class _MockTristate:
+    @staticmethod
+    def lower(t):
+        return _MockTristateImpl(t)
 
 
 class TestI2C(unittest.TestCase):
@@ -112,4 +116,4 @@ class TestI2C(unittest.TestCase):
             yield from check_trans(scl=False,  sda=False)
             yield from wait_idle()
 
-        run_simulation(dut, check())
+        run_simulation(dut, check(), special_overrides={Tristate: _MockTristate})
