@@ -20,6 +20,9 @@ class CSRConstant(DUID):
         if self.name is None:
             raise ValueError("Cannot extract CSR name from code, need to specify.")
 
+    def read(self):
+        return self.value.value
+
 
 class CSR(_CSRBase):
     def __init__(self, size=1, name=None):
@@ -27,6 +30,15 @@ class CSR(_CSRBase):
         self.re = Signal(name=self.name + "_re")
         self.r = Signal(self.size, name=self.name + "_r")
         self.w = Signal(self.size, name=self.name + "_w")
+
+    def read(self):
+        return (yield self.w)
+
+    def write(self, value):
+        yield self.r.eq(value)
+        yield self.re.eq(1)
+        yield
+        yield self.re.eq(0)
 
 
 class _CompoundCSR(_CSRBase, Module):
@@ -55,6 +67,9 @@ class CSRStatus(_CompoundCSR):
             sc = CSR(nbits, self.name + str(i) if nwords > 1 else self.name)
             self.comb += sc.w.eq(self.status[i*busword:i*busword+nbits])
             self.simple_csrs.append(sc)
+
+    def read(self):
+        return (yield self.status)
 
 
 class CSRStorage(_CompoundCSR):
@@ -98,6 +113,15 @@ class CSRStorage(_CompoundCSR):
             else:
                 self.sync += If(sc.re, self.storage_full[lo:hi].eq(sc.r))
         self.sync += self.re.eq(sc.re)
+
+    def read(self):
+        return (yield self.storage) << self.alignment_bits
+
+    def write(self, value):
+        yield self.storage.eq(value >> self.alignment_bits)
+        yield self.re.eq(1)
+        yield
+        yield self.re.eq(0)
 
 
 def csrprefix(prefix, csrs, done):
