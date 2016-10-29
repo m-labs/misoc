@@ -115,21 +115,17 @@ class MiniSoC(BaseSoC):
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        self.submodules.ethphy = LiteEthPHY(self.platform.request("eth_clocks"),
+        eth_clocks = self.platform.request("eth_clocks")
+        self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             self.platform.request("eth"), clk_freq=self.clk_freq)
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone")
         self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
 
         self.crg.cd_sys.clk.attr.add("keep")
-        self.ethphy.crg.cd_eth_rx.clk.attr.add("keep")
-        self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 8.)
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 8.)
         self.platform.add_false_path_constraints(
             self.crg.cd_sys.clk,
-            self.ethphy.crg.cd_eth_rx.clk,
-            self.ethphy.crg.cd_eth_tx.clk)
+            eth_clocks.tx, eth_clocks.rx)
 
 def soc_kc705_args(parser):
     soc_sdram_args(parser)
