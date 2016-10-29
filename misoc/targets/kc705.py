@@ -123,9 +123,10 @@ class MiniSoC(BaseSoC):
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
 
         self.crg.cd_sys.clk.attr.add("keep")
+        self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
         self.platform.add_false_path_constraints(
             self.crg.cd_sys.clk,
-            eth_clocks.tx, eth_clocks.rx)
+            self.ethphy.crg.cd_eth_tx.clk, eth_clocks.rx)
 
 def soc_kc705_args(parser):
     soc_sdram_args(parser)
