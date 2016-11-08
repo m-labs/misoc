@@ -224,6 +224,8 @@ def get_rust_cfg(regions, constants):
     for name, value in constants:
         if name.upper().startswith("CONFIG_"):
             r += "--cfg '"+name.lower()[7:]+"=\""+str(value)+"\"'\n"
+            if isinstance(value, int) and value != 0:
+                r += "--cfg has_"+name.lower()[7:]+"\n"
     return r
 
 
