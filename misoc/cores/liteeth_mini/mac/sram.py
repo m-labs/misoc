@@ -73,19 +73,30 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
             )
         )
         fsm.act("WRITE",
-            counter_ce.eq(sink.stb),
-            ongoing.eq(counter < eth_mtu),
-            If(sink.stb & sink.eop,
-                If((sink.error & sink.last_be) != 0,
-                    NextState("DISCARD")
+            If(sink.stb,
+                If(counter == eth_mtu,
+                    NextState("DISCARD_REMAINING")
                 ).Else(
-                    NextState("TERMINATE")
+                    counter_ce.eq(1),
+                    ongoing.eq(1)
+                ),
+                If(sink.eop,
+                    If((sink.error & sink.last_be) != 0,
+                        NextState("DISCARD")
+                    ).Else(
+                        NextState("TERMINATE")
+                    )
                 )
             )
         )
         fsm.act("DISCARD",
             counter_reset.eq(1),
             NextState("IDLE")
+        )
+        fsm.act("DISCARD_REMAINING",
+            If(sink.stb & sink.eop,
+                NextState("TERMINATE")
+            )
         )
         self.comb += [
             fifo.sink.slot.eq(slot),
