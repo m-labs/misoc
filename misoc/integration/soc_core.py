@@ -1,8 +1,9 @@
+from operator import itemgetter
+
 from migen import *
 
 from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart
 from misoc.interconnect import wishbone, csr_bus, wishbone2csr
-from misoc.integration.config import Config
 
 
 __all__ = ["mem_decoder", "SoCCore", "soc_core_args", "soc_core_argdict"]
@@ -56,7 +57,7 @@ class SoCCore(Module):
         self._wb_masters = []
         self._wb_slaves = []
 
-        self.config = Config()
+        self.config = dict()
 
         self.csr_devices = [
             "uart_phy",
@@ -190,6 +191,8 @@ class SoCCore(Module):
             self.add_csr_region(name + "_" + memory.name_override, (self.mem_map["csr"] + 0x800*mapaddr) | self.shadow_base, self.csr_data_width, memory)
         for name, constant in self.csrbankarray.constants:
             self._constants.append(((name + "_" + constant.name).upper(), constant.value.value))
+        for name, value in sorted(self.config.items(), key=itemgetter(0)):
+            self._constants.append(("CONFIG_" + name.upper(), value))
 
         # Interrupts
         for nr, name in enumerate(self.interrupt_devices):

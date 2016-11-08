@@ -205,7 +205,10 @@ def get_csr_rust(regions, constants, with_access_functions=True):
             r += "  }\n\n"
 
     for name, value in constants:
-        if isinstance(value, str):
+        if value is None:
+            value = "1"
+            rstype = "u32"
+        elif isinstance(value, str):
             value = "\"" + value + "\""
             rstype = "&'static str"
         else:
@@ -223,9 +226,10 @@ def get_rust_cfg(regions, constants):
         r += "--cfg has_"+name.lower()+"\n"
     for name, value in constants:
         if name.upper().startswith("CONFIG_"):
-            r += "--cfg '"+name.lower()[7:]+"=\""+str(value)+"\"'\n"
-            if isinstance(value, int) and value != 0:
-                r += "--cfg has_"+name.lower()[7:]+"\n"
+            if value is None:
+                r += "--cfg "+name.lower()[7:]+"\n"
+            else:
+                r += "--cfg '"+name.lower()[7:]+"=\""+str(value)+"\"'\n"
     return r
 
 
