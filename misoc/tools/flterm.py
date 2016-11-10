@@ -163,7 +163,8 @@ class Flterm:
         length = len(data)
         start = time.time()
         while len(data):
-            print("{}%\r".format(100*position//length), end="")
+            sys.stdout.write("{}%\r".format(100*position//length))
+            sys.stdout.flush()
             frame = SFLFrame()
             frame_data = data[:251]
             frame.cmd = sfl_cmd_load
