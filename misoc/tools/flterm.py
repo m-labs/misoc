@@ -122,18 +122,22 @@ class SFLFrame:
 
 
 class Flterm:
-    def __init__(self, port, speed, kernel_image, kernel_address):
+    def __init__(self, port, speed, kernel_image, kernel_address, upload_only):
         self.kernel_image = kernel_image
         self.kernel_address = kernel_address
+        self.upload_only = upload_only
 
         self.port = asyncserial.AsyncSerial(port, baudrate=speed)
-        
-        self.keyqueue = asyncio.Queue(100)
-        def getkey_callback(c):
-            self.keyqueue.put_nowait(c)
-        init_getkey(getkey_callback)
 
-        self.main_task = asyncio.ensure_future(self.main_coro())
+        if self.upload_only:
+            self.main_task = asyncio.ensure_future(self.upload_only_coro())
+        else:
+            self.keyqueue = asyncio.Queue(100)
+            def getkey_callback(c):
+                self.keyqueue.put_nowait(c)
+            init_getkey(getkey_callback)
+
+            self.main_task = asyncio.ensure_future(self.main_coro())
 
     async def send_frame(self, frame):
         while True:
@@ -181,7 +185,7 @@ class Flterm:
         print("[FLTERM] Booting the device.")
         frame = SFLFrame()
         frame.cmd = sfl_cmd_jump
-        frame.payload = self.kernel_address.to_bytes(4, "big") 
+        frame.payload = self.kernel_address.to_bytes(4, "big")
         await self.send_frame(frame)
 
     async def answer_magic(self):
@@ -226,9 +230,22 @@ class Flterm:
             if fs[1] in done:
                 await self.port.write(fs[1].result())
 
+    async def upload_only_coro(self):
+        magic_detect_buffer = b"\x00"*len(sfl_magic_req)
+        while True:
+            data = await self.port.read(1024)
+            sys.stdout.buffer.write(data)
+            sys.stdout.flush()
+
+            for c in data:
+                magic_detect_buffer = magic_detect_buffer[1:] + bytes([c])
+                if magic_detect_buffer == sfl_magic_req:
+                    await self.answer_magic()
+                    return
 
     async def close(self):
-        deinit_getkey()
+        if not self.upload_only:
+            deinit_getkey()
         self.main_task.cancel()
         await asyncio.wait([self.main_task])
         self.port.close()
@@ -241,6 +258,8 @@ def _get_args():
     parser.add_argument("--kernel", default=None, help="kernel image")
     parser.add_argument("--kernel-addr", type=lambda a: int(a, 0),
                         default=0x40000000, help="kernel address")
+    parser.add_argument("--upload-only", default=False, action="store_true",
+                        help="only upload kernel")
     return parser.parse_args()
 
 
@@ -252,9 +271,10 @@ def main():
         loop = asyncio.get_event_loop()
     try:
         args = _get_args()
-        flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_addr)
+        flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_addr,
+                        args.upload_only)
         try:
-            loop.run_forever()
+            loop.run_until_complete(flterm.main_task)
         finally:
             loop.run_until_complete(flterm.close())
     finally:
