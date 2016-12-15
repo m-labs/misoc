@@ -1,3 +1,17 @@
+"""
+IBM's 8b/10b Encoding
+
+This scheme is used by a large number of protocols including Display Port, PCI
+Express, Gigabit Ethernet, SATA and USB 3.
+
+The encoding is built by combining an 5b/6b and 3b/4b encoding schemes and
+guarantees both DC balance and enough bit transitions to recover the clock
+signal.
+
+Note: This encoding is *not* used by DVI/HDMI (that uses a *different* 8b/10b
+scheme called TMDS).
+"""
+
 from migen import *
 
 
