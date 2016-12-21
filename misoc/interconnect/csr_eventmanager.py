@@ -65,9 +65,6 @@ class EventSourceProcess(Module, _EventSource):
 
     The purpose of this event source is to monitor the status of processes and
     generate an interrupt on their completion.
-
-    The signal ``trigger`` can be connected to the ``busy`` signal of a
-    dataflow actor, for example.
     """
     def __init__(self):
         _EventSource.__init__(self)
