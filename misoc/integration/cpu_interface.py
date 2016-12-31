@@ -47,7 +47,7 @@ def get_mem_header(regions, flash_boot_address):
 def get_mem_rust(regions, flash_boot_address):
     r  = "// Include this file as:\n"
     r += "//     include!(concat!(env!(\"BUILDINC_DIRECTORY\"), \"/generated/mem.rs\"));\n"
-    r += "#[allow(dead_code)]"
+    r += "#[allow(dead_code)]\n"
     r += "pub mod mem {\n"
     for name, base, size in regions:
         r += "  pub const {name}_BASE: usize = 0x{base:08x};\n". \
@@ -188,7 +188,7 @@ def _get_rw_functions_rs(reg_name, reg_base, nwords, busword, read_only):
 def get_csr_rust(regions, constants, with_access_functions=True):
     r  = "// Include this file as:\n"
     r += "//     include!(concat!(env!(\"BUILDINC_DIRECTORY\"), \"/generated/csr.rs\"));\n"
-    r += "#[allow(dead_code)]"
+    r += "#[allow(dead_code)]\n"
     r += "pub mod csr {\n"
 
     for name, origin, busword, obj in regions:
