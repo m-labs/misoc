@@ -247,7 +247,7 @@ class SPIMaster(Module, AutoCSR):
         self.cs_width = CSRConstant(len(self._cs.storage))
 
         self.submodules.spi = spi = SPIMachine(
-            data_width=data_width,
+            data_width=data_width + 1,
             clock_width=clock_width,
             bits_width=bits_width)
 
@@ -267,13 +267,18 @@ class SPIMaster(Module, AutoCSR):
         ]
         self.sync += [
             If(spi.done,
-                self._data_read.status.eq(spi.reg.data),
+                self._data_read.status.eq(
+                    Mux(spi.reg.lsb, spi.reg.data[1:], spi.reg.data[:-1])),
             ),
             If(spi.start,
                 cs.eq(self._cs.storage),
                 spi.bits.n_write.eq(self._xfer_len_write.storage),
                 spi.bits.n_read.eq(self._xfer_len_read.storage),
-                spi.reg.data.eq(self._data_write.storage),
+                If(spi.reg.lsb,
+                    spi.reg.data[:-1].eq(self._data_write.storage),
+                ).Else(
+                    spi.reg.data[1:].eq(self._data_write.storage),
+                ),
                 pending.eq(0),
             ),
 
