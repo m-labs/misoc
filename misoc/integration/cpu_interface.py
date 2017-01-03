@@ -223,13 +223,13 @@ def get_csr_rust(regions, constants, with_access_functions=True):
 def get_rust_cfg(regions, constants):
     r = ""
     for name, origin, busword, obj in regions:
-        r += "--cfg has_"+name.lower()+"\n"
+        r += "has_"+name.lower()+"\n"
     for name, value in constants:
         if name.upper().startswith("CONFIG_"):
             if value is None:
-                r += "--cfg "+name.lower()[7:]+"\n"
+                r += name.lower()[7:]+"\n"
             else:
-                r += "--cfg '"+name.lower()[7:]+"=\""+str(value)+"\"'\n"
+                r += name.lower()[7:]+"=\""+str(value)+"\"\n"
     return r
 
 
