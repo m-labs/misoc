@@ -103,6 +103,7 @@ class SoCCore(Module):
         if ident:
             self.submodules.identifier = identifier.Identifier(ident)
         self.config["CLOCK_FREQUENCY"] = int(clk_freq)
+        self.config["SOC_PLATFORM"] = platform.name
 
         if with_timer:
             self.submodules.timer0 = timer.Timer()
