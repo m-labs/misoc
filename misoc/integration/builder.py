@@ -43,8 +43,11 @@ class WriteGenerated(io.StringIO):
         return self
 
     def __exit__(self, *args):
-        with open(self.name, "r") as f:
-            content = f.read()
+        try:
+            with open(self.name, "r") as f:
+                content = f.read()
+        except:
+            content = ""
         if content != self.getvalue():
             with open(self.name, "w") as f:
                 f.write(self.getvalue())
