@@ -32,6 +32,7 @@ else
 	AR = $(AR_quiet)
 	LD = $(LD_quiet)
 	OBJCOPY = $(OBJCOPY_quiet)
+.SILENT:
 endif
 
 # Toolchain options
