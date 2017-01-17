@@ -42,9 +42,6 @@ CFLAGS = $(COMMONFLAGS) -fexceptions -Wstrict-prototypes -Wold-style-definition 
 CXXFLAGS = $(COMMONFLAGS) -std=c++11 -I$(MISOC_DIRECTORY)/software/include/basec++ -fexceptions -fno-rtti -ffreestanding
 LDFLAGS = -nostdlib -nodefaultlibs -L$(BUILDINC_DIRECTORY)
 
-# compile and generate dependencies, based on
-# http://scottmcpeak.com/autodepend/autodepend.html
-
 define compilexx
 $(CX) -c $(CXXFLAGS) $(1) $< -o $@
 endef
