@@ -1,4 +1,5 @@
 import os
+import io
 import subprocess
 import struct
 
@@ -31,6 +32,22 @@ misoc_directory = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 def _makefile_escape(s):
     return s.replace("\\", "\\\\")
+
+
+class WriteGenerated(io.StringIO):
+    def __init__(self, generated_dir, name):
+        super().__init__()
+        self.name = os.path.join(generated_dir, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        with open(self.name, "r") as f:
+            content = f.read()
+        if content != self.getvalue():
+            with open(self.name, "w") as f:
+                f.write(self.getvalue())
 
 
 class Builder:
@@ -78,7 +95,8 @@ class Builder:
         buildinc_dir = os.path.join(self.output_dir, "software", "include")
         generated_dir = os.path.join(buildinc_dir, "generated")
         os.makedirs(generated_dir, exist_ok=True)
-        with open(os.path.join(generated_dir, "variables.mak"), "w") as f:
+
+        with WriteGenerated(generated_dir, "variables.mak") as f:
             def define(k, v):
                 f.write("{}={}\n".format(k, _makefile_escape(v)))
             for k, v in cpu_interface.get_cpu_mak(cpu_type):
@@ -89,25 +107,25 @@ class Builder:
             for name, src_dir in self.software_packages:
                 define(name.upper() + "_DIRECTORY", src_dir)
 
-        with open(os.path.join(generated_dir, "output_format.ld"), "w") as f:
+        with WriteGenerated(generated_dir, "output_format.ld") as f:
             f.write(cpu_interface.get_linker_output_format(cpu_type))
-        with open(os.path.join(generated_dir, "regions.ld"), "w") as f:
+        with WriteGenerated(generated_dir, "regions.ld") as f:
             f.write(cpu_interface.get_linker_regions(memory_regions))
 
-        with open(os.path.join(generated_dir, "mem.h"), "w") as f:
+        with WriteGenerated(generated_dir, "mem.h") as f:
             f.write(cpu_interface.get_mem_header(memory_regions, flash_boot_address))
-        with open(os.path.join(generated_dir, "csr.h"), "w") as f:
+        with WriteGenerated(generated_dir, "csr.h") as f:
             f.write(cpu_interface.get_csr_header(csr_regions, constants))
 
-        with open(os.path.join(generated_dir, "mem.rs"), "w") as f:
+        with WriteGenerated(generated_dir, "mem.rs") as f:
             f.write(cpu_interface.get_mem_rust(memory_regions, flash_boot_address))
-        with open(os.path.join(generated_dir, "csr.rs"), "w") as f:
+        with WriteGenerated(generated_dir, "csr.rs") as f:
             f.write(cpu_interface.get_csr_rust(csr_regions, constants))
-        with open(os.path.join(generated_dir, "rust-cfg"), "w") as f:
+        with WriteGenerated(generated_dir, "rust-cfg") as f:
             f.write(cpu_interface.get_rust_cfg(csr_regions, constants))
 
         if sdram_phy_settings is not None:
-            with open(os.path.join(generated_dir, "sdram_phy.h"), "w") as f:
+            with WriteGenerated(generated_dir, "sdram_phy.h") as f:
                 f.write(sdram_init.get_sdram_phy_header(sdram_phy_settings))
 
         if self.csr_csv is not None:
