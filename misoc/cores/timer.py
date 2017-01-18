@@ -5,7 +5,7 @@ from misoc.interconnect.csr_eventmanager import *
 
 
 class Timer(Module, AutoCSR):
-    def __init__(self, width=32):
+    def __init__(self, width=64):
         self._load = CSRStorage(width)
         self._reload = CSRStorage(width)
         self._en = CSRStorage()
