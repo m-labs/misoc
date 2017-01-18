@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "alloc.h"
+#include <alloc.h>
 
 struct meta {
     uintptr_t    magi;
