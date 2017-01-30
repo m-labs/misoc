@@ -121,7 +121,8 @@ class MiniSoC(BaseSoC):
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
                                             nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
         self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
-        self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
+        self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
+                               (ethmac_nrxslots + ethmac_ntxslots) * 0x800)
 
         self.crg.cd_sys.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
