@@ -10,11 +10,13 @@ class LiteEthMAC(Module, AutoCSR):
     def __init__(self, phy, dw,
                  interface="wishbone",
                  endianness="big",
-                 with_preamble_crc=True):
+                 with_preamble_crc=True,
+                 nrxslots=2,
+                 ntxslots=2):
         self.submodules.core = LiteEthMACCore(phy, dw, endianness, with_preamble_crc)
         self.csrs = []
         if interface == "wishbone":
-            self.submodules.interface = LiteEthMACWishboneInterface(dw, 2, 2)
+            self.submodules.interface = LiteEthMACWishboneInterface(dw, nrxslots, ntxslots)
             self.comb += [
                 self.interface.source.connect(self.core.sink),
                 self.core.source.connect(self.interface.sink)
