@@ -109,7 +109,7 @@ class MiniSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
 
         self.csr_devices += ["ethphy", "ethmac"]
@@ -118,7 +118,8 @@ class MiniSoC(BaseSoC):
         eth_clocks = self.platform.request("eth_clocks")
         self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             self.platform.request("eth"), clk_freq=self.clk_freq)
-        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone")
+        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
+                                            nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
         self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
 
