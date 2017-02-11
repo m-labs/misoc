@@ -6,40 +6,43 @@ from misoc.interconnect import wishbone
 
 
 class MOR1KX(Module):
-    def __init__(self, platform, reset_pc):
+    def __init__(self, platform, **kwargs):
         self.ibus = i = wishbone.Interface()
         self.dbus = d = wishbone.Interface()
         self.interrupt = Signal(32)
 
         ###
 
+        defaults = dict(
+            FEATURE_INSTRUCTIONCACHE="ENABLED",
+            OPTION_ICACHE_BLOCK_WIDTH=4,
+            OPTION_ICACHE_SET_WIDTH=8,
+            OPTION_ICACHE_WAYS=1,
+            OPTION_ICACHE_LIMIT_WIDTH=31,
+            FEATURE_DATACACHE="ENABLED",
+            OPTION_DCACHE_BLOCK_WIDTH=4,
+            OPTION_DCACHE_SET_WIDTH=8,
+            OPTION_DCACHE_WAYS=1,
+            OPTION_DCACHE_LIMIT_WIDTH=31,
+            FEATURE_TIMER="NONE",
+            OPTION_PIC_TRIGGER="LEVEL",
+            FEATURE_SYSCALL="NONE",
+            FEATURE_TRAP="NONE",
+            FEATURE_RANGE="NONE",
+            FEATURE_OVERFLOW="NONE",
+            FEATURE_ADDC="ENABLED",
+            FEATURE_CMOV="ENABLED",
+            FEATURE_FFL1="ENABLED",
+            OPTION_CPU0="CAPPUCCINO",
+            IBUS_WB_TYPE="B3_REGISTERED_FEEDBACK",
+            DBUS_WB_TYPE="B3_REGISTERED_FEEDBACK",
+        )
+        defaults.update(kwargs)
+        parameters = {"p_{}".format(k): v for k, v in defaults.items()}
+
         i_adr_o = Signal(32)
         d_adr_o = Signal(32)
         self.specials += Instance("mor1kx",
-                                  p_FEATURE_INSTRUCTIONCACHE="ENABLED",
-                                  p_OPTION_ICACHE_BLOCK_WIDTH=4,
-                                  p_OPTION_ICACHE_SET_WIDTH=8,
-                                  p_OPTION_ICACHE_WAYS=1,
-                                  p_OPTION_ICACHE_LIMIT_WIDTH=31,
-                                  p_FEATURE_DATACACHE="ENABLED",
-                                  p_OPTION_DCACHE_BLOCK_WIDTH=4,
-                                  p_OPTION_DCACHE_SET_WIDTH=8,
-                                  p_OPTION_DCACHE_WAYS=1,
-                                  p_OPTION_DCACHE_LIMIT_WIDTH=31,
-                                  p_FEATURE_TIMER="NONE",
-                                  p_OPTION_PIC_TRIGGER="LEVEL",
-                                  p_FEATURE_SYSCALL="NONE",
-                                  p_FEATURE_TRAP="NONE",
-                                  p_FEATURE_RANGE="NONE",
-                                  p_FEATURE_OVERFLOW="NONE",
-                                  p_FEATURE_ADDC="ENABLED",
-                                  p_FEATURE_CMOV="ENABLED",
-                                  p_FEATURE_FFL1="ENABLED",
-                                  p_OPTION_CPU0="CAPPUCCINO",
-                                  p_OPTION_RESET_PC=reset_pc,
-                                  p_IBUS_WB_TYPE="B3_REGISTERED_FEEDBACK",
-                                  p_DBUS_WB_TYPE="B3_REGISTERED_FEEDBACK",
-
                                   i_clk=ClockSignal(),
                                   i_rst=ResetSignal(),
 
@@ -69,7 +72,9 @@ class MOR1KX(Module):
                                   i_dwbm_dat_i=d.dat_r,
                                   i_dwbm_ack_i=d.ack,
                                   i_dwbm_err_i=d.err,
-                                  i_dwbm_rty_i=0)
+                                  i_dwbm_rty_i=0,
+
+                                  **parameters)
 
         self.comb += [
             self.ibus.adr.eq(i_adr_o[2:]),

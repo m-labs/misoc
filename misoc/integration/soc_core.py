@@ -71,7 +71,8 @@ class SoCCore(Module):
         if cpu_type == "lm32":
             self.submodules.cpu = lm32.LM32(platform, self.cpu_reset_address)
         elif cpu_type == "or1k":
-            self.submodules.cpu = mor1kx.MOR1KX(platform, self.cpu_reset_address)
+            self.submodules.cpu = mor1kx.MOR1KX(platform,
+                    OPTION_RESET_PC=self.cpu_reset_address)
         else:
             raise ValueError("Unsupported CPU type: {}".format(cpu_type))
         self.submodules.tmpu = tmpu.TMPU(self.cpu.dbus)
