@@ -484,7 +484,7 @@ int main(int i, char **c)
 	irq_setie(1);
 	uart_init();
 	puts("\nMiSoC BIOS\n"
-	"(c) Copyright 2007-2016 M-Labs Limited\n"
+	"(c) Copyright 2007-2017 M-Labs Limited\n"
 	"Built "__DATE__" "__TIME__"\n");
 	crcbios();
 #ifdef CSR_ETHMAC_BASE
