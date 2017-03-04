@@ -253,7 +253,7 @@ class DownConverter(Module):
         cases = {}
         for i in range(ratio):
             cases[i] = [
-                slave.sel.eq(master.sel[i*dw_to//8:(i+1)*dw_to]),
+                slave.sel.eq(master.sel[i*dw_to//8:(i+1)*dw_to//8]),
                 slave.dat_w.eq(master.dat_w[i*dw_to:(i+1)*dw_to])
             ]
         self.comb += Case(counter, cases)
