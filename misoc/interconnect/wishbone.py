@@ -89,7 +89,7 @@ class Arbiter(Module):
                         self.comb += dest.eq(source)
 
         # connect bus requests to round-robin selector
-        reqs = [m.cyc for m in masters]
+        reqs = [m.cyc & ~m.ack for m in masters]
         self.comb += self.rr.request.eq(Cat(*reqs))
 
 
