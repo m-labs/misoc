@@ -11,7 +11,9 @@ endif
 COMMONFLAGS+=-integrated-as \
 	-I. -I$(MISOC_DIRECTORY)/software/include/dyld/ -I$(MISOC_DIRECTORY)/software/unwinder/include/ \
 	-I$(LIBUNWIND_DIRECTORY) \
-	-D__ELF__ -D__linux__ -D_LIBUNWIND_NO_HEAP -DNDEBUG
+	-D__ELF__ -D__linux__ \
+	-D_LIBUNWIND_NO_HEAP \
+	-DNDEBUG
 
 OBJECTS=UnwindRegistersSave.o UnwindRegistersRestore.o UnwindLevel1.o libunwind.o
 
