@@ -13,10 +13,6 @@ typedef struct
 extern "C" {
 #endif
 
-extern int dl_iterate_phdr (int (*__callback) (struct dl_phdr_info *,
-                                               size_t, void *),
-                            void *__data);
-
 /* Fill in *INFO with the following information about ADDRESS.
    Returns 0 iff no shared object's segments contain that address.  */
 extern int dladdr (const void *__address, Dl_info *__info);
