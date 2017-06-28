@@ -89,6 +89,7 @@ class Builder:
         memory_regions = self.soc.get_memory_regions()
         flash_boot_address = getattr(self.soc, "flash_boot_address", None)
         csr_regions = self.soc.get_csr_regions()
+        csr_groups = self.soc.get_csr_groups()
         constants = self.soc.get_constants()
         if isinstance(self.soc, soc_sdram.SoCSDRAM) and self.soc._sdram_phy:
             sdram_phy_settings = self.soc._sdram_phy[0].settings
@@ -123,7 +124,7 @@ class Builder:
         with WriteGenerated(generated_dir, "mem.rs") as f:
             f.write(cpu_interface.get_mem_rust(memory_regions, flash_boot_address))
         with WriteGenerated(generated_dir, "csr.rs") as f:
-            f.write(cpu_interface.get_csr_rust(csr_regions, constants))
+            f.write(cpu_interface.get_csr_rust(csr_regions, csr_groups, constants))
         with WriteGenerated(generated_dir, "rust-cfg") as f:
             f.write(cpu_interface.get_rust_cfg(csr_regions, constants))
 
