@@ -35,8 +35,8 @@ setup(
     include_package_data=True,
     entry_points={
         "console_scripts": [
-            "flterm=misoc.tools.flterm:main",
-            "mkmscimg=misoc.tools.mkmscimg:main",
+            "flterm = misoc.tools.flterm:main",
+            "mkmscimg = misoc.tools.mkmscimg:main",
         ],
     },
 )
