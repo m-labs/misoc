@@ -209,9 +209,12 @@ class TwoQuadrantCordic(Module):
                 self.latency = 0
 
         # inter-stage signals
-        x = [Signal((width + guard, True)) for i in range(num_sig)]
-        y = [Signal((width + guard, True)) for i in range(num_sig)]
-        z = [Signal((widthz + guard, True)) for i in range(num_sig)]
+        x = [Signal((width + guard, True), reset_less=True)
+                for i in range(num_sig)]
+        y = [Signal((width + guard, True), reset_less=True)
+                for i in range(num_sig)]
+        z = [Signal((widthz + guard, True), reset_less=True)
+                for i in range(num_sig)]
 
         # hook up inputs and outputs to the first and last inter-stage
         # signals
@@ -231,12 +234,12 @@ class TwoQuadrantCordic(Module):
                 self.new_in.eq(i == stages),
                 self.new_out.eq(i == 1),
             ]
-            ai = Signal((widthz + guard, True))
+            ai = Signal((widthz + guard, True), reset_less=True)
             self.sync += ai.eq(Array(a)[i])
             if range(stages) == s:
                 si = i - 1  # shortcut if no stage repetitions
             else:
-                si = Signal(max=stages + 1)
+                si = Signal(max=stages + 1, reset_less=True)
                 self.sync += si.eq(Array(s)[i])
             xi, yi, zi = x[1], y[1], z[1]
             self.sync += [
