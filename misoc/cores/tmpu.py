@@ -49,7 +49,7 @@ class TMPU(Module, AutoCSR):
                (page == self.prog_address.storage), error.eq(1))
         ]
         self.comb += [
-            input_bus.connect(self.output_bus, leave_out={"ack", "err"}),
+            input_bus.connect(self.output_bus, omit={"ack", "err"}),
             If(error,
                 input_bus.ack.eq(0),
                 input_bus.err.eq(self.output_bus.ack | self.output_bus.err)
