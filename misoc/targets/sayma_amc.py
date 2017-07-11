@@ -4,7 +4,7 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
-from migen.build.platforms import sayma_amc
+from migen.build.platforms.sinara import sayma_amc
 
 from misoc.cores.sdram_settings import MT41J256M16
 from misoc.cores.sdram_phy import kusddrphy
