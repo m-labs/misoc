@@ -65,7 +65,7 @@ class SoCSDRAM(SoCCore):
         wb_sdram = wishbone.Interface()
         self.add_cpulevel_sdram_if(wb_sdram)
         self.register_mem("main_ram", self.mem_map["main_ram"],
-                          wb_sdram, main_ram_size)
+                          main_ram_size, wb_sdram)
 
         # create DFI injector
         self.submodules.dfii = dfii.DFIInjector(

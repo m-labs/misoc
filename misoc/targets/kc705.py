@@ -11,7 +11,6 @@ from misoc.cores.sdram_phy import k7ddrphy
 from misoc.cores import spi_flash
 from misoc.cores.liteeth_mini.phy import LiteEthPHY
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
-from misoc.integration.soc_core import mem_decoder
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
 
@@ -100,7 +99,7 @@ class BaseSoC(SoCSDRAM):
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.flash_boot_address = 0xb00000
-            self.register_rom(self.spiflash.bus)
+            self.register_rom(self.spiflash.bus, 16*1024*1024)
 
 
 class MiniSoC(BaseSoC):
@@ -120,9 +119,10 @@ class MiniSoC(BaseSoC):
                                             self.platform.request("eth"), clk_freq=self.clk_freq)
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
                                             nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
-        self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
+        ethmac_len = (ethmac_nrxslots + ethmac_ntxslots) * 0x800
+        self.add_wb_slave(self.mem_map["ethmac"], ethmac_len, self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
-                               (ethmac_nrxslots + ethmac_ntxslots) * 0x800)
+                               ethmac_len)
 
         self.crg.cd_sys.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")

@@ -6,19 +6,59 @@ from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart
 from misoc.interconnect import wishbone, csr_bus, wishbone2csr
 
 
-__all__ = ["mem_decoder", "SoCCore", "soc_core_args", "soc_core_argdict"]
+__all__ = ["SoCCore", "soc_core_args", "soc_core_argdict"]
 
 
-def mem_decoder(address, start=26, end=29):
-    return lambda a: a[start:end] == ((address >> (start+2)) & (2**(end-start))-1)
+def split(bit, addresses):
+    s0 = []
+    s1 = []
+    mask = 1 << bit
+    for address in addresses:
+        if address & mask:
+            s1.append(address)
+        else:
+            s0.append(address)
+    return s0, s1
+
+
+# returns a dict of address -> (bits to test for 0, bits to test for 1) 
+def make_decoder(word_size, addresses):
+    if len(addresses) == 1:
+        return {addresses[0]: ([], [])}
+    else:
+        for i in reversed(range(word_size)):
+            s0, s1 = split(i, addresses)
+            if s0 and s1:
+                break
+        assert s0 and s1
+        d0 = make_decoder(i, s0)
+        d1 = make_decoder(i, s1)
+        r = {}
+        for address, (bits0, bits1) in d0.items():
+            r[address] = (bits0 + [i], bits1)
+        for address, (bits0, bits1) in d1.items():
+            r[address] = (bits0, bits1 + [i])
+        return r
+
+
+def make_sel_fun(bits):
+    bits0, bits1 = bits
+    def sel_fun(x):
+        r = 1
+        for bit0 in bits0:
+            r = r & ~x[bit0]
+        for bit1 in bits1:
+            r = r & x[bit1]
+        return r
+    return sel_fun
 
 
 class SoCCore(Module):
     mem_map = {
-        "rom":      0x00000000,  # (default shadow @0x80000000)
-        "sram":     0x10000000,  # (default shadow @0x90000000)
-        "main_ram": 0x40000000,  # (default shadow @0xc0000000)
-        "csr":      0x60000000,  # (default shadow @0xe0000000)
+        "rom":      0x00000000,
+        "sram":     0x10000000,
+        "main_ram": 0x40000000,
+        "csr":      0x60000000,
     }
     def __init__(self, platform, clk_freq,
                 cpu_type="lm32", cpu_reset_address=0x00000000,
@@ -55,7 +95,7 @@ class SoCCore(Module):
         self._constants = []  # list of (name, value)
 
         self._wb_masters = []
-        self._wb_slaves = []
+        self._wb_slaves = []  # list of (origin, length, interface)
 
         self.config = dict()
 
@@ -86,16 +126,15 @@ class SoCCore(Module):
 
         if integrated_sram_size:
             self.submodules.sram = wishbone.SRAM(integrated_sram_size)
-            self.register_mem("sram", self.mem_map["sram"], self.sram.bus, integrated_sram_size)
+            self.register_mem("sram", self.mem_map["sram"], integrated_sram_size, self.sram.bus)
 
-        # Note: Main Ram can be used when no external SDRAM is available and use SDRAM mapping.
+        # Main Ram can be used when no external SDRAM is present, and use SDRAM mapping.
         if integrated_main_ram_size:
             self.submodules.main_ram = wishbone.SRAM(integrated_main_ram_size)
-            self.register_mem("main_ram", self.mem_map["main_ram"], self.main_ram.bus, integrated_main_ram_size)
 
         self.submodules.wishbone2csr = wishbone2csr.WB2CSR(
             bus_csr=csr_bus.Interface(csr_data_width, csr_address_width))
-        self.register_mem("csr", self.mem_map["csr"], self.wishbone2csr.wishbone)
+        self.register_mem("csr", self.mem_map["csr"], 4*2**csr_address_width, self.wishbone2csr.wishbone)
 
         if with_uart:
             self.submodules.uart_phy = uart.RS232PHY(platform.request("serial"), clk_freq, uart_baudrate)
@@ -119,28 +158,36 @@ class SoCCore(Module):
             raise FinalizeError
         self._wb_masters.append(wbm)
 
-    def add_wb_slave(self, address_decoder, interface):
+    def add_wb_slave(self, origin, length, interface):
         if self.finalized:
             raise FinalizeError
-        self._wb_slaves.append((address_decoder, interface))
-
-    def add_memory_region(self, name, origin, length):
+        if origin < 0 or length <= 0 or origin + length > self.shadow_base:
+            raise ValueError("Invalid range for origin/length of Wishbone region")
+        if origin & 3 or length & 3:
+            raise ValueError("Misaligned Wishbone address")
         def in_this_region(addr):
             return addr >= origin and addr < origin + length
-        for n, o, l in self._memory_regions:
-            if n == name or in_this_region(o) or in_this_region(o+l-1):
-                raise ValueError("Memory region conflict between {} and {}".format(n, name))
+        for o, l, _ in self._wb_slaves:
+            if in_this_region(o) or in_this_region(o+l-1):
+                raise ValueError("Wishbone conflict with region at 0x{:08x} of length 0x{:x}"
+                                 .format(o, l))
 
+        self._wb_slaves.append((origin, length, interface))
+
+    # This function simply registers the memory region for firmware purposes
+    # (linker script, generated headers)
+    def add_memory_region(self, name, origin, length):
         self._memory_regions.append((name, origin, length))
 
-    def register_mem(self, name, address, interface, size=None):
-        self.add_wb_slave(mem_decoder(address), interface)
-        if size is not None:
-            self.add_memory_region(name, address, size)
+    def register_mem(self, name, origin, length, interface):
+        self.add_wb_slave(origin, length, interface)
+        self.add_memory_region(name, origin, length)
 
     def register_rom(self, interface, rom_size=0xa000):
-        self.add_wb_slave(mem_decoder(self.mem_map["rom"]), interface)
-        self.add_memory_region("rom", self.cpu_reset_address, rom_size)
+        self.add_wb_slave(self.mem_map["rom"], rom_size, interface)
+        assert self.cpu_reset_address < rom_size
+        self.add_memory_region("rom", self.cpu_reset_address,
+                               rom_size-self.cpu_reset_address)
 
     def get_memory_regions(self):
         return self._memory_regions
@@ -182,8 +229,12 @@ class SoCCore(Module):
                 raise FinalizeError("CPU needs a {} to be registered with register_mem()".format(mem))
 
         # Wishbone
+        decoder = make_decoder(30, [origin >> 2 for origin, _, _ in self._wb_slaves])
+        wb_slaves = []
+        for origin, _, interface in self._wb_slaves:
+            wb_slaves.append((make_sel_fun(decoder[origin >> 2]), interface))
         self.submodules.wishbonecon = wishbone.InterconnectShared(self._wb_masters,
-            self._wb_slaves, register=True)
+            wb_slaves, register=True)
 
         # CSR
         self.submodules.csrbankarray = csr_bus.CSRBankArray(self,

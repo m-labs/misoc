@@ -36,7 +36,7 @@ class MiniSoC(BaseSoC):
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32,
                                             interface="wishbone",
                                             with_preamble_crc=False)
-        self.add_wb_slave(mem_decoder(self.mem_map["ethmac"]), self.ethmac.bus)
+        self.add_wb_slave(self.mem_map["ethmac"], 0x2000, self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
