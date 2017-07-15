@@ -87,6 +87,7 @@ class Builder:
     def _generate_includes(self):
         cpu_type = self.soc.cpu_type
         memory_regions = self.soc.get_memory_regions()
+        memory_groups = self.soc.get_memory_groups()
         flash_boot_address = getattr(self.soc, "flash_boot_address", None)
         csr_regions = self.soc.get_csr_regions()
         csr_groups = self.soc.get_csr_groups()
@@ -122,7 +123,7 @@ class Builder:
             f.write(cpu_interface.get_csr_header(csr_regions, constants))
 
         with WriteGenerated(generated_dir, "mem.rs") as f:
-            f.write(cpu_interface.get_mem_rust(memory_regions, flash_boot_address))
+            f.write(cpu_interface.get_mem_rust(memory_regions, memory_groups, flash_boot_address))
         with WriteGenerated(generated_dir, "csr.rs") as f:
             f.write(cpu_interface.get_csr_rust(csr_regions, csr_groups, constants))
         with WriteGenerated(generated_dir, "rust-cfg") as f:

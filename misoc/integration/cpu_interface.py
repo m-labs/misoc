@@ -44,7 +44,7 @@ def get_mem_header(regions, flash_boot_address):
     return r
 
 
-def get_mem_rust(regions, flash_boot_address):
+def get_mem_rust(regions, groups, flash_boot_address):
     r  = "// Include this file as:\n"
     r += "//     include!(concat!(env!(\"BUILDINC_DIRECTORY\"), \"/generated/mem.rs\"));\n"
     r += "#[allow(dead_code)]\n"
@@ -54,9 +54,27 @@ def get_mem_rust(regions, flash_boot_address):
             format(name=name.upper(), base=base)
         r += "  pub const {name}_SIZE: usize = 0x{size:08x};\n\n". \
             format(name=name.upper(), size=size)
+
+    if groups:
+        r += "  pub struct MemoryRegion {\n"
+        r += "    pub base: usize,\n"
+        r += "    pub size: usize,\n"
+        r += "  }\n\n"
+
+        for group_name, group_members in groups:
+            r += ("  pub static " + group_name.upper() +
+                  ": [MemoryRegion; " + str(len(group_members)) + "] = [\n")
+            for member in group_members:
+                r += "    MemoryRegion { "
+                r += "base: "+member.upper()+"_BASE, "
+                r += "size: "+member.upper()+"_SIZE, "
+                r += "},\n"
+            r += "  ];\n\n"
+
     if flash_boot_address is not None:
         r += "  pub const FLASH_BOOT_ADDRESS: usize = 0x{:08x};\n\n". \
             format(flash_boot_address)
+
     r += "}\n"
     return r
 
@@ -229,7 +247,7 @@ def get_csr_rust(regions, groups, constants):
                 r += "    pub " + csr.name + "_read: fn() -> " + rstype + ",\n"
                 if not is_readonly(csr):
                     r += "    pub " + csr.name + "_write: fn(" + rstype + "),\n";
-            r += "  };\n\n"
+            r += "  }\n\n"
 
             r += ("  pub static " + group_name.upper() +
                   ": [" + struct_name + "; " + str(len(group_members)) + "] = [\n")

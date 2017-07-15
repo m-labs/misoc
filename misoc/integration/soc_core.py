@@ -63,6 +63,7 @@ class SoCCore(Module):
             "timer0",
             "tmpu"
         ]
+        self._memory_groups = []  # list of (group_name, (group_member0, group_member1, ...))
         self._csr_groups = []  # list of (group_name, (group_member0, group_member1, ...))
         self.interrupt_devices = []
 
@@ -125,6 +126,9 @@ class SoCCore(Module):
     def add_memory_region(self, name, origin, length):
         self._memory_regions.append((name, origin, length))
 
+    def add_memory_group(self, group_name, members):
+        self._memory_groups.append((group_name, members))
+
     def register_mem(self, name, origin, length, interface):
         self.add_wb_slave(origin, length, interface)
         self.add_memory_region(name, origin, length)
@@ -137,6 +141,9 @@ class SoCCore(Module):
 
     def get_memory_regions(self):
         return self._memory_regions
+
+    def get_memory_groups(self):
+        return self._memory_groups
 
     def check_csr_region(self, name, origin):
         for n, o, l, obj in self._csr_regions:
