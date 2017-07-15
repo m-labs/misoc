@@ -63,7 +63,7 @@ class SoCCore(Module):
             "timer0",
             "tmpu"
         ]
-        self.csr_groups = []
+        self._csr_groups = []  # list of (group_name, (group_member0, group_member1, ...))
         self.interrupt_devices = []
 
         if cpu_type == "lm32":
@@ -147,11 +147,14 @@ class SoCCore(Module):
         self.check_csr_region(name, origin)
         self._csr_regions.append((name, origin, busword, obj))
 
+    def add_csr_group(self, group_name, members):
+        self._csr_groups.append((group_name, members))
+
     def get_csr_regions(self):
         return self._csr_regions
 
     def get_csr_groups(self):
-        return self.csr_groups
+        return self._csr_groups
 
     def get_constants(self):
         r = []
