@@ -244,12 +244,12 @@ def get_csr_rust(regions, groups, constants):
             for csr in csrs:
                 nwords = (csr.size + busword - 1)//busword
                 rstype = _get_rstype(nwords*busword)
-                r += "    pub " + csr.name + "_read: fn() -> " + rstype + ",\n"
+                r += "    pub " + csr.name + "_read: unsafe fn() -> " + rstype + ",\n"
                 if not is_readonly(csr):
-                    r += "    pub " + csr.name + "_write: fn(" + rstype + "),\n";
+                    r += "    pub " + csr.name + "_write: unsafe fn(" + rstype + "),\n";
             r += "  }\n\n"
 
-            r += ("  pub static " + group_name.upper() +
+            r += ("  pub const " + group_name.upper() +
                   ": [" + struct_name + "; " + str(len(group_members)) + "] = [\n")
             for member in group_members:
                 r += "    " + struct_name + " {\n"
