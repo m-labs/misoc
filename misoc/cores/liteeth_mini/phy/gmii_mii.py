@@ -160,7 +160,7 @@ class LiteEthGMIIMIIModeDetection(Module, AutoCSR):
 
 
 class LiteEthPHYGMIIMII(Module, AutoCSR):
-    def __init__(self, clock_pads, pads, clk_freq):
+    def __init__(self, clock_pads, pads, clk_freq=None):
         self.dw = 8
         # Note: we can use GMII CRG since it also handles tx clock pad used for MII
         self.submodules.mode_detection = LiteEthGMIIMIIModeDetection(clk_freq)
