@@ -73,8 +73,6 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    default_platform = "kc705"
-
     def __init__(self, toolchain="vivado", sdram_controller_type="minicon", **kwargs):
         platform = kc705.Platform(toolchain=toolchain)
         SoCSDRAM.__init__(self, platform,
