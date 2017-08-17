@@ -74,8 +74,7 @@ class BaseSoC(SoCSDRAM):
     def __init__(self, sdram="ddram_64", sdram_controller_type="minicon", **kwargs):
         platform = sayma_amc.Platform()
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
-                          integrated_rom_size=0x8000,
-                          integrated_sram_size=0x8000,
+                          integrated_rom_size=0x10000,
                           **kwargs)
         self.csr_devices += ["ddrphy"]
 
