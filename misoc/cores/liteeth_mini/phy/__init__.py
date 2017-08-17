@@ -14,7 +14,8 @@ def LiteEthPHY(clock_pads, pads, clk_freq=None, **kwargs):
             return LiteEthPHYGMII(clock_pads, pads, **kwargs)
     elif hasattr(pads, "rx_ctl"):
         # This is a 10/100/1G RGMII PHY
-        raise ValueError("RGMII PHYs are specific to vendors (for now), use direct instantiation")
+        from misoc.cores.liteeth_mini.phy.rgmii import LiteEthPHYRGMII
+        return LiteEthPHYRGMII(clock_pads, pads, **kwargs)
     elif len(pads.tx_data) == 4:
         # This is a MII PHY
         from misoc.cores.liteeth_mini.phy.mii import LiteEthPHYMII
