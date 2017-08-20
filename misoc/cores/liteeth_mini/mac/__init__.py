@@ -6,7 +6,7 @@ from misoc.cores.liteeth_mini.mac.core import LiteEthMACCore
 from misoc.cores.liteeth_mini.mac.wishbone import LiteEthMACWishboneInterface
 
 
-class LiteEthMAC(Module):
+class LiteEthMAC(Module, AutoCSR):
     def __init__(self, phy, dw,
                  interface="wishbone",
                  endianness="big",
@@ -14,6 +14,7 @@ class LiteEthMAC(Module):
                  nrxslots=2,
                  ntxslots=2):
         self.submodules.core = LiteEthMACCore(phy, dw, endianness, with_preamble_crc)
+        self.csrs = []
         if interface == "wishbone":
             self.submodules.interface = LiteEthMACWishboneInterface(dw, nrxslots, ntxslots)
             self.comb += [
@@ -24,3 +25,6 @@ class LiteEthMAC(Module):
             self.csrs = self.interface.get_csrs() + self.core.get_csrs()
         else:
             raise NotImplementedError
+
+    def get_csrs(self):
+        return self.csrs
