@@ -36,15 +36,12 @@ class LiteEthPHYRGMIIRX(Module):
                                       ClockSignal("eth_rx"))
 
         rx_ctl_d = Signal()
-        self.sync.eth_rx += rx_ctl_d.eq(rx_ctl)
-        eop = Signal()
-        self.comb += eop.eq(~rx_ctl & rx_ctl_d)
-
         self.sync.eth_rx += [
+            rx_ctl_d.eq(rx_ctl),
             source.stb.eq(rx_ctl),
             source.data.eq(rx_data)
         ]
-        self.comb += source.eop.eq(eop)
+        self.comb += source.eop.eq(~rx_ctl & rx_ctl_d)
 
 
 class LiteEthPHYRGMIICRG(Module, AutoCSR):
