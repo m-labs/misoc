@@ -99,8 +99,10 @@ class MiniSoC(BaseSoC):
         self.interrupt_devices.append("ethmac")
 
         eth_clocks = self.platform.request("eth_clocks")
+        eth = self.platform.request("eth")
         self.submodules.ethphy = LiteEthPHY(eth_clocks,
-                                            self.platform.request("eth"), clk_freq=self.clk_freq)
+                                            eth, clk_freq=self.clk_freq)
+        self.comb += eth.mdc.eq(0)
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
                                             nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
         ethmac_len = (ethmac_nrxslots + ethmac_ntxslots) * 0x800
