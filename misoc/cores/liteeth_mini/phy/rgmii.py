@@ -36,11 +36,11 @@ class LiteEthPHYRGMIIRX(Module):
                                       ClockSignal("eth_rx"))
 
         rx_ctl_d = Signal()
-        self.sync += rx_ctl_d.eq(rx_ctl)
+        self.sync.eth_rx += rx_ctl_d.eq(rx_ctl)
         eop = Signal()
         self.comb += eop.eq(~rx_ctl & rx_ctl_d)
 
-        self.sync += [
+        self.sync.eth_rx += [
             source.stb.eq(rx_ctl),
             source.data.eq(rx_data)
         ]
@@ -75,6 +75,6 @@ class LiteEthPHYRGMII(Module, AutoCSR):
     def __init__(self, clock_pads, pads):
         self.dw = 8
         self.submodules.crg = LiteEthPHYRGMIICRG(clock_pads, pads)
-        self.submodules.tx = ClockDomainsRenamer("eth_tx")(LiteEthPHYRGMIITX(pads))
-        self.submodules.rx = ClockDomainsRenamer("eth_rx")(LiteEthPHYRGMIIRX(pads))
+        self.submodules.tx = LiteEthPHYRGMIITX(pads)
+        self.submodules.rx = LiteEthPHYRGMIIRX(pads)
         self.sink, self.source = self.tx.sink, self.rx.source
