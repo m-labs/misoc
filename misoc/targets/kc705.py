@@ -78,7 +78,6 @@ class BaseSoC(SoCSDRAM):
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125*1000000, cpu_reset_address=0xaf0000,
                           **kwargs)
-        self.csr_devices += ["spiflash", "ddrphy"]
 
         self.submodules.crg = _CRG(platform)
 
@@ -86,6 +85,7 @@ class BaseSoC(SoCSDRAM):
         sdram_module = MT8JTF12864(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy, sdram_controller_type,
                             sdram_module.geom_settings, sdram_module.timing_settings)
+        self.csr_devices.append("ddrphy")
 
         if not self.integrated_rom_size:
             spiflash_pads = platform.request("spiflash")
@@ -98,6 +98,7 @@ class BaseSoC(SoCSDRAM):
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.flash_boot_address = 0xb00000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
+            self.csr_devices.append("spiflash")
 
 
 class MiniSoC(BaseSoC):
