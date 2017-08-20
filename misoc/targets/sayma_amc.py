@@ -8,6 +8,7 @@ from migen.build.platforms.sinara import sayma_amc
 
 from misoc.cores.sdram_settings import MT41J256M16
 from misoc.cores.sdram_phy import kusddrphy
+from misoc.cores import spi_flash
 from misoc.cores.liteeth_mini.phy import LiteEthPHY
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
@@ -76,7 +77,6 @@ class BaseSoC(SoCSDRAM):
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
                           integrated_rom_size=0x10000,
                           **kwargs)
-        self.csr_devices += ["ddrphy"]
 
         self.submodules.crg = _CRG(platform)
 
@@ -85,6 +85,24 @@ class BaseSoC(SoCSDRAM):
         sdram_module = MT41J256M16(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy, sdram_controller_type,
                             sdram_module.geom_settings, sdram_module.timing_settings)
+        self.csr_devices.append("ddrphy")
+
+        if not self.integrated_rom_size:
+            spiflash_pads = platform.request("spiflash")
+            spiflash_pads.clk = Signal()
+            self.specials += Instance("STARTUPE3", i_GSR=0, i_GTS=0,
+                                      i_KEYCLEARB=0, i_PACK=1,
+                                      i_USRDONEO=1, i_USRDONETS=1,
+                                      i_USRCCLKO=spiflash_pads.clk, i_USRCCLKTS=0,
+                                      i_FCSBO=1, i_FCSBTS=0,
+                                      o_DI=di, i_DO=do, i_DTS=0b1110)
+            self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
+            self.config["SPIFLASH_PAGE_SIZE"] = 256
+            self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
+            self.flash_boot_address = 0x10000
+            self.register_rom(self.spiflash.bus, 16*1024*1024)
+            self.csr_devices.append("spiflash")
+
 
 class MiniSoC(BaseSoC):
     mem_map = {
