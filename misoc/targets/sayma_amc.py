@@ -81,7 +81,7 @@ class BaseSoC(SoCSDRAM):
         self.submodules.crg = _CRG(platform)
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
-        self.config["KUSDDRPHY"] = 1
+        self.config["KUSDDRPHY"] = None
         sdram_module = MT41J256M16(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy, sdram_controller_type,
                             sdram_module.geom_settings, sdram_module.timing_settings)
