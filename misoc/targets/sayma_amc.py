@@ -95,7 +95,7 @@ class BaseSoC(SoCSDRAM):
                                       i_USRDONEO=1, i_USRDONETS=1,
                                       i_USRCCLKO=spiflash_pads.clk, i_USRCCLKTS=0,
                                       i_FCSBO=1, i_FCSBTS=0,
-                                      o_DI=di, i_DO=do, i_DTS=0b1110)
+                                      i_DO=0, i_DTS=0b1110)
             self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
