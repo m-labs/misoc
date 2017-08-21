@@ -78,6 +78,8 @@ class BaseSoC(SoCSDRAM):
                           **kwargs)
 
         self.submodules.crg = _CRG(platform)
+        self.crg.cd_sys.clk.attr.add("keep")
+        platform.add_period_constraint(self.crg.cd_sys.clk, 8.0)
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
         self.config["KUSDDRPHY"] = None
