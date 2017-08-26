@@ -647,7 +647,7 @@ class SRAM(Module):
         # generate ack
         self.sync += [
             self.bus.ack.eq(0),
-            If(self.bus.cyc & self.bus.stb & ~self.bus.ack,    self.bus.ack.eq(1))
+            If(self.bus.cyc & self.bus.stb & ~self.bus.ack, self.bus.ack.eq(1))
         ]
 
 
