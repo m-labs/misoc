@@ -171,13 +171,13 @@ def _get_rstype(size):
         return "bool"
 
 
-def _get_rw_functions_rs(reg_name, reg_base, nwords, busword, read_only):
+def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only):
     r = ""
 
     r += "    pub const "+reg_name.upper()+"_ADDR: *mut u32 = "+hex(reg_base)+" as *mut u32;\n"
     r += "    pub const "+reg_name.upper()+"_SIZE: usize = "+str(nwords)+";\n\n"
 
-    rstype = _get_rstype(nwords*busword)
+    rstype = _get_rstype(size)
     if rstype is None:
         return r
     rsname = reg_name.upper()+"_ADDR"
@@ -230,7 +230,7 @@ def get_csr_rust(regions, groups, constants):
             r += "    use core::ptr::{read_volatile, write_volatile};\n\n"
             for csr in obj:
                 nwords = (csr.size + busword - 1)//busword
-                r += _get_rw_functions_rs(csr.name, origin, nwords, busword,
+                r += _get_rw_functions_rs(csr.name, origin, csr.size, nwords, busword,
                                           is_readonly(csr))
                 origin += 4*nwords
             r += "  }\n\n"
