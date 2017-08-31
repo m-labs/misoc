@@ -1,3 +1,7 @@
+import collections
+from operator import or_
+from functools import reduce
+
 from migen import *
 from migen.genlib.fsm import FSM, NextState
 from misoc.interconnect.csr import *
@@ -225,12 +229,17 @@ class SPIMaster(Module, AutoCSR):
         * If desired, write data queuing the next (possibly chained) transfer.
     """
     def __init__(self, pads, data_width=32, clock_width=8, bits_width=6):
+        if isinstance(pads, collections.Iterable):
+            pads_list = pads
+        else:
+            pads_list = [pads]
+
         # CSR
         self._data_read = CSRStatus(data_width)
         self._data_write = CSRStorage(data_width, atomic_write=True)
         self._xfer_len_read = CSRStorage(bits_width)
         self._xfer_len_write = CSRStorage(bits_width)
-        self._cs = CSRStorage(len(pads.cs_n))
+        self._cs = CSRStorage(sum(len(pads.cs_n) for pads in pads_list))
         self._offline = CSRStorage(reset=1)
         self._cs_polarity = CSRStorage()
         self._clk_polarity = CSRStorage()
@@ -293,28 +302,37 @@ class SPIMaster(Module, AutoCSR):
         ]
 
         # I/O
-        if hasattr(pads, "cs_n"):
+        all_cs = Signal(len(cs))
+        self.comb += all_cs.eq((cs & Replicate(spi.cs, len(cs))) ^
+                                Replicate(~self._cs_polarity.storage, len(cs)))
+        offset = 0
+        for pads in pads_list:
             cs_n_t = TSTriple(len(pads.cs_n))
             self.specials += cs_n_t.get_tristate(pads.cs_n)
             self.comb += [
                 cs_n_t.oe.eq(~self._offline.storage),
-                cs_n_t.o.eq((cs & Replicate(spi.cs, len(cs))) ^
-                            Replicate(~self._cs_polarity.storage, len(cs))),
+                cs_n_t.o.eq(all_cs[offset:]),
+            ]
+            offset += len(pads.cs_n)
+
+        for pads in pads_list:
+            clk_t = TSTriple()
+            self.specials += clk_t.get_tristate(pads.clk)
+            self.comb += [
+                clk_t.oe.eq(~self._offline.storage),
+                clk_t.o.eq((spi.cg.clk & spi.cs) ^ self._clk_polarity.storage),
             ]
 
-        clk_t = TSTriple()
-        self.specials += clk_t.get_tristate(pads.clk)
-        self.comb += [
-            clk_t.oe.eq(~self._offline.storage),
-            clk_t.o.eq((spi.cg.clk & spi.cs) ^ self._clk_polarity.storage),
-        ]
+            mosi_t = TSTriple()
+            self.specials += mosi_t.get_tristate(pads.mosi)
+            self.comb += [
+                mosi_t.oe.eq(~self._offline.storage & spi.cs &
+                            (spi.oe | ~self._half_duplex.storage)),
+                mosi_t.o.eq(spi.reg.o),
+            ]
 
-        mosi_t = TSTriple()
-        self.specials += mosi_t.get_tristate(pads.mosi)
-        self.comb += [
-            mosi_t.oe.eq(~self._offline.storage & spi.cs &
-                         (spi.oe | ~self._half_duplex.storage)),
-            mosi_t.o.eq(spi.reg.o),
-            spi.reg.i.eq(Mux(self._half_duplex.storage, mosi_t.i,
-                             getattr(pads, "miso", mosi_t.i))),
-        ]
+        if all(hasattr(pads, "miso") for pads in pads_list):
+            miso = reduce(or_, [pads.miso for pads in pads_list])
+        else:
+            miso = mosi_t.i
+        self.comb += spi.reg.i.eq(Mux(self._half_duplex.storage, mosi_t.i, miso))
