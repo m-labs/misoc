@@ -1,6 +1,4 @@
 import collections
-from operator import or_
-from functools import reduce
 
 from migen import *
 from migen.genlib.fsm import FSM, NextState
