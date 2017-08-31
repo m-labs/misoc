@@ -295,6 +295,6 @@ def get_csr_csv(regions):
         if not isinstance(obj, Memory):
             for csr in obj:
                 nr = (csr.size + busword - 1)//busword
-                r += "{}.{},0x{:08x},{},{}\n".format(name, csr.name, origin, nr, "ro" if is_readonly(csr) else "rw")
+                r += "{}.{},0x{:08x},{},{}\n".format(name, csr.name, origin, csr.size, "ro" if is_readonly(csr) else "rw")
                 origin += 4*nr
     return r
