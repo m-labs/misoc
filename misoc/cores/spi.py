@@ -315,6 +315,8 @@ class SPIMaster(Module, AutoCSR):
             ]
             offset += len(pads.cs_n)
 
+        miso_r = 0
+        mosi_t_i_r = 0
         for pads in pads_list:
             clk_t = TSTriple()
             self.specials += clk_t.get_tristate(pads.clk)
@@ -330,9 +332,7 @@ class SPIMaster(Module, AutoCSR):
                             (spi.oe | ~self._half_duplex.storage)),
                 mosi_t.o.eq(spi.reg.o),
             ]
+            miso_r |= getattr(pads, "miso", 0)
+            mosi_t_i_r |= mosi_t.i
 
-        if all(hasattr(pads, "miso") for pads in pads_list):
-            miso = reduce(or_, [pads.miso for pads in pads_list])
-        else:
-            miso = mosi_t.i
-        self.comb += spi.reg.i.eq(Mux(self._half_duplex.storage, mosi_t.i, miso))
+        self.comb += spi.reg.i.eq(Mux(self._half_duplex.storage, mosi_t_i_r, miso_r))
