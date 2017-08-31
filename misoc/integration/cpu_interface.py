@@ -165,10 +165,8 @@ def _get_rstype(size):
         return "u32"
     elif size > 8:
         return "u16"
-    elif size > 1:
-        return "u8"
     else:
-        return "bool"
+        return "u8"
 
 
 def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only):
