@@ -225,6 +225,7 @@ def get_csr_rust(regions, groups, constants):
         if not isinstance(obj, Memory):
             r += "\n"
             r += "  pub mod "+name+" {\n"
+            r += "    #[allow(unused_imports)]\n"
             r += "    use core::ptr::{read_volatile, write_volatile};\n\n"
             for csr in obj:
                 nwords = (csr.size + busword - 1)//busword
