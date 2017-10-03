@@ -16,6 +16,10 @@ class LiteEthMAC(Module, AutoCSR):
         self.submodules.core = LiteEthMACCore(phy, dw, endianness, with_preamble_crc)
         self.csrs = []
         if interface == "wishbone":
+            self.rx_slots = CSRConstant(nrxslots)
+            self.tx_slots = CSRConstant(ntxslots)
+            self.slot_size = CSRConstant(2**bits_for(eth_mtu))
+
             self.submodules.interface = LiteEthMACWishboneInterface(dw, nrxslots, ntxslots)
             self.comb += [
                 self.interface.source.connect(self.core.sink),
