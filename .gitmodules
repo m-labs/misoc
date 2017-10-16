@@ -2,8 +2,8 @@
 	path = misoc/cores/lm32/verilog/submodule
 	url = https://github.com/m-labs/lm32.git
 [submodule "misoc/cores/mor1kx/verilog"]
-    path = misoc/cores/mor1kx/verilog
-    url = https://github.com/openrisc/mor1kx.git
+	path = misoc/cores/mor1kx/verilog
+	url = https://github.com/m-labs/mor1kx.git
 [submodule "misoc/software/compiler_rt"]
 	path = misoc/software/compiler_rt
 	url = http://llvm.org/git/compiler-rt.git
