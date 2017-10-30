@@ -257,12 +257,8 @@ class LiteEthMACCRCChecker(Module):
             source.payload.eq(fifo.source.payload),
 
             source.error.eq(sink.error | crc.error),
+            self.crc_error.eq(sink.eop & crc.error),
         ]
-
-        crc_error_r = Signal()
-
-        self.comb += self.crc_error.eq(crc.error & ~crc_error_r)
-        self.sync += crc_error_r.eq(crc.error)
 
         fsm.act("RESET",
             crc.reset.eq(1),
