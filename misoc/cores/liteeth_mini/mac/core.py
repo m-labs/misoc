@@ -1,4 +1,5 @@
 from migen import *
+from migen.genlib.cdc import PulseSynchronizer
 
 from misoc.interconnect.csr import *
 from misoc.interconnect import stream
@@ -28,6 +29,8 @@ class LiteEthMACCore(Module, AutoCSR):
         # Preamble / CRC
         if with_preamble_crc:
             self._preamble_crc = CSRStatus(reset=1)
+            self.crc_errors = CSRStatus(32)
+
             # Preamble insert/check
             preamble_inserter = preamble.LiteEthMACPreambleInserter(phy.dw)
             preamble_checker = preamble.LiteEthMACPreambleChecker(phy.dw)
@@ -42,6 +45,14 @@ class LiteEthMACCore(Module, AutoCSR):
 
             tx_pipeline += [preamble_inserter, crc32_inserter]
             rx_pipeline += [preamble_checker, crc32_checker]
+
+            # CRC error counter
+            self.submodules.ps_crc_error = PulseSynchronizer("eth_rx", "sys")
+
+            self.comb += self.ps_crc_error.i.eq(crc32_checker.crc_error)
+            self.sync += [
+                If(self.ps_crc_error.o,
+                    self.crc_errors.status.eq(self.crc_errors.status + 1))]
 
         # Padding
         if with_padding:

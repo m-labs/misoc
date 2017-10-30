@@ -17,6 +17,8 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         self._slot = CSRStatus(slotbits)
         self._length = CSRStatus(lengthbits)
 
+        self.errors = CSRStatus(32)
+
         self.submodules.ev = EventManager()
         self.ev.available = EventSourceLevel()
         self.ev.finalize()
@@ -69,6 +71,9 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
                     ongoing.eq(1),
                     counter_ce.eq(1),
                     NextState("WRITE")
+                ).Else(
+                    NextValue(self.errors.status, self.errors.status + 1),
+                    NextState("DISCARD_REMAINING")
                 )
             )
         )
