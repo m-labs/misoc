@@ -1,4 +1,7 @@
 import collections
+from functools import reduce
+from operator import or_
+
 
 from migen import *
 from migen.genlib.fsm import FSM, NextState
@@ -239,7 +242,7 @@ class SPIMaster(Module, AutoCSR):
         self._xfer_len_write = CSRStorage(bits_width)
         self._cs = CSRStorage(sum(len(pads.cs_n) for pads in pads_list))
         self._offline = CSRStorage(reset=1)
-        self._cs_polarity = CSRStorage()
+        self._cs_polarity = CSRStorage(len(self._cs.storage))
         self._clk_polarity = CSRStorage()
         self._clk_phase = CSRStorage()
         self._lsb_first = CSRStorage()
@@ -301,8 +304,7 @@ class SPIMaster(Module, AutoCSR):
 
         # I/O
         all_cs = Signal(len(cs))
-        self.comb += all_cs.eq((cs & Replicate(spi.cs, len(cs))) ^
-                                Replicate(~self._cs_polarity.storage, len(cs)))
+        self.comb += all_cs.eq((cs & Replicate(spi.cs, len(cs))) ^ ~self._cs_polarity.storage)
         offset = 0
         for pads in pads_list:
             cs_n_t = TSTriple(len(pads.cs_n))
@@ -313,8 +315,9 @@ class SPIMaster(Module, AutoCSR):
             ]
             offset += len(pads.cs_n)
 
-        miso_r = 0
-        mosi_t_i_r = 0
+        offset = 0
+        miso_r = Signal(len(cs))
+        mosi_t_i_r = Signal(len(cs))
         for pads in pads_list:
             clk_t = TSTriple()
             self.specials += clk_t.get_tristate(pads.clk)
@@ -330,7 +333,9 @@ class SPIMaster(Module, AutoCSR):
                             (spi.oe | ~self._half_duplex.storage)),
                 mosi_t.o.eq(spi.reg.o),
             ]
-            miso_r |= getattr(pads, "miso", 0)
-            mosi_t_i_r |= mosi_t.i
+            for i in range(len(pads.cs_n)):
+                self.comb += miso_r[offset].eq(getattr(pads, "miso", 0))
+                self.comb += mosi_t_i_r[offset].eq(mosi_t.i)
+                offset += 1
 
-        self.comb += spi.reg.i.eq(Mux(self._half_duplex.storage, mosi_t_i_r, miso_r))
+        self.comb += spi.reg.i.eq((Mux(self._half_duplex.storage, mosi_t_i_r, miso_r) & cs) != 0)
