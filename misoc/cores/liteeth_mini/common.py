@@ -12,10 +12,3 @@ def eth_phy_layout(dw):
         ("last_be", dw//8),
         ("error", dw//8)
     ]
-
-def eth_mac_layout(dw):
-    return mac_header.get_layout() + [
-        ("data", dw),
-        ("last_be", dw//8),
-        ("error", dw//8)
-    ]
