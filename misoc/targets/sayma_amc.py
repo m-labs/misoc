@@ -46,7 +46,7 @@ class _CRG(Module):
                      p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_sys4x,
 
                      # 500MHz dqs
-                     p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=pll_sys4x_dqs,
+                     p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=45.0, o_CLKOUT2=pll_sys4x_dqs,
 
                      # 200MHz
                      p_CLKOUT3_DIVIDE=5, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=pll_clk200
