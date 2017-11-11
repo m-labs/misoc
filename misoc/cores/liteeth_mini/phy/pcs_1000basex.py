@@ -20,8 +20,7 @@ class TransmitPath(Module):
         self.tx_ack = Signal()
         self.tx_data = Signal(8)
 
-        self.submodules.encoder = code_8b10b.Encoder(
-            lsb_first=lsb_first, disparity_low_latency=True)
+        self.submodules.encoder = code_8b10b.Encoder(lsb_first=lsb_first)
 
         # # #
 
