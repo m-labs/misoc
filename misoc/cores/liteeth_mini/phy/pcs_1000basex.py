@@ -106,3 +106,83 @@ class TransmitPath(Module):
             self.encoder.d[0].eq(K(23, 7)),
             NextState("START")
         )
+
+
+class ReceivePath(Module):
+    def __init__(self, lsb_first=False):
+        self.rx_en = Signal()
+        self.rx_data = Signal(8)
+
+        self.seen_valid_ci = Signal()
+        self.seen_control_reg = Signal()
+        self.config_reg = Signal(16)
+
+        self.submodules.decoder = code_8b10b.Decoder(lsb_first=lsb_first)
+
+        # # #
+
+        config_reg_lsb = Signal(8)
+        load_config_reg_lsb = Signal()
+        load_config_reg_msb = Signal()
+        self.sync += [
+            self.seen_control_reg.eq(0),
+            If(load_config_reg_lsb, config_reg_lsb.eq(self.decoder.d)),
+            If(load_config_reg_msb,
+                self.config_reg.eq(Cat(config_reg_lsb, self.decoder.d)),
+                self.seen_control_reg.eq(1)
+            )
+        ]
+
+        first_preamble_byte = Signal()
+        self.comb += self.rx_data.eq(Mux(first_preamble_byte, 0x55, self.decoder.d))
+
+        fsm = FSM()
+        self.submodules += fsm
+
+        fsm.act("START",
+            If(self.decoder.k,
+                If(self.decoder.d == K(28, 5),
+                    NextState("K28_5")
+                ),
+                If(self.decoder.d == K(27, 7),
+                    self.rx_en.eq(1),
+                    first_preamble_byte.eq(1),
+                    NextState("DATA")
+                )
+            )
+        )
+        fsm.act("K28_5",
+            NextState("START"),
+            If(~self.decoder.k,
+                If((self.decoder.d == D(21, 5)) | (self.decoder.d == D(2, 2)),
+                    self.seen_valid_ci.eq(1),
+                    NextState("CONFIG_REG_LSB")
+                ),
+                If((self.decoder.d == D(5, 6)) | (self.decoder.d == D(16, 2)),
+                    # idle
+                    self.seen_valid_ci.eq(1),
+                    NextState("START")
+                ),
+            )
+        )
+        fsm.act("CONFIG_REG_LSB",
+            If(self.decoder.k,
+                NextState("START")  # error
+            ).Else(
+                load_config_reg_lsb.eq(1),
+                NextState("CONFIG_REG_MSB")
+            )
+        )
+        fsm.act("CONFIG_REG_MSB",
+            If(~self.decoder.k,
+                load_config_reg_msb.eq(1)
+            ),
+            NextState("START")
+        )
+        fsm.act("DATA",
+            If(self.decoder.k,
+                NextState("START")
+            ).Else(
+                self.rx_en.eq(1)
+            )
+        )
