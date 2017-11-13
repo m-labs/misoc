@@ -1,0 +1,74 @@
+import unittest
+
+from migen import *
+
+from misoc.cores.liteeth_mini.phy.pcs_1000basex import *
+
+
+class TRXPaths(Module):
+    def __init__(self):
+        self.submodules.tx = TransmitPath()
+        self.submodules.rx = ReceivePath()
+        self.comb += self.rx.decoder.input.eq(self.tx.encoder.output[0])
+
+
+class TestPCS(unittest.TestCase):
+    def test_trxpaths_config(self):
+        config_reg_values = [0x2341, 0x814e, 0x1ea8]
+
+        dut = TRXPaths()
+
+        def send_control_reg():
+            yield dut.tx.config_stb.eq(1)
+            for value in config_reg_values:
+                yield dut.tx.config_reg.eq(value)
+                for _ in range(10):
+                    yield
+
+        received_control_regs = []
+        @passive
+        def receive_control_reg():
+            while True:
+                if (yield dut.rx.seen_control_reg):
+                    value = yield dut.rx.config_reg
+                    if not received_control_regs or received_control_regs[-1] != value:
+                        received_control_regs.append(value)
+                yield
+
+        run_simulation(dut, [send_control_reg(), receive_control_reg()])
+        self.assertEqual(received_control_regs, config_reg_values)
+
+    def test_trxpaths_data(self):
+        ps = [0x55]*7 + [0xd5]
+        packets = [ps+[i for i in range(10)],
+                   ps+[100+i for i in range(13)],
+                   ps+[200+i for i in range(8)]]
+
+        dut = TRXPaths()
+
+        def transmit():
+            for packet in packets:
+                yield dut.tx.tx_stb.eq(1)
+                for byte in packet:
+                    yield dut.tx.tx_data.eq(byte)
+                    yield
+                    while not (yield dut.tx.tx_ack):
+                        yield
+                yield dut.tx.tx_stb.eq(0)
+                for _ in range(12):
+                    yield
+
+        received_packets = []
+        @passive
+        def receive():
+            while True:
+                while not (yield dut.rx.rx_en):
+                    yield
+                packet = []
+                while (yield dut.rx.rx_en):
+                    packet.append((yield dut.rx.rx_data))
+                    yield
+                received_packets.append(packet)
+
+        run_simulation(dut, [transmit(), receive()])
+        self.assertEqual(received_packets, packets)
