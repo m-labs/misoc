@@ -28,6 +28,10 @@ class TransmitPath(Module):
         c_type = Signal()
         self.sync += parity.eq(~parity)
 
+        config_reg_buffer = Signal(16)
+        load_config_reg_buffer = Signal()
+        self.sync += If(load_config_reg_buffer, config_reg_buffer.eq(self.config_reg))
+
         fsm = FSM()
         self.submodules += fsm
 
@@ -57,14 +61,15 @@ class TransmitPath(Module):
                 self.encoder.d[0].eq(D(21, 5))
             ),
             NextValue(c_type, ~c_type),
+            load_config_reg_buffer.eq(1),
             NextState("CONFIG_REG_LSB")
         ),
         fsm.act("CONFIG_REG_LSB",
-            self.encoder.d[0].eq(self.config_reg[:8]),
+            self.encoder.d[0].eq(config_reg_buffer[:8]),
             NextState("CONFIG_REG_MSB")
         )
         fsm.act("CONFIG_REG_MSB",
-            self.encoder.d[0].eq(self.config_reg[8:]),
+            self.encoder.d[0].eq(config_reg_buffer[8:]),
             NextState("START")
         )
         fsm.act("IDLE",
