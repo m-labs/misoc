@@ -1,7 +1,16 @@
+from math import ceil
+
 from migen import *
 from migen.genlib.fsm import *
+from migen.genlib.misc import WaitTimer
+from migen.genlib.cdc import PulseSynchronizer
 
+from misoc.interconnect import stream
 from misoc.cores import code_8b10b
+from misoc.cores.liteeth_mini.common import *
+
+
+__all__ = ["TransmitPath", "ReceivePath", "PCS"]
 
 
 def K(x, y):
@@ -191,3 +200,132 @@ class ReceivePath(Module):
                 self.rx_en.eq(1)
             )
         )
+
+
+class PCS(Module):
+    def __init__(self, lsb_first=False, check_period=6e-3):
+        self.submodules.tx = ClockDomainsRenamer("eth_tx")(
+            TransmitPath(lsb_first=lsb_first))
+        self.submodules.rx = ClockDomainsRenamer("eth_rx")(
+            ReceivePath(lsb_first=lsb_first))
+
+        self.tbi_tx = self.tx.output[0]
+        self.tbi_rx = self.rx.input
+        self.sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = stream.Endpoint(eth_phy_layout(8))
+        
+        self.comb += [
+            self.tx.tx_stb.eq(self.sink.stb),
+            self.sink.ack.eq(self.tx.tx_ack),
+            self.tx.tx_data.eq(self.sink.data),
+        ]
+
+        rx_en_d = Signal()
+        self.sync.eth_rx += [
+            rx_stb_d.eq(self.rx.rx_en),
+            source.stb.eq(self.rx.rx_en),
+            source.data.eq(self.rx.rx_data)
+        ]
+        self.comb += self.source.eop.eq(~self.rx.rx_en & rx_en_d)
+
+        self.restart = Signal()
+
+        # # #
+
+        seen_valid_ci = PulseSynchronizer("eth_rx", "eth_tx")
+        self.submodules += seen_valid_ci
+        self.comb += seen_valid_ci.i.eq(self.rx.seen_valid_ci)
+
+        checker_max_val = ceil(check_period*125e6)
+        checker_counter = Signal(max=check_max_val+1)
+        checker_tick = Signal()
+        checker_ok = Signal()
+        self.sync.eth_tx += [
+            checker_tick.eq(0),
+            If(checker_counter == 0,
+                checker_tick.eq(1),
+                checker_counter.eq(checker_max_val)
+            ).Else(
+                checker_counter.eq(checker_counter-1)
+            ),
+            If(seen_valid_ci.o, checker_ok.eq(1)),
+            If(checker_tick, checker_ok.eq(0))
+        ]
+
+        autoneg_ack = Signal()
+        self.comb += self.tx.config_reg.eq((1 << 5) | (autoneg_ack << 14))
+
+        rx_config_reg = PulseSynchronizer("eth_rx", "eth_tx")
+        rx_config_reg_ack = PulseSynchronizer("eth_rx", "eth_tx")
+        self.submodules += rx_config_reg, rx_config_reg_ack
+
+        more_ack_timer = ClockDomainsRenamer("eth_tx")(
+            WaitTimer(ceil(10e-3*125e6)))
+        self.submodules += more_ack_timer
+
+        main_fsm = ClockDomainsRenamer("eth_tx")(FSM())
+        self.submodules += main_fsm
+
+        main_fsm.act("AUTONEG_WAIT_CONFIG_REG",
+            self.tx.config_stb.eq(1),
+            If(rx_config_reg.o|rx_config_reg_ack.o,
+                NextState("AUTONEG_WAIT_ACK")
+            ),
+            If(checker_tick & ~checker_ok,
+                self.restart.eq(1),
+                NextState("AUTONEG_WAIT_CONFIG_REG")
+            )
+        )
+        main_fsm.act("AUTONEG_WAIT_ACK",
+            self.tx.config_stb.eq(1),
+            autoneg_ack.eq(1),
+            If(rx_config_reg_ack.o,
+                NextState("AUTONEG_SEND_MORE_ACK")
+            ),
+            If(checker_tick & ~checker_ok,
+                self.restart.eq(1),
+                NextState("AUTONEG_WAIT_CONFIG_REG")
+            )
+        )
+        main_fsm.act("AUTONEG_SEND_MORE_ACK",
+            self.tx.config_stb.eq(1),
+            autoneg_ack.eq(1),
+            more_ack_timer.wait.eq(1),
+            If(more_ack_timer.done,
+                NextState("RUNNING")
+            ),
+            If(checker_tick & ~checker_ok,
+                self.restart.eq(1),
+                NextState("AUTONEG_WAIT_CONFIG_REG")
+            )
+        )
+        main_fsm.act("RUNNING",
+            If(checker_tick & ~checker_ok,
+                self.restart.eq(1),
+                NextState("AUTONEG_WAIT_CONFIG_REG")
+            )
+        )
+
+        c_counter = Signal(max=6)
+        previous_config_reg = Signal(16)
+        self.sync.eth_rx += [
+            If(self.rx.seen_control_reg,
+                c_counter.eq(5)
+            ).Elif(c_counter != 0,
+                c_counter.eq(c_counter - 1)
+            ),
+
+            rx_config_reg_ack.eq(0),
+            rx_config_reg.eq(0),
+            If(self.rx.seen_control_reg,
+                previous_config_reg.eq(self.rx.config_reg),
+                # two identical config_reg in immediate succession
+                If((c_counter == 1) & (previous_config_reg == self.rx.config_reg),
+                    If(previous_config_reg[14],
+                        rx_config_reg_ack.eq(1)
+                    ).Else(
+                        rx_config_reg.eq(1)
+                    )
+                )
+            )
+        ]
