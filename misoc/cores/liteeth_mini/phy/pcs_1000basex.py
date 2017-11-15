@@ -36,12 +36,12 @@ class TransmitPath(Module):
         self.submodules += fsm
 
         fsm.act("START",
+            self.tx_ack.eq(1),  # discard TX data if we are in config_reg phase
             If(self.config_stb,
                 self.encoder.k[0].eq(1),
                 self.encoder.d[0].eq(K(28, 5)),
                 NextState("CONFIG_D")
             ).Else(
-                self.tx_ack.eq(1),
                 If(self.tx_stb,
                     # the first byte of the preamble is replaced by /S/
                     self.encoder.k[0].eq(1),
