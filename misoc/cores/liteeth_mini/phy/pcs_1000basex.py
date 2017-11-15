@@ -119,7 +119,7 @@ class ReceivePath(Module):
         self.rx_data = Signal(8)
 
         self.seen_valid_ci = Signal()
-        self.seen_control_reg = Signal()
+        self.seen_config_reg = Signal()
         self.config_reg = Signal(16)
 
         self.submodules.decoder = code_8b10b.Decoder(lsb_first=lsb_first)
@@ -130,11 +130,11 @@ class ReceivePath(Module):
         load_config_reg_lsb = Signal()
         load_config_reg_msb = Signal()
         self.sync += [
-            self.seen_control_reg.eq(0),
+            self.seen_config_reg.eq(0),
             If(load_config_reg_lsb, config_reg_lsb.eq(self.decoder.d)),
             If(load_config_reg_msb,
                 self.config_reg.eq(Cat(config_reg_lsb, self.decoder.d)),
-                self.seen_control_reg.eq(1)
+                self.seen_config_reg.eq(1)
             )
         ]
 

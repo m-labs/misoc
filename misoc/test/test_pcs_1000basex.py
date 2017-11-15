@@ -18,25 +18,25 @@ class TestPCS(unittest.TestCase):
 
         dut = TRXPaths()
 
-        def send_control_reg():
+        def send_config_reg():
             yield dut.tx.config_stb.eq(1)
             for value in config_reg_values:
                 yield dut.tx.config_reg.eq(value)
                 for _ in range(10):
                     yield
 
-        received_control_regs = []
+        received_config_regs = []
         @passive
-        def receive_control_reg():
+        def receive_config_reg():
             while True:
-                if (yield dut.rx.seen_control_reg):
+                if (yield dut.rx.seen_config_reg):
                     value = yield dut.rx.config_reg
-                    if not received_control_regs or received_control_regs[-1] != value:
-                        received_control_regs.append(value)
+                    if not received_config_regs or received_config_regs[-1] != value:
+                        received_config_regs.append(value)
                 yield
 
-        run_simulation(dut, [send_control_reg(), receive_control_reg()])
-        self.assertEqual(received_control_regs, config_reg_values)
+        run_simulation(dut, [send_config_reg(), receive_config_reg()])
+        self.assertEqual(received_config_regs, config_reg_values)
 
     def test_trxpaths_data(self):
         ps = [0x55]*7 + [0xd5]
