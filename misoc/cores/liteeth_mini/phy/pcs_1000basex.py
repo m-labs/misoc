@@ -203,17 +203,23 @@ class ReceivePath(Module):
 
 
 class PCS(Module):
-    def __init__(self, lsb_first=False, check_period=6e-3):
+    def __init__(self, lsb_first=False, check_period=6e-3, more_ack_time=10e-3):
         self.submodules.tx = ClockDomainsRenamer("eth_tx")(
             TransmitPath(lsb_first=lsb_first))
         self.submodules.rx = ClockDomainsRenamer("eth_rx")(
             ReceivePath(lsb_first=lsb_first))
 
-        self.tbi_tx = self.tx.output[0]
-        self.tbi_rx = self.rx.input
+        self.tbi_tx = self.tx.encoder.output[0]
+        self.tbi_rx = self.rx.decoder.input
         self.sink = stream.Endpoint(eth_phy_layout(8))
         self.source = stream.Endpoint(eth_phy_layout(8))
         
+        self.link_up = Signal()
+        self.restart = Signal()
+        
+        # # #
+        
+        # endpoint interface
         self.comb += [
             self.tx.tx_stb.eq(self.sink.stb),
             self.sink.ack.eq(self.tx.tx_ack),
@@ -222,22 +228,19 @@ class PCS(Module):
 
         rx_en_d = Signal()
         self.sync.eth_rx += [
-            rx_stb_d.eq(self.rx.rx_en),
-            source.stb.eq(self.rx.rx_en),
-            source.data.eq(self.rx.rx_data)
+            rx_en_d.eq(self.rx.rx_en),
+            self.source.stb.eq(self.rx.rx_en),
+            self.source.data.eq(self.rx.rx_data)
         ]
         self.comb += self.source.eop.eq(~self.rx.rx_en & rx_en_d)
 
-        self.restart = Signal()
-
-        # # #
-
+        # main module
         seen_valid_ci = PulseSynchronizer("eth_rx", "eth_tx")
         self.submodules += seen_valid_ci
         self.comb += seen_valid_ci.i.eq(self.rx.seen_valid_ci)
 
         checker_max_val = ceil(check_period*125e6)
-        checker_counter = Signal(max=check_max_val+1)
+        checker_counter = Signal(max=checker_max_val+1)
         checker_tick = Signal()
         checker_ok = Signal()
         self.sync.eth_tx += [
@@ -260,7 +263,7 @@ class PCS(Module):
         self.submodules += rx_config_reg, rx_config_reg_ack
 
         more_ack_timer = ClockDomainsRenamer("eth_tx")(
-            WaitTimer(ceil(10e-3*125e6)))
+            WaitTimer(ceil(more_ack_time*125e6)))
         self.submodules += more_ack_timer
 
         main_fsm = ClockDomainsRenamer("eth_tx")(FSM())
@@ -300,6 +303,7 @@ class PCS(Module):
             )
         )
         main_fsm.act("RUNNING",
+            self.link_up.eq(1),
             If(checker_tick & ~checker_ok,
                 self.restart.eq(1),
                 NextState("AUTONEG_WAIT_CONFIG_REG")
@@ -309,22 +313,22 @@ class PCS(Module):
         c_counter = Signal(max=6)
         previous_config_reg = Signal(16)
         self.sync.eth_rx += [
-            If(self.rx.seen_control_reg,
+            If(self.rx.seen_config_reg,
                 c_counter.eq(5)
             ).Elif(c_counter != 0,
                 c_counter.eq(c_counter - 1)
             ),
 
-            rx_config_reg_ack.eq(0),
-            rx_config_reg.eq(0),
-            If(self.rx.seen_control_reg,
+            rx_config_reg_ack.i.eq(0),
+            rx_config_reg.i.eq(0),
+            If(self.rx.seen_config_reg,
                 previous_config_reg.eq(self.rx.config_reg),
                 # two identical config_reg in immediate succession
                 If((c_counter == 1) & (previous_config_reg == self.rx.config_reg),
                     If(previous_config_reg[14],
-                        rx_config_reg_ack.eq(1)
+                        rx_config_reg_ack.i.eq(1)
                     ).Else(
-                        rx_config_reg.eq(1)
+                        rx_config_reg.i.eq(1)
                     )
                 )
             )
