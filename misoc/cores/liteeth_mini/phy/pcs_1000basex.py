@@ -47,6 +47,7 @@ class TransmitPath(Module):
         fsm.act("START",
             self.tx_ack.eq(1),  # discard TX data if we are in config_reg phase
             If(self.config_stb,
+                load_config_reg_buffer.eq(1),
                 self.encoder.k[0].eq(1),
                 self.encoder.d[0].eq(K(28, 5)),
                 NextState("CONFIG_D")
@@ -70,7 +71,6 @@ class TransmitPath(Module):
                 self.encoder.d[0].eq(D(21, 5))
             ),
             NextValue(c_type, ~c_type),
-            load_config_reg_buffer.eq(1),
             NextState("CONFIG_REG_LSB")
         ),
         fsm.act("CONFIG_REG_LSB",
