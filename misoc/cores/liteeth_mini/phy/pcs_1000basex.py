@@ -266,10 +266,10 @@ class PCS(Module):
             WaitTimer(ceil(more_ack_time*125e6)))
         self.submodules += more_ack_timer
 
-        main_fsm = ClockDomainsRenamer("eth_tx")(FSM())
-        self.submodules += main_fsm
+        fsm = ClockDomainsRenamer("eth_tx")(FSM())
+        self.submodules += fsm
 
-        main_fsm.act("AUTONEG_WAIT_CONFIG_REG",
+        fsm.act("AUTONEG_WAIT_CONFIG_REG",
             self.tx.config_stb.eq(1),
             If(rx_config_reg.o|rx_config_reg_ack.o,
                 NextState("AUTONEG_WAIT_ACK")
@@ -279,7 +279,7 @@ class PCS(Module):
                 NextState("AUTONEG_WAIT_CONFIG_REG")
             )
         )
-        main_fsm.act("AUTONEG_WAIT_ACK",
+        fsm.act("AUTONEG_WAIT_ACK",
             self.tx.config_stb.eq(1),
             autoneg_ack.eq(1),
             If(rx_config_reg_ack.o,
@@ -290,7 +290,7 @@ class PCS(Module):
                 NextState("AUTONEG_WAIT_CONFIG_REG")
             )
         )
-        main_fsm.act("AUTONEG_SEND_MORE_ACK",
+        fsm.act("AUTONEG_SEND_MORE_ACK",
             self.tx.config_stb.eq(1),
             autoneg_ack.eq(1),
             more_ack_timer.wait.eq(1),
@@ -302,7 +302,7 @@ class PCS(Module):
                 NextState("AUTONEG_WAIT_CONFIG_REG")
             )
         )
-        main_fsm.act("RUNNING",
+        fsm.act("RUNNING",
             self.link_up.eq(1),
             If(checker_tick & ~checker_ok,
                 self.restart.eq(1),
@@ -310,11 +310,11 @@ class PCS(Module):
             )
         )
 
-        c_counter = Signal(max=6)
+        c_counter = Signal(max=5)
         previous_config_reg = Signal(16)
         self.sync.eth_rx += [
             If(self.rx.seen_config_reg,
-                c_counter.eq(5)
+                c_counter.eq(4)
             ).Elif(c_counter != 0,
                 c_counter.eq(c_counter - 1)
             ),
