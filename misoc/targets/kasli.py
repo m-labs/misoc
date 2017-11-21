@@ -9,6 +9,8 @@ from migen.build.platforms.sinara import kasli
 from misoc.cores.sdram_settings import MT41K256M16
 from misoc.cores.sdram_phy import a7ddrphy
 from misoc.cores import spi_flash
+# from misoc.cores.liteeth_mini.phy.kbasex import KBaseX  # TODO
+from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
 
@@ -98,23 +100,48 @@ class BaseSoC(SoCSDRAM):
             self.csr_devices.append("spiflash")
 
 
-def soc_kasli_args(parser):
-    soc_sdram_args(parser)
+class MiniSoC(BaseSoC):
+    mem_map = {
+        "ethmac": 0x30000000,  # (shadow @0xb0000000)
+    }
+    mem_map.update(BaseSoC.mem_map)
 
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
+        BaseSoC.__init__(self, *args, **kwargs)
 
-def soc_kasli_argdict(args):
-    r = soc_sdram_argdict(args)
-    return r
+        self.csr_devices += ["ethphy", "ethmac"]
+        self.interrupt_devices.append("ethmac")
+
+        sfp = self.platform.request("sfp", 0)
+        self.comb += [
+                sfp.rate_select.eq(1),
+                sfp.tx_disable.eq(0),
+        ]
+
+        clk125 = self.platform.request("clk125_gtp")
+        self.platform.add_period_constraint(clk125.p, 4.)
+        gtp = self.platform.request("sfp_gtp", 0)
+        self.submodules.ethphy = KBaseX(clk125, gtp)  # TODO
+
+        self.submodules.ethmac = LiteEthMAC(
+                phy=self.ethphy, dw=32, interface="wishbone",
+                nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
+        ethmac_len = (ethmac_nrxslots + ethmac_ntxslots) * 0x800
+        self.add_wb_slave(self.mem_map["ethmac"], ethmac_len, self.ethmac.bus)
+        self.add_memory_region("ethmac",
+                self.mem_map["ethmac"] | self.shadow_base, ethmac_len)
 
 
 def main():
     parser = argparse.ArgumentParser(description="MiSoC port to Kasli")
     builder_args(parser)
-    soc_kasli_args(parser)
+    soc_sdram_args(parser)
+    parser.add_argument("--with-ethernet", action="store_true",
+                        help="enable Ethernet support")
     args = parser.parse_args()
 
-    cls = BaseSoC
-    soc = cls(**soc_kasli_argdict(args))
+    cls = MiniSoC if args.with_ethernet else BaseSoC
+    soc = cls(**soc_sdram_argdict(args))
     builder = Builder(soc, **builder_argdict(args))
     builder.build()
 
