@@ -181,7 +181,13 @@ class ReceivePath(Module):
         )
         fsm.act("CONFIG_REG_LSB",
             If(self.decoder.k,
-                NextState("START")  # error
+                If(self.decoder.d == K(27, 7),
+                    self.rx_en.eq(1),
+                    first_preamble_byte.eq(1),
+                    NextState("DATA")
+                ).Else(
+                    NextState("START")  # error
+                )
             ).Else(
                 load_config_reg_lsb.eq(1),
                 NextState("CONFIG_REG_MSB")
