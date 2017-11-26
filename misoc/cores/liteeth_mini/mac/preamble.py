@@ -20,8 +20,8 @@ class LiteEthMACPreambleInserter(Module):
         Preamble, SFD, and packet octets.
     """
     def __init__(self, dw):
-        self.sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = stream.Endpoint(eth_phy_layout(dw))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         # # #
 
@@ -41,31 +41,31 @@ class LiteEthMACPreambleInserter(Module):
         fsm = FSM(reset_state="IDLE")
         self.submodules += fsm
         fsm.act("IDLE",
-            self.sink.ack.eq(1),
+            sink.ack.eq(1),
             clr_cnt.eq(1),
-            If(self.sink.stb,
-                self.sink.ack.eq(0),
+            If(sink.stb,
+                sink.ack.eq(0),
                 NextState("INSERT"),
             )
         )
         fsm.act("INSERT",
-            self.source.stb.eq(1),
-            chooser(preamble, cnt, self.source.data),
+            source.stb.eq(1),
+            chooser(preamble, cnt, source.data),
             If(cnt == cnt_max,
-                If(self.source.ack, NextState("COPY"))
+                If(source.ack, NextState("COPY"))
             ).Else(
-                inc_cnt.eq(self.source.ack)
+                inc_cnt.eq(source.ack)
             )
         )
 
         self.comb += [
-            self.source.data.eq(self.sink.data),
-            self.source.last_be.eq(self.sink.last_be)
+            source.data.eq(sink.data),
+            source.last_be.eq(sink.last_be)
         ]
         fsm.act("COPY",
-            self.sink.connect(self.source, omit={"data", "last_be"}),
+            sink.connect(source, omit={"data", "last_be"}),
 
-            If(self.sink.stb & self.sink.eop & self.source.ack,
+            If(sink.stb & sink.eop & source.ack,
                 NextState("IDLE"),
             )
         )
@@ -86,8 +86,8 @@ class LiteEthMACPreambleChecker(Module):
         Pulses every time a preamble error is detected.
     """
     def __init__(self, dw):
-        self.sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = stream.Endpoint(eth_phy_layout(dw))
+        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
+        self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         self.error = Signal()
 
@@ -121,18 +121,18 @@ class LiteEthMACPreambleChecker(Module):
         match = Signal()
         self.comb += [
             chooser(preamble, cnt, ref),
-            match.eq(self.sink.data == ref),
-            self.error.eq(self.sink.stb & ~discard & set_discard),
+            match.eq(sink.data == ref),
+            self.error.eq(sink.stb & ~discard & set_discard),
         ]
 
         fsm = FSM(reset_state="IDLE")
         self.submodules += fsm
 
         fsm.act("IDLE",
-            self.sink.ack.eq(1),
+            sink.ack.eq(1),
             clr_cnt.eq(1),
             clr_discard.eq(1),
-            If(self.sink.stb,
+            If(sink.stb,
                 clr_cnt.eq(0),
                 inc_cnt.eq(1),
                 clr_discard.eq(0),
@@ -141,8 +141,8 @@ class LiteEthMACPreambleChecker(Module):
             )
         )
         fsm.act("CHECK",
-            self.sink.ack.eq(1),
-            If(self.sink.stb,
+            sink.ack.eq(1),
+            If(sink.stb,
                 set_discard.eq(~match),
                 If(cnt == cnt_max,
                     If(discard | (~match),
@@ -156,12 +156,12 @@ class LiteEthMACPreambleChecker(Module):
             )
         )
         self.comb += [
-            self.source.data.eq(self.sink.data),
-            self.source.last_be.eq(self.sink.last_be)
+            source.data.eq(sink.data),
+            source.last_be.eq(sink.last_be)
         ]
         fsm.act("COPY",
-            self.sink.connect(self.source, omit={"data", "last_be"}),
-            If(self.source.stb & self.source.eop & self.source.ack,
+            sink.connect(source, omit={"data", "last_be"}),
+            If(source.stb & source.eop & source.ack,
                 NextState("IDLE"),
             )
         )
