@@ -8,6 +8,17 @@ from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_preamble
 
 
 class LiteEthMACPreambleInserter(Module):
+    """Preamble inserter
+
+    Inserts preamble at the beginning of each packet.
+
+    Attributes
+    ----------
+    sink : in
+        Packet octets.
+    source : out
+        Preamble, SFD, and packet octets.
+    """
     def __init__(self, dw):
         self.sink = stream.Endpoint(eth_phy_layout(dw))
         self.source = stream.Endpoint(eth_phy_layout(dw))
@@ -61,9 +72,24 @@ class LiteEthMACPreambleInserter(Module):
 
 
 class LiteEthMACPreambleChecker(Module):
+    """Preamble detector
+
+    Detects preamble at the beginning of each packet.
+
+    Attributes
+    ----------
+    sink : in
+        Bits input.
+    source : out
+        Packet octets starting immediately after SFD.
+    error : out
+        Pulses every time a preamble error is detected.
+    """
     def __init__(self, dw):
         self.sink = stream.Endpoint(eth_phy_layout(dw))
         self.source = stream.Endpoint(eth_phy_layout(dw))
+
+        self.error = Signal()
 
         # # #
 
@@ -95,7 +121,8 @@ class LiteEthMACPreambleChecker(Module):
         match = Signal()
         self.comb += [
             chooser(preamble, cnt, ref),
-            match.eq(self.sink.data == ref)
+            match.eq(self.sink.data == ref),
+            self.error.eq(self.sink.stb & ~discard & set_discard),
         ]
 
         fsm = FSM(reset_state="IDLE")
