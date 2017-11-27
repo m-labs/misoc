@@ -1,11 +1,12 @@
 #include <generated/csr.h>
+#include <generated/mem.h>
+
 #ifdef CSR_ETHMAC_BASE
 
 #include <stdio.h>
 #include <system.h>
 #include <crc.h>
 #include <hw/flags.h>
-#include <hw/ethmac_mem.h>
 
 #include <net/microudp.h>
 
@@ -106,23 +107,17 @@ struct ethernet_frame {
 
 typedef union {
 	struct ethernet_frame frame;
-	unsigned char raw[1532];
+	unsigned char raw[ETHMAC_SLOT_SIZE];
 } ethernet_buffer;
 
-
-static unsigned int rxslot;
 static unsigned int rxlen;
 static ethernet_buffer *rxbuffer;
-static ethernet_buffer *rxbuffer0;
-static ethernet_buffer *rxbuffer1;
-static unsigned int txslot;
 static unsigned int txlen;
 static ethernet_buffer *txbuffer;
-static ethernet_buffer *txbuffer0;
-static ethernet_buffer *txbuffer1;
 
 static void send_packet(void)
 {
+	unsigned int txslot;
 #ifndef HW_PREAMBLE_CRC
 	unsigned int crc;
 	crc = crc32(&txbuffer->raw[8], txlen-8);
@@ -132,15 +127,14 @@ static void send_packet(void)
 	txbuffer->raw[txlen+3] = (crc & 0xff000000) >> 24;
 	txlen += 4;
 #endif
-	ethmac_sram_reader_slot_write(txslot);
 	ethmac_sram_reader_length_write(txlen);
-	while(!(ethmac_sram_reader_ready_read()));
 	ethmac_sram_reader_start_write(1);
-	txslot = (txslot+1)%2;
-	if (txslot)
-		txbuffer = txbuffer1;
-	else
-		txbuffer = txbuffer0;
+	while(!(ethmac_sram_reader_ready_read()));
+	txslot = ethmac_sram_reader_slot_read();
+	txbuffer = (ethernet_buffer *)ETHMAC_BASE +
+									ETHMAC_SLOT_SIZE * (ETHMAC_RX_SLOTS + txslot);
+	txslot = (txslot+1)%ETHMAC_TX_SLOTS;
+	ethmac_sram_reader_slot_write(txslot);
 }
 
 static unsigned char my_mac[6];
@@ -295,33 +289,34 @@ int microudp_send(unsigned short src_port, unsigned short dst_port, unsigned int
 		my_mac,
 		ETHERTYPE_IP);
 
-	txbuffer->frame.contents.udp.ip.version = IP_IPV4;
-	txbuffer->frame.contents.udp.ip.diff_services = 0;
-	txbuffer->frame.contents.udp.ip.total_length = length + sizeof(struct udp_frame);
-	txbuffer->frame.contents.udp.ip.identification = 0;
-	txbuffer->frame.contents.udp.ip.fragment_offset = IP_DONT_FRAGMENT;
-	txbuffer->frame.contents.udp.ip.ttl = IP_TTL;
-	h.proto = txbuffer->frame.contents.udp.ip.proto = IP_PROTO_UDP;
-	txbuffer->frame.contents.udp.ip.checksum = 0;
-	h.src_ip = txbuffer->frame.contents.udp.ip.src_ip = my_ip;
-	h.dst_ip = txbuffer->frame.contents.udp.ip.dst_ip = cached_ip;
-	txbuffer->frame.contents.udp.ip.checksum = ip_checksum(0, &txbuffer->frame.contents.udp.ip,
+	struct udp_frame *udp_ip = &txbuffer->frame.contents.udp;
+	udp_ip->ip.version = IP_IPV4;
+	udp_ip->ip.diff_services = 0;
+	udp_ip->ip.total_length = length + sizeof(struct udp_frame);
+	udp_ip->ip.identification = 0;
+	udp_ip->ip.fragment_offset = IP_DONT_FRAGMENT;
+	udp_ip->ip.ttl = IP_TTL;
+	h.proto = udp_ip->ip.proto = IP_PROTO_UDP;
+	udp_ip->ip.checksum = 0;
+	h.src_ip = udp_ip->ip.src_ip = my_ip;
+	h.dst_ip = udp_ip->ip.dst_ip = cached_ip;
+	udp_ip->ip.checksum = ip_checksum(0, &udp_ip->ip,
 		sizeof(struct ip_header), 1);
 
-	txbuffer->frame.contents.udp.udp.src_port = src_port;
-	txbuffer->frame.contents.udp.udp.dst_port = dst_port;
-	h.length = txbuffer->frame.contents.udp.udp.length = length + sizeof(struct udp_header);
-	txbuffer->frame.contents.udp.udp.checksum = 0;
+	udp_ip->udp.src_port = src_port;
+	udp_ip->udp.dst_port = dst_port;
+	h.length = udp_ip->udp.length = length + sizeof(struct udp_header);
+	udp_ip->udp.checksum = 0;
 
 	h.zero = 0;
 	r = ip_checksum(0, &h, sizeof(struct pseudo_header), 0);
 	if(length & 1) {
-		txbuffer->frame.contents.udp.payload[length] = 0;
+		udp_ip->payload[length] = 0;
 		length++;
 	}
-	r = ip_checksum(r, &txbuffer->frame.contents.udp.udp,
+	r = ip_checksum(r, &udp_ip->udp,
 		sizeof(struct udp_header)+length, 1);
-	txbuffer->frame.contents.udp.udp.checksum = r;
+	udp_ip->udp.checksum = r;
 
 	send_packet();
 
@@ -333,19 +328,21 @@ static udp_callback rx_callback;
 static void process_ip(void)
 {
 	if(rxlen < (sizeof(struct ethernet_header)+sizeof(struct udp_frame))) return;
+	struct udp_frame *udp_ip = &rxbuffer->frame.contents.udp;
 	/* We don't verify UDP and IP checksums and rely on the Ethernet checksum solely */
-	if(rxbuffer->frame.contents.udp.ip.version != IP_IPV4) return;
+	if(udp_ip->ip.version != IP_IPV4) return;
 	// check disabled for QEMU compatibility
-	//if(rxbuffer->frame.contents.udp.ip.diff_services != 0) return;
-	if(rxbuffer->frame.contents.udp.ip.total_length < sizeof(struct udp_frame)) return;
+	//if(udp_ip->ip.diff_services != 0) return;
+	if(udp_ip->ip.total_length < sizeof(struct udp_frame)) return;
 	// check disabled for QEMU compatibility
-	//if(rxbuffer->frame.contents.udp.ip.fragment_offset != IP_DONT_FRAGMENT) return;
-	if(rxbuffer->frame.contents.udp.ip.proto != IP_PROTO_UDP) return;
-	if(rxbuffer->frame.contents.udp.ip.dst_ip != my_ip) return;
-	if(rxbuffer->frame.contents.udp.udp.length < sizeof(struct udp_header)) return;
+	//if(udp_ip->ip.fragment_offset != IP_DONT_FRAGMENT) return;
+	if(udp_ip->ip.proto != IP_PROTO_UDP) return;
+	if(udp_ip->ip.dst_ip != my_ip) return;
+	if(udp_ip->udp.length < sizeof(struct udp_header)) return;
 
 	if(rx_callback)
-		rx_callback(rxbuffer->frame.contents.udp.ip.src_ip, rxbuffer->frame.contents.udp.udp.src_port, rxbuffer->frame.contents.udp.udp.dst_port, rxbuffer->frame.contents.udp.payload, rxbuffer->frame.contents.udp.udp.length-sizeof(struct udp_header));
+		rx_callback(udp_ip->ip.src_ip, udp_ip->udp.src_port, udp_ip->udp.dst_port,
+		            udp_ip->payload, udp_ip->udp.length-sizeof(struct udp_header));
 }
 
 void microudp_set_callback(udp_callback callback)
@@ -387,17 +384,6 @@ void microudp_start(const unsigned char *macaddr, unsigned int ip)
 	ethmac_sram_reader_ev_pending_write(ETHMAC_EV_SRAM_READER);
 	ethmac_sram_writer_ev_pending_write(ETHMAC_EV_SRAM_WRITER);
 
-	rxbuffer0 = (ethernet_buffer *)ETHMAC_RX0_BASE;
-	rxbuffer1 = (ethernet_buffer *)ETHMAC_RX1_BASE;
-	txbuffer0 = (ethernet_buffer *)ETHMAC_TX0_BASE;
-	txbuffer1 = (ethernet_buffer *)ETHMAC_TX1_BASE;
-
-	rxslot = 0;
-	txslot = 0;
-
-	rxbuffer = rxbuffer0;
-	txbuffer = txbuffer0;
-
 	for(i=0;i<6;i++)
 		my_mac[i] = macaddr[i];
 	my_ip = ip;
@@ -406,18 +392,17 @@ void microudp_start(const unsigned char *macaddr, unsigned int ip)
 	for(i=0;i<6;i++)
 		cached_mac[i] = 0;
 
+	rxbuffer = (ethernet_buffer *)ETHMAC_BASE;
 	rx_callback = (udp_callback)0;
 }
 
 void microudp_service(void)
 {
+	unsigned int rxslot;
 	if(ethmac_sram_writer_ev_pending_read() & ETHMAC_EV_SRAM_WRITER) {
 		rxslot = ethmac_sram_writer_slot_read();
+		rxbuffer = (ethernet_buffer *)(ETHMAC_BASE + ETHMAC_SLOT_SIZE * rxslot);
 		rxlen = ethmac_sram_writer_length_read();
-		if (rxslot)
-			rxbuffer = rxbuffer1;
-		else
-			rxbuffer = rxbuffer0;
 		process_frame();
 		ethmac_sram_writer_ev_pending_write(ETHMAC_EV_SRAM_WRITER);
 	}
