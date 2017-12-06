@@ -86,6 +86,7 @@ class LiteEthMACPreambleChecker(Module):
         Pulses every time a preamble error is detected.
     """
     def __init__(self, dw):
+        assert dw == 8
         self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
         self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
@@ -93,66 +94,13 @@ class LiteEthMACPreambleChecker(Module):
 
         # # #
 
-        preamble = Signal(64, reset=eth_preamble)
-        cnt_max = (64//dw) - 1
-        cnt = Signal(max=cnt_max+1)
-        clr_cnt = Signal()
-        inc_cnt = Signal()
-
-        self.sync += \
-            If(clr_cnt,
-                cnt.eq(0)
-            ).Elif(inc_cnt,
-                cnt.eq(cnt+1)
-            )
-
-        discard = Signal()
-        clr_discard = Signal()
-        set_discard = Signal()
-
-        self.sync += \
-            If(clr_discard,
-                discard.eq(0)
-            ).Elif(set_discard,
-                discard.eq(1)
-            )
-
-        ref = Signal(dw)
-        match = Signal()
-        self.comb += [
-            chooser(preamble, cnt, ref),
-            match.eq(sink.data == ref),
-            self.error.eq(sink.stb & ~discard & set_discard),
-        ]
-
         fsm = FSM(reset_state="IDLE")
         self.submodules += fsm
 
         fsm.act("IDLE",
             sink.ack.eq(1),
-            clr_cnt.eq(1),
-            clr_discard.eq(1),
-            If(sink.stb,
-                clr_cnt.eq(0),
-                inc_cnt.eq(1),
-                clr_discard.eq(0),
-                set_discard.eq(~match),
-                NextState("CHECK"),
-            )
-        )
-        fsm.act("CHECK",
-            sink.ack.eq(1),
-            If(sink.stb,
-                set_discard.eq(~match),
-                If(cnt == cnt_max,
-                    If(discard | (~match),
-                        NextState("IDLE")
-                    ).Else(
-                        NextState("COPY")
-                    )
-                ).Else(
-                    inc_cnt.eq(1)
-                )
+            If(sink.stb & (sink.data == eth_preamble >> 56),
+                NextState("COPY")
             )
         )
         self.comb += [
