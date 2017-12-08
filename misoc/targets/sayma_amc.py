@@ -45,11 +45,8 @@ class _CRG(Module):
                      # 500MHz
                      p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_sys4x,
 
-                     # 500MHz dqs
-                     p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=45.0, o_CLKOUT2=pll_sys4x_dqs,
-
                      # 200MHz
-                     p_CLKOUT3_DIVIDE=5, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=pll_clk200
+                     p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_clk200
             ),
             Instance("BUFG", i_I=self.pll_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
