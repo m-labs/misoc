@@ -203,7 +203,7 @@ class A7_1000BASEX(Module):
 
                 p_CLKOUT0_DIVIDE_F=16,
                 o_CLKOUT0=clk_tx_half_unbuf,
-                p_CLKOUT1_DIVIDE_F=8,
+                p_CLKOUT1_DIVIDE=8,
                 o_CLKOUT1=clk_tx_unbuf,
             ),
             Instance("BUFH", i_I=clk_tx_half_unbuf, o_O=self.cd_eth_tx_half.clk),
@@ -230,7 +230,7 @@ class A7_1000BASEX(Module):
 
                 p_CLKOUT0_DIVIDE_F=16,
                 o_CLKOUT0=clk_rx_half_unbuf,
-                p_CLKOUT1_DIVIDE_F=8,
+                p_CLKOUT1_DIVIDE=8,
                 o_CLKOUT1=clk_rx_unbuf,
             ),
             Instance("BUFH", i_I=clk_rx_half_unbuf, o_O=self.cd_eth_rx_half.clk),
