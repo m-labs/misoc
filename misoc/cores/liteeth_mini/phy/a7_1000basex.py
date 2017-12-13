@@ -1,4 +1,5 @@
 from migen import *
+from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from misoc.cores.a7_gtp import *
 from misoc.cores.liteeth_mini.phy.pcs_1000basex import *
@@ -19,8 +20,8 @@ class Gearbox(Module):
         # RX
         phase_half = Signal()
         phase_half_rereg = Signal()
-        self.eth_rx_half += phase_half_rereg.eq(phase_half)
-        self.eth_rx += [
+        self.sync.eth_rx_half += phase_half_rereg.eq(phase_half)
+        self.sync.eth_rx += [
             If(phase_half == phase_half_rereg,
                 self.rx_data.eq(self.rx_data_half[10:])
             ).Else(
@@ -35,6 +36,7 @@ class A7_1000BASEX(Module):
         pcs = PCS(lsb_first=True)
         self.submodules += pcs
 
+        self.dw = 8
         self.sink = pcs.sink
         self.source = pcs.source
 
@@ -112,9 +114,9 @@ class A7_1000BASEX(Module):
                 # TX data
                 p_TX_DATA_WIDTH=20,
                 i_TXDLYBYPASS=1,
-                i_TXCHARDISPMODE=Cat(txdata[9], txdata[19]),
-                i_TXCHARDISPVAL=Cat(txdata[8], txdata[18]),
-                i_TXDATA=Cat(txdata[:8], txdata[10:18]),
+                i_TXCHARDISPMODE=Cat(tx_data[9], tx_data[19]),
+                i_TXCHARDISPVAL=Cat(tx_data[8], tx_data[18]),
+                i_TXDATA=Cat(tx_data[:8], tx_data[10:18]),
                 i_TXUSRCLK=ClockSignal("eth_tx_half"),
                 i_TXUSRCLK2=ClockSignal("eth_tx_half"),
 
@@ -166,9 +168,9 @@ class A7_1000BASEX(Module):
                 i_RXCOMMADETEN=1,
                 i_RXDLYBYPASS=1,
                 i_RXDDIEN=0,
-                o_RXDISPERR=Cat(rxdata[9], rxdata[19]),
-                o_RXCHARISK=Cat(rxdata[8], rxdata[18]),
-                o_RXDATA=Cat(rxdata[:8], rxdata[10:18]),
+                o_RXDISPERR=Cat(rx_data[9], rx_data[19]),
+                o_RXCHARISK=Cat(rx_data[8], rx_data[18]),
+                o_RXDATA=Cat(rx_data[:8], rx_data[10:18]),
 
                 # Polarity
                 i_TXPOLARITY=0,
@@ -245,7 +247,7 @@ class A7_1000BASEX(Module):
             tx_reset.eq(tx_init.tx_reset)
         ]
         self.sync += tx_mmcm_reset.eq(~tx_init.done)
-        self.specials += NoRetiming(tx_mmcm_reset)
+        tx_mmcm_reset.attr.add("no_retiming")
 
         rx_init = GTPRxInit(sys_clk_freq)
         self.submodules += rx_init

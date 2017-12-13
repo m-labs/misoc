@@ -138,6 +138,7 @@ class MiniSoC(BaseSoC):
         self.submodules.ethphy = A7_1000BASEX(ethphy_qpll_channel, sfp, self.clk_freq)
         self.platform.add_period_constraint(self.ethphy.txoutclk, 16e-9)
         self.platform.add_period_constraint(self.ethphy.rxoutclk, 16e-9)
+        self.platform.add_period_constraint(self.crg.cd_sys.clk, self.clk_freq)
         self.platform.add_false_path_constraints(
             self.crg.cd_sys.clk,
             self.ethphy.txoutclk, self.ethphy.rxoutclk)

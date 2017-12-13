@@ -5,7 +5,7 @@ from migen import *
 from migen.genlib.cdc import MultiReg, PulseSynchronizer
 from migen.genlib.fsm import FSM
 
-__all__ = ["QPLLSettings", "QPLLChannel", "QPLL"]
+__all__ = ["QPLLSettings", "QPLLChannel", "QPLL", "GTPTxInit", "GTPRxInit"]
 
 
 QPLLSettings = namedtuple("QPLLSettings", "refclksel fbdiv fbdiv_45 refclk_div")
@@ -36,9 +36,9 @@ class QPLL(Module):
                 add_setting("i_PLLXPD", 0)
                 add_setting("i_PLLXLOCKEN", 1)
                 add_setting("i_PLLXREFCLKSEL", qpllsettings.refclksel)
-                add_setting("p_PLLX_FBDIV", qpllsettings.n2)
-                add_setting("p_PLLX_FBDIV_45", qpllsettings.n1)
-                add_setting("p_PLLX_REFCLK_DIV", qpllsettings.m)
+                add_setting("p_PLLX_FBDIV", qpllsettings.fbdiv)
+                add_setting("p_PLLX_FBDIV_45", qpllsettings.fbdiv_45)
+                add_setting("p_PLLX_REFCLK_DIV", qpllsettings.refclk_div)
                 add_setting("i_PLLXRESET", channel.reset)
                 add_setting("o_PLLXLOCK", channel.lock)
                 add_setting("o_PLLXOUTCLK", channel.clk)
@@ -71,10 +71,8 @@ class GTPTxInit(Module):
             self.qpll_reset.eq(qpll_reset),
             self.tx_reset.eq(tx_reset)
         ]
-        self.specials += [
-            NoRetiming(self.qpll_reset),
-            NoRetiming(self.tx_reset)
-        ]
+        self.qpll_reset.attr.add("no_retiming")
+        self.tx_reset.attr.add("no_retiming")
         qpll_lock = Signal()
         self.specials += MultiReg(self.qpll_lock, qpll_lock)
 
@@ -105,7 +103,7 @@ class GTPTxInit(Module):
             qpll_reset.eq(1),
             If(tick, NextState("WAIT_QPLL_LOCK"))
         )
-        fsm.act("TX_RESET",
+        fsm.act("WAIT_QPLL_LOCK",
             tx_reset.eq(1),
             If(qpll_lock & tick, NextState("DONE"))
         )
@@ -136,7 +134,7 @@ class GTPRxInit(Module):
         # Handle async signals()
         rx_reset = Signal()
         self.sync += self.rx_reset.eq(rx_reset)
-        self.specials += NoRetiming(self.rx_reset)
+        self.rx_reset.attr.add("no_retiming")
         rx_pma_reset_done = Signal()
         self.specials += MultiReg(self.rx_pma_reset_done, rx_pma_reset_done)
 
@@ -158,7 +156,7 @@ class GTPRxInit(Module):
         self.submodules += fsm
 
         fsm.act("WAIT_ENABLE",
-            If(self.enable, NextState("RESET1"))
+            If(self.enable, NextState("GTRXRESET"))
         )
         fsm.act("GTRXRESET",
             rx_reset.eq(1),
