@@ -195,7 +195,7 @@ class A7_1000BASEX(Module):
         clk_tx_half_unbuf = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=16e-9,
+                p_CLKIN1_PERIOD=16.0,
                 i_CLKIN1=txoutclk_rebuffer,
                 i_RST=tx_mmcm_reset,
 
@@ -222,7 +222,7 @@ class A7_1000BASEX(Module):
         clk_rx_half_unbuf = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=16e-9,
+                p_CLKIN1_PERIOD=16.0,
                 i_CLKIN1=rxoutclk_rebuffer,
                 i_RST=rx_mmcm_reset,
 
