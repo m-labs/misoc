@@ -9,7 +9,8 @@ from migen.build.platforms.sinara import kasli
 from misoc.cores.sdram_settings import MT41K256M16
 from misoc.cores.sdram_phy import a7ddrphy
 from misoc.cores import spi_flash
-# from misoc.cores.liteeth_mini.phy.kbasex import KBaseX  # TODO
+from misoc.cores.a7_gtp import *
+from misoc.cores.liteeth_mini.phy.a7_1000basex import A7_1000BASEX
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
@@ -106,7 +107,7 @@ class MiniSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, ethphy_qpll_channel=None, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
 
         self.csr_devices += ["ethphy", "ethmac"]
@@ -114,14 +115,32 @@ class MiniSoC(BaseSoC):
 
         sfp = self.platform.request("sfp", 0)
         self.comb += [
-                sfp.rate_select.eq(1),
-                sfp.tx_disable.eq(0),
+            sfp.rate_select.eq(1),
+            sfp.tx_disable.eq(0),
         ]
 
-        clk125 = self.platform.request("clk125_gtp")
-        self.platform.add_period_constraint(clk125.p, 4.)
-        gtp = self.platform.request("sfp_gtp", 0)
-        self.submodules.ethphy = KBaseX(clk125, gtp)  # TODO
+        if ethphy_qpll_channel is None:
+            clk125 = self.platform.request("clk125_gtp")
+            clk125_buf = Signal()
+            self.specials += Instance("IBUFDS_GTE2",
+                i_CEB=0,
+                i_I=clk125.p, i_IB=clk125.n,
+                o_O=clk125_buf)
+            qpll_settings = QPLLSettings(
+                refclksel=0b001,
+                fbdiv=4,
+                fbdiv_45=5,
+                refclk_div=1)
+            qpll = QPLL(clk125_buf, qpll_settings)
+            self.submodules += qpll
+            ethphy_qpll_channel = qpll.channels[0]
+        sfp = self.platform.request("sfp_gtp", 0)
+        self.submodules.ethphy = A7_1000BASEX(ethphy_qpll_channel, sfp, self.clk_freq)
+        self.platform.add_period_constraint(self.ethphy.txoutclk, 16e-9)
+        self.platform.add_period_constraint(self.ethphy.rxoutclk, 16e-9)
+        self.platform.add_false_path_constraints(
+            self.crg.cd_sys.clk,
+            self.ethphy.txoutclk, self.ethphy.rxoutclk)
 
         self.submodules.ethmac = LiteEthMAC(
                 phy=self.ethphy, dw=32, interface="wishbone",
