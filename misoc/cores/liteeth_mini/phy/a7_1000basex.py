@@ -184,6 +184,11 @@ class A7_1000BASEX(Module):
             )
 
         # Get 125MHz clocks back - the GTP junk insists on outputting 62.5MHz.
+        txoutclk_rebuffer = Signal()
+        self.specials += Instance("BUFG", i_I=self.txoutclk, o_O=txoutclk_rebuffer)
+        rxoutclk_rebuffer = Signal()
+        self.specials += Instance("BUFG", i_I=self.rxoutclk, o_O=rxoutclk_rebuffer)
+
         tx_mmcm_fb = Signal()
         tx_mmcm_reset = Signal()
         clk_tx_unbuf = Signal()
@@ -191,7 +196,7 @@ class A7_1000BASEX(Module):
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16e-9,
-                i_CLKIN1=self.txoutclk,
+                i_CLKIN1=txoutclk_rebuffer,
                 i_RST=tx_mmcm_reset,
 
                 o_CLKFBOUT=tx_mmcm_fb,
@@ -206,7 +211,7 @@ class A7_1000BASEX(Module):
                 p_CLKOUT1_DIVIDE=8,
                 o_CLKOUT1=clk_tx_unbuf,
             ),
-            Instance("BUFH", i_I=clk_tx_half_unbuf, o_O=self.cd_eth_tx_half.clk),
+            Instance("BUFG", i_I=clk_tx_half_unbuf, o_O=self.cd_eth_tx_half.clk),
             Instance("BUFG", i_I=clk_tx_unbuf, o_O=self.cd_eth_tx.clk),
             AsyncResetSynchronizer(self.cd_eth_tx, ~tx_mmcm_locked)
         ]
@@ -218,7 +223,7 @@ class A7_1000BASEX(Module):
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16e-9,
-                i_CLKIN1=self.rxoutclk,
+                i_CLKIN1=rxoutclk_rebuffer,
                 i_RST=rx_mmcm_reset,
 
                 o_CLKFBOUT=rx_mmcm_fb,
@@ -233,7 +238,7 @@ class A7_1000BASEX(Module):
                 p_CLKOUT1_DIVIDE=8,
                 o_CLKOUT1=clk_rx_unbuf,
             ),
-            Instance("BUFH", i_I=clk_rx_half_unbuf, o_O=self.cd_eth_rx_half.clk),
+            Instance("BUFG", i_I=clk_rx_half_unbuf, o_O=self.cd_eth_rx_half.clk),
             Instance("BUFG", i_I=clk_rx_unbuf, o_O=self.cd_eth_rx.clk),
             AsyncResetSynchronizer(self.cd_eth_rx, ~rx_mmcm_locked)
         ]
