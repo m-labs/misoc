@@ -19,12 +19,8 @@ class LiteEthMACCore(Module, AutoCSR):
 
         # Interpacket gap
         tx_gap_inserter = gap.LiteEthMACGap(phy.dw)
-        rx_gap_checker = gap.LiteEthMACGap(phy.dw, ack_on_gap=True)
         self.submodules += ClockDomainsRenamer("eth_tx")(tx_gap_inserter)
-        self.submodules += ClockDomainsRenamer("eth_rx")(rx_gap_checker)
-
         tx_pipeline += [tx_gap_inserter]
-        rx_pipeline += [rx_gap_checker]
 
         # Preamble / CRC
         if with_preamble_crc:
