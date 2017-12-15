@@ -420,9 +420,6 @@ static void busy_wait(unsigned int ds)
 
 void eth_init(void)
 {
-	ethphy_crg_reset_write(0);
-	busy_wait(2);
-	/* that pesky ethernet PHY needs two resets at times... */
 	ethphy_crg_reset_write(1);
 	busy_wait(2);
 	ethphy_crg_reset_write(0);
