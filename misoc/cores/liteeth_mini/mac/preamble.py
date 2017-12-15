@@ -99,9 +99,10 @@ class LiteEthMACPreambleChecker(Module):
 
         fsm.act("IDLE",
             sink.ack.eq(1),
-            If(sink.stb & (sink.data == eth_preamble >> 56),
+            If(sink.stb & ~sink.eop & (sink.data == eth_preamble >> 56),
                 NextState("COPY")
-            )
+            ),
+            If(sink.stb & sink.eop, self.error.eq(1))
         )
         self.comb += [
             source.data.eq(sink.data),
