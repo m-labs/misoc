@@ -55,7 +55,7 @@ class LiteEthPHYRGMIICRG(Module, AutoCSR):
 
         self.specials += [
             Instance("BUFG", i_I=clock_pads.rx, o_O=self.cd_eth_rx.clk),
-            DDROutput(1, 0, clock_pads.tx, ClockSignal("eth_tx"))
+            DDROutput(0, 1, clock_pads.tx, ClockSignal("eth_tx"))
         ]
         self.comb += self.cd_eth_tx.clk.eq(self.cd_eth_rx.clk)
 
