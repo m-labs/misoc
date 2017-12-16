@@ -108,7 +108,7 @@ class MiniSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, reroute_rgmii_clock=True, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
 
         self.csr_devices += ["ethphy", "ethmac"]
@@ -116,6 +116,15 @@ class MiniSoC(BaseSoC):
 
         eth_clocks = self.platform.request("eth_clocks")
         eth = self.platform.request("eth")
+        if reroute_rgmii_clock:
+            # On the first Sayma PCB revision, the RGMII RX clock is not
+            # connected to a clock-capable pin.
+            self.config["RGMII_CLOCK_REROUTED"] = None
+            si5324_clkin = platform.request("si5324_clkin")
+            si5324_clkout = platform.request("si5324_clkout_fabric")
+            self.specials += DifferentialOutput(eth_clocks.rx, si5324_clkin.p, si5324_clkin.n)
+            eth_clocks.rx = Signal()
+            self.specials += DifferentialInput(si5324_clkout.p, si5324_clkout.n, eth_clocks.rx)
         self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             eth, clk_freq=self.clk_freq)
         self.comb += eth.mdc.eq(0)
