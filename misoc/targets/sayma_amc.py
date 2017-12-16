@@ -120,8 +120,8 @@ class MiniSoC(BaseSoC):
             # On the first Sayma PCB revision, the RGMII RX clock is not
             # connected to a clock-capable pin.
             self.config["RGMII_CLOCK_REROUTED"] = None
-            si5324_clkin = platform.request("si5324_clkin")
-            si5324_clkout = platform.request("si5324_clkout_fabric")
+            si5324_clkin = self.platform.request("si5324_clkin")
+            si5324_clkout = self.platform.request("si5324_clkout_fabric")
             self.specials += DifferentialOutput(eth_clocks.rx, si5324_clkin.p, si5324_clkin.n)
             eth_clocks.rx = Signal()
             self.specials += DifferentialInput(si5324_clkout.p, si5324_clkout.n, eth_clocks.rx)
