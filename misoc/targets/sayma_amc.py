@@ -136,7 +136,8 @@ class MiniSoC(BaseSoC):
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
                                ethmac_len)
 
-        self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_rx_IBUF_inst/O]")
+        if not reroute_rgmii_clock:
+            self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_rx_IBUF_inst/O]")
 
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
         # period constraints are required here because of vivado
