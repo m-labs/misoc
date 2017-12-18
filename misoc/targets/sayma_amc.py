@@ -109,23 +109,14 @@ class MiniSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, reroute_rgmii_clock=True, **kwargs):
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
 
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
         eth_clocks = self.platform.request("eth_clocks")
-        eth = self.platform.request("eth")
-        if reroute_rgmii_clock:
-            # On the first Sayma PCB revision, the RGMII RX clock is not
-            # connected to a clock-capable pin.
-            self.config["RGMII_CLOCK_REROUTED"] = None
-            si5324_clkin = self.platform.request("si5324_clkin")
-            si5324_clkout = self.platform.request("si5324_clkout_fabric")
-            self.specials += DifferentialOutput(eth_clocks.rx, si5324_clkin.p, si5324_clkin.n)
-            eth_clocks.rx = Signal()
-            self.specials += DifferentialInput(si5324_clkout.p, si5324_clkout.n, eth_clocks.rx)
+        eth = self.platform.request("eth_mii")
         self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             eth, clk_freq=self.clk_freq)
         self.comb += eth.mdc.eq(0)
@@ -136,8 +127,8 @@ class MiniSoC(BaseSoC):
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
                                ethmac_len)
 
-        if not reroute_rgmii_clock:
-            self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_rx_IBUF_inst/O]")
+        self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_rx_IBUF_inst/O]")
+        self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_tx_IBUF_inst/O]")
 
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
         # period constraints are required here because of vivado
