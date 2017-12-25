@@ -153,7 +153,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
   unsigned long long num;
   int i, base;
   char *str, *end, c;
-  const char *s;
+  const char *s, *sc;
 
   int flags;    /* flags to number() */
 
@@ -268,7 +268,8 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
         if (s == NULL)
           s = "<NULL>";
 
-        len = strnlen(s, precision);
+        for (sc = s; sc - s < precision && *sc != '\0'; ++sc);
+        len = sc - s;
 
         if (!(flags & PRINTF_LEFT)) {
           while (len < field_width--) {
