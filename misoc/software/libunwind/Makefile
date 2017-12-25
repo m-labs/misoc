@@ -5,33 +5,40 @@ include $(MISOC_DIRECTORY)/software/common.mak
 ifeq ($(CPU),lm32)
 	ALL_TARGET=
 else
-	ALL_TARGET=libunwind.a
+	ALL_TARGET=libunwind-bare.a libunwind-elf.a
 endif
 
-COMMONFLAGS+=-integrated-as \
-	-I. -I$(MISOC_DIRECTORY)/software/include/dyld/ -I$(MISOC_DIRECTORY)/software/unwinder/include/ \
+COMMONFLAGS += -integrated-as -I. \
+	-I$(MISOC_DIRECTORY)/software/include/dyld/ \
+	-I$(MISOC_DIRECTORY)/software/unwinder/include/ \
 	-I$(LIBUNWIND_DIRECTORY) \
 	-D__ELF__ -D__linux__ \
 	-D_LIBUNWIND_NO_HEAP \
 	-DNDEBUG
 
-OBJECTS=UnwindRegistersSave.o UnwindRegistersRestore.o UnwindLevel1.o libunwind.o
+OBJECTS = UnwindRegistersSave.o UnwindRegistersRestore.o
 
+.PHONY: all
 all: $(ALL_TARGET)
 
-libunwind.a: $(OBJECTS)
-	$(AR) crs libunwind.a $(OBJECTS)
+libunwind-%.a: $(OBJECTS) UnwindLevel1-%.o libunwind-%.o
+	$(archive)
 
-%.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
+%-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
 	$(compilexx)
 
-%.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
+%-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
 	$(compile)
+
+%-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
+	$(compilexx) -D_LIBUNWIND_IS_BAREMETAL
+
+%-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
+	$(compile) -D_LIBUNWIND_IS_BAREMETAL
 
 %.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
 	$(assemble)
 
 .PHONY: clean
-
 clean:
-	$(RM) $(OBJECTS) libunwind.a .*~ *~
+	$(clean)
