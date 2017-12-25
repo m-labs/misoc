@@ -10,17 +10,17 @@ endif
 
 COMMONFLAGS += -I$(MISOC_DIRECTORY)/software/include/dyld
 
-OBJECTS=dyld.o
+OBJECTS = dyld.o
 
+.PHONY: all
 all: $(ALL_TARGET)
 
 libdyld.a: $(OBJECTS)
-	$(AR) crs libdyld.a $(OBJECTS)
+	$(archive)
 
 %.o: $(LIBDYLD_DIRECTORY)/%.c
 	$(compile)
 
-.PHONY: all clean
-
+.PHONY: clean
 clean:
-	$(RM) $(OBJECTS) libdyld.a .*~ *~
+	$(clean)

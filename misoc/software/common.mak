@@ -64,9 +64,13 @@ $(CC) -c $(CFLAGS) $(1) $< -o $@
 endef
 
 define assemble
-$(CC) -c $(CFLAGS) -o $@ $<
+$(CC) -c $(CFLAGS) $(1) -o $@ $<
 endef
 
 define cargo
 $(CARGO)
+endef
+
+define clean
+$(RM) *.a *.o $(1)
 endef

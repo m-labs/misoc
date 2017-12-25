@@ -1,12 +1,13 @@
 include ../include/generated/variables.mak
 include $(MISOC_DIRECTORY)/software/common.mak
 
-OBJECTS=alloc.o
+OBJECTS = alloc.o
 
+.PHONY: all
 all: liballoc.a
 
 liballoc.a: $(OBJECTS)
-	$(AR) crs liballoc.a $(OBJECTS)
+	$(archive)
 
 %.o: $(LIBALLOC_DIRECTORY)/%.c
 	$(compile)
@@ -14,7 +15,6 @@ liballoc.a: $(OBJECTS)
 %.o: %.S
 	$(assemble)
 
-.PHONY: all clean
-
+.PHONY: clean
 clean:
-	$(RM) $(OBJECTS) liballoc.a .*~ *~
+	$(clean)

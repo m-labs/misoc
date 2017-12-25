@@ -4,7 +4,7 @@ include $(MISOC_DIRECTORY)/software/common.mak
 COMMONFLAGS += -I$(MISOC_DIRECTORY)/software/include/fdlibm \
 	-D_IEEE_LIBM
 
-OBJECTS=k_standard.o k_rem_pio2.o \
+OBJECTS = k_standard.o k_rem_pio2.o \
 	k_cos.o k_sin.o k_tan.o \
 	e_acos.o e_acosh.o e_asin.o e_atan2.o \
 	e_atanh.o e_cosh.o e_exp.o e_fmod.o \
@@ -25,15 +25,15 @@ OBJECTS=k_standard.o k_rem_pio2.o \
 	s_rint.o s_scalbn.o s_signgam.o s_significand.o s_sin.o \
 	s_tan.o s_tanh.o
 
+.PHONY: all
 all: libm.a
 
 libm.a: $(OBJECTS)
-	$(AR) crs libm.a $(OBJECTS)
+	$(archive)
 
 %.o: $(LIBM_DIRECTORY)/%.c
 	$(compile)
 
-.PHONY: all clean
-
+.PHONY: clean
 clean:
-	$(RM) $(OBJECTS) libm.a .*~ *~
+	$(clean)
