@@ -51,6 +51,10 @@ LDFLAGS = --gc-sections -nostdlib -nodefaultlibs -L$(BUILDINC_DIRECTORY)
 RUSTOUT = cargo/$(CARGO_TRIPLE)/debug
 export RUSTFLAGS = -Ctarget-feature=+mul,+div,+ffl1,+cmov,+addc -Crelocation-model=static -Copt-level=s
 
+define archive
+$(AR) crs $@ $^
+endef
+
 define compilexx
 $(CX) -c $(CXXFLAGS) $(1) $< -o $@
 endef

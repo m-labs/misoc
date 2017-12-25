@@ -1,21 +1,24 @@
 include ../include/generated/variables.mak
 include $(MISOC_DIRECTORY)/software/common.mak
 
-OBJECTS=exception.o libc.o errno.o crc16.o crc32.o console.o system.o id.o uart.o time.o qsort.o strtod.o spiflash.o
+OBJECTS=exception.o libc.o errno.o crc16.o crc32.o console.o system.o id.o uart.o time.o qsort.o strtod.o spiflash.o ctype.o
 
 all: crt0-$(CPU).o libbase.a libbase-nofloat.a
 
-libbase.a: $(OBJECTS) vsnprintf.o
-	$(AR) crs libbase.a $(OBJECTS) vsnprintf.o
+libbase.a: $(OBJECTS) printf.o
+	$(archive)
 
-libbase-nofloat.a: $(OBJECTS) vsnprintf-nofloat.o
-	$(AR) crs libbase-nofloat.a $(OBJECTS) vsnprintf-nofloat.o
-
-vsnprintf-nofloat.o: $(LIBBASE_DIRECTORY)/vsnprintf.c
-	$(call compile,-DNO_FLOAT)
+libbase-nofloat.a: $(OBJECTS) printf-nofloat.o
+	$(archive)
 
 %.o: $(LIBBASE_DIRECTORY)/%.c
 	$(compile)
+
+%.o: $(LIBPRINTF_DIRECTORY)/%.c
+	$(compile)
+
+printf-nofloat.o: $(LIBPRINTF_DIRECTORY)/printf.c
+	$(compile) -D_PRINTF_NO_FLOAT
 
 %.o: $(LIBBASE_DIRECTORY)/%.S
 	$(assemble)
@@ -23,5 +26,4 @@ vsnprintf-nofloat.o: $(LIBBASE_DIRECTORY)/vsnprintf.c
 .PHONY: all clean
 
 clean:
-	$(RM) $(OBJECTS) crt0-$(CPU).o vsnprintf.o vsnprintf-nofloat.o
-	$(RM) libbase.a libbase-nofloat.a .*~ *~
+	$(RM) *.a *.o
