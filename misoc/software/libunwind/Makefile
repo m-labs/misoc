@@ -13,7 +13,7 @@ COMMONFLAGS += -integrated-as -I. \
 	-I$(MISOC_DIRECTORY)/software/unwinder/include/ \
 	-I$(LIBUNWIND_DIRECTORY) \
 	-D__ELF__ -D__linux__ \
-	-D_LIBUNWIND_NO_HEAP \
+	-D_LIBUNWIND_NO_HEAP -D_LIBUNWIND_BUILD_ZERO_COST_APIS \
 	-DNDEBUG
 
 OBJECTS = UnwindRegistersSave.o UnwindRegistersRestore.o
@@ -21,7 +21,7 @@ OBJECTS = UnwindRegistersSave.o UnwindRegistersRestore.o
 .PHONY: all
 all: $(ALL_TARGET)
 
-libunwind-%.a: $(OBJECTS) UnwindLevel1-%.o libunwind-%.o
+libunwind-%.a: $(OBJECTS) UnwindLevel1-%.o UnwindLevel1-gcc-ext-%.o libunwind-%.o
 	$(archive)
 
 %-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
