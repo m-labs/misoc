@@ -268,8 +268,13 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
         if (s == NULL)
           s = "<NULL>";
 
-        for (sc = s; sc - s < precision && *sc != '\0'; ++sc);
-        len = sc - s;
+        if (precision == -1) {
+          for (sc = s; *sc != '\0'; ++sc);
+          len = sc - s;
+        } else {
+          for (sc = s; sc - s < precision && *sc != '\0'; ++sc);
+          len = sc - s;
+        }
 
         if (!(flags & PRINTF_LEFT)) {
           while (len < field_width--) {
