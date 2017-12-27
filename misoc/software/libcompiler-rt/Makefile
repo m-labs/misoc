@@ -10,15 +10,10 @@ OBJECTS = divsi3.o modsi3.o comparesf2.o comparedf2.o negsf2.o negdf2.o \
 	fixunsdfsi.o clzsi2.o ctzsi2.o udivdi3.o umoddi3.o moddi3.o ucmpdi2.o \
   powidf2.o powisf2.o mulodi4.o floatundisf.o floatundidf.o extendsfdf2.o truncdfsf2.o
 
-.PHONY: all
-all: libcompiler-rt.a
+all:: libcompiler-rt.a
 
 libcompiler-rt.a: $(OBJECTS)
 	$(archive)
 
 %.o: $(MISOC_DIRECTORY)/software/compiler_rt/lib/builtins/%.c
 	$(compile)
-
-.PHONY: clean
-clean:
-	$(clean)

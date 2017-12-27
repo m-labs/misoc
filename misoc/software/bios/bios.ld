@@ -8,6 +8,7 @@ SECTIONS
 	.text :
 	{
 		_ftext = .;
+		*crt0*.o(.text)
 		*(.text .stub .text.* .gnu.linkonce.t.*)
 		_etext = .;
 	} > rom

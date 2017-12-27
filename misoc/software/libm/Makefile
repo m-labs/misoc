@@ -25,15 +25,10 @@ OBJECTS = k_standard.o k_rem_pio2.o \
 	s_rint.o s_scalbn.o s_signgam.o s_significand.o s_sin.o \
 	s_tan.o s_tanh.o
 
-.PHONY: all
-all: libm.a
+all:: libm.a
 
 libm.a: $(OBJECTS)
 	$(archive)
 
 %.o: $(LIBM_DIRECTORY)/%.c
 	$(compile)
-
-.PHONY: clean
-clean:
-	$(clean)

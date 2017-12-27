@@ -1,12 +1,9 @@
 include ../include/generated/variables.mak
 include $(MISOC_DIRECTORY)/software/common.mak
 
-OBJECTS = ctype.o
+all:: libprintf-float.a libprintf-nofloat.a
 
-.PHONY: all
-all: libprintf-float.a libprintf-nofloat.a
-
-libprintf-%.a: $(OBJECTS) printf-%.o
+libprintf-%.a: ctype.o printf-%.o
 	$(archive)
 
 printf-float.o: $(LIBPRINTF_DIRECTORY)/printf.c
@@ -17,7 +14,3 @@ printf-nofloat.o: $(LIBPRINTF_DIRECTORY)/printf.c
 
 %.o: $(LIBPRINTF_DIRECTORY)/%.c
 	$(compile)
-
-.PHONY: clean
-clean:
-	$(clean)

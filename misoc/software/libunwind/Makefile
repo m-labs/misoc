@@ -1,13 +1,6 @@
 include ../include/generated/variables.mak
 include $(MISOC_DIRECTORY)/software/common.mak
 
-# lm32 is not supported
-ifeq ($(CPU),lm32)
-	ALL_TARGET=
-else
-	ALL_TARGET=libunwind-bare.a libunwind-elf.a
-endif
-
 COMMONFLAGS += -integrated-as -I. \
 	-I$(MISOC_DIRECTORY)/software/include/dyld/ \
 	-I$(MISOC_DIRECTORY)/software/unwinder/include/ \
@@ -16,13 +9,16 @@ COMMONFLAGS += -integrated-as -I. \
 	-D_LIBUNWIND_NO_HEAP -D_LIBUNWIND_BUILD_ZERO_COST_APIS \
 	-DNDEBUG
 
-OBJECTS = UnwindRegistersSave.o UnwindRegistersRestore.o
+ifeq ($(CPU),or1k)
+all:: libunwind-bare.a libunwind-elf.a
+endif
 
-.PHONY: all
-all: $(ALL_TARGET)
-
-libunwind-%.a: $(OBJECTS) UnwindLevel1-%.o UnwindLevel1-gcc-ext-%.o libunwind-%.o
+libunwind-%.a: UnwindRegistersSave.o UnwindRegistersRestore.o \
+		UnwindLevel1-%.o UnwindLevel1-gcc-ext-%.o libunwind-%.o
 	$(archive)
+
+%.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
+	$(assemble)
 
 %-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
 	$(compilexx)
@@ -35,10 +31,3 @@ libunwind-%.a: $(OBJECTS) UnwindLevel1-%.o UnwindLevel1-gcc-ext-%.o libunwind-%.
 
 %-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
 	$(compile) -D_LIBUNWIND_IS_BAREMETAL
-
-%.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
-	$(assemble)
-
-.PHONY: clean
-clean:
-	$(clean)

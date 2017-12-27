@@ -90,3 +90,10 @@ endef
 define clean
 $(RM) cargo/ *.bin *.elf *.fbi *.a *.o $(1)
 endef
+
+.PHONY: all
+all::
+
+.PHONY: clean
+clean:
+	$(clean)
