@@ -1,62 +1,13 @@
+import jinja2
+from jinja2 import Template
 from migen import log2_int
 
 
-def get_sdram_phy_header(sdram_phy_settings):
-    r = "#ifndef __GENERATED_SDRAM_PHY_H\n#define __GENERATED_SDRAM_PHY_H\n"
-    r += "#include <hw/common.h>\n#include <generated/csr.h>\n#include <hw/flags.h>\n\n"
-
+def _get_sdram_phy_sequence(sdram_phy_settings):
     nphases = sdram_phy_settings.nphases
-    r += "#define DFII_NPHASES "+str(nphases)+"\n\n"
+    cl = sdram_phy_settings.cl
 
-    r += "static void cdelay(int i);\n"
-
-    # commands_px functions
-    for n in range(nphases):
-        r += """
-static void command_p{n}(int cmd)
-{{
-    dfii_pi{n}_command_write(cmd);
-    dfii_pi{n}_command_issue_write(1);
-}}""".format(n=str(n))
-    r += "\n\n"
-
-    # rd/wr access macros
-    r += """
-#define dfii_pird_address_write(X) dfii_pi{rdphase}_address_write(X)
-#define dfii_piwr_address_write(X) dfii_pi{wrphase}_address_write(X)
-
-#define dfii_pird_baddress_write(X) dfii_pi{rdphase}_baddress_write(X)
-#define dfii_piwr_baddress_write(X) dfii_pi{wrphase}_baddress_write(X)
-
-#define command_prd(X) command_p{rdphase}(X)
-#define command_pwr(X) command_p{wrphase}(X)
-""".format(rdphase=str(sdram_phy_settings.rdphase), wrphase=str(sdram_phy_settings.wrphase))
-    r += "\n"
-
-    #
-    # sdrrd/sdrwr functions utilities
-    #
-    r += "#define DFII_PIX_DATA_SIZE CSR_DFII_PI0_WRDATA_SIZE\n"
-    dfii_pix_wrdata_addr = []
-    for n in range(nphases):
-        dfii_pix_wrdata_addr.append("CSR_DFII_PI{n}_WRDATA_ADDR".format(n=n))
-    r += """
-const unsigned int dfii_pix_wrdata_addr[{n}] = {{
-    {dfii_pix_wrdata_addr}
-}};
-""".format(n=nphases, dfii_pix_wrdata_addr=",\n\t".join(dfii_pix_wrdata_addr))
-
-    dfii_pix_rddata_addr = []
-    for n in range(nphases):
-        dfii_pix_rddata_addr.append("CSR_DFII_PI{n}_RDDATA_ADDR".format(n=n))
-    r += """
-const unsigned int dfii_pix_rddata_addr[{n}] = {{
-    {dfii_pix_rddata_addr}
-}};
-""".format(n=nphases, dfii_pix_rddata_addr=",\n\t".join(dfii_pix_rddata_addr))
-    r += "\n"
-
-    # init sequence
+    consts = {}
     cmds = {
         "PRECHARGE_ALL": "DFII_COMMAND_RAS|DFII_COMMAND_WE|DFII_COMMAND_CS",
         "MODE_REGISTER": "DFII_COMMAND_RAS|DFII_COMMAND_CAS|DFII_COMMAND_WE|DFII_COMMAND_CS",
@@ -64,8 +15,6 @@ const unsigned int dfii_pix_rddata_addr[{n}] = {{
         "UNRESET":       "DFII_CONTROL_ODT|DFII_CONTROL_RESET_N",
         "CKE":           "DFII_CONTROL_CKE|DFII_CONTROL_ODT|DFII_CONTROL_RESET_N"
     }
-
-    cl = sdram_phy_settings.cl
 
     if sdram_phy_settings.memtype == "SDR":
         bl = sdram_phy_settings.nphases
@@ -75,11 +24,13 @@ const unsigned int dfii_pix_rddata_addr[{n}] = {{
         init_sequence = [
             ("Bring CKE high", 0x0000, 0, cmds["CKE"], 20000),
             ("Precharge All",  0x0400, 0, cmds["PRECHARGE_ALL"], 0),
-            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl), mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
+            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl),
+             mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
             ("Precharge All", 0x0400, 0, cmds["PRECHARGE_ALL"], 0),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
-            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl), mr, 0, cmds["MODE_REGISTER"], 200)
+            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl),
+             mr, 0, cmds["MODE_REGISTER"], 200)
         ]
 
     elif sdram_phy_settings.memtype == "DDR":
@@ -92,11 +43,13 @@ const unsigned int dfii_pix_rddata_addr[{n}] = {{
             ("Bring CKE high", 0x0000, 0, cmds["CKE"], 20000),
             ("Precharge All",  0x0400, 0, cmds["PRECHARGE_ALL"], 0),
             ("Load Extended Mode Register", emr, 1, cmds["MODE_REGISTER"], 0),
-            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl), mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
+            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl),
+             mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
             ("Precharge All", 0x0400, 0, cmds["PRECHARGE_ALL"], 0),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
-            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl), mr, 0, cmds["MODE_REGISTER"], 200)
+            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl),
+             mr, 0, cmds["MODE_REGISTER"], 200)
         ]
 
     elif sdram_phy_settings.memtype == "LPDDR":
@@ -109,11 +62,13 @@ const unsigned int dfii_pix_rddata_addr[{n}] = {{
             ("Bring CKE high", 0x0000, 0, cmds["CKE"], 20000),
             ("Precharge All",  0x0400, 0, cmds["PRECHARGE_ALL"], 0),
             ("Load Extended Mode Register", emr, 2, cmds["MODE_REGISTER"], 0),
-            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl), mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
+            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl),
+             mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
             ("Precharge All", 0x0400, 0, cmds["PRECHARGE_ALL"], 0),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
-            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl), mr, 0, cmds["MODE_REGISTER"], 200)
+            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl),
+             mr, 0, cmds["MODE_REGISTER"], 200)
         ]
 
     elif sdram_phy_settings.memtype == "DDR2":
@@ -132,11 +87,13 @@ const unsigned int dfii_pix_rddata_addr[{n}] = {{
             ("Load Extended Mode Register 3", emr3, 3, cmds["MODE_REGISTER"], 0),
             ("Load Extended Mode Register 2", emr2, 2, cmds["MODE_REGISTER"], 0),
             ("Load Extended Mode Register", emr, 1, cmds["MODE_REGISTER"], 0),
-            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl), mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
+            ("Load Mode Register / Reset DLL, CL={0:d}, BL={1:d}".format(cl, bl),
+             mr + reset_dll, 0, cmds["MODE_REGISTER"], 200),
             ("Precharge All", 0x0400, 0, cmds["PRECHARGE_ALL"], 0),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
             ("Auto Refresh", 0x0, 0, cmds["AUTO_REFRESH"], 4),
-            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl), mr, 0, cmds["MODE_REGISTER"], 200),
+            ("Load Mode Register / CL={0:d}, BL={1:d}".format(cl, bl),
+             mr, 0, cmds["MODE_REGISTER"], 200),
             ("Load Extended Mode Register / OCD Default", emr+ocd, 1, cmds["MODE_REGISTER"], 0),
             ("Load Extended Mode Register / OCD Exit", emr, 1, cmds["MODE_REGISTER"], 0),
         ]
@@ -201,29 +158,168 @@ const unsigned int dfii_pix_rddata_addr[{n}] = {{
             ("Load Mode Register 2", mr2, 2, cmds["MODE_REGISTER"], 0),
             ("Load Mode Register 3", mr3, 3, cmds["MODE_REGISTER"], 0),
             ("Load Mode Register 1", mr1, 1, cmds["MODE_REGISTER"], 0),
-            ("Load Mode Register 0, CL={0:d}, BL={1:d}".format(cl, bl), mr0, 0, cmds["MODE_REGISTER"], 200),
+            ("Load Mode Register 0, CL={0:d}, BL={1:d}".format(cl, bl),
+             mr0, 0, cmds["MODE_REGISTER"], 200),
             ("ZQ Calibration", 0x0400, 0, "DFII_COMMAND_WE|DFII_COMMAND_CS", 200),
         ]
 
         # the value of MR1 needs to be modified during write leveling
-        r += "#define DDR3_MR1 {}\n\n".format(mr1)
+        consts["DDR3_MR1"] = mr1
     else:
         raise NotImplementedError("Unsupported memory type: "+sdram_phy_settings.memtype)
 
-    r += "static void init_sequence(void)\n{\n"
-    for comment, a, ba, cmd, delay in init_sequence:
-        r += "\t/* {0} */\n".format(comment)
-        r += "\tdfii_pi0_address_write({0:#x});\n".format(a)
-        r += "\tdfii_pi0_baddress_write({0:d});\n".format(ba)
-        if cmd[:12] == "DFII_CONTROL":
-            r += "\tdfii_control_write({0});\n".format(cmd)
-        else:
-            r += "\tcommand_p0({0});\n".format(cmd)
-        if delay:
-            r += "\tcdelay({0:d});\n".format(delay)
-        r += "\n"
-    r += "}\n"
+    return {
+        "nphases": sdram_phy_settings.nphases,
+        "rdphase": sdram_phy_settings.rdphase,
+        "wrphase": sdram_phy_settings.wrphase,
+        "consts": consts,
+        "init_sequence": init_sequence
+    }
 
-    r += "#endif\n"
 
-    return r
+def get_sdram_phy_header(sdram_phy_settings):
+    return Template("""\
+#ifndef __GENERATED_SDRAM_PHY_H
+#define __GENERATED_SDRAM_PHY_H
+
+#include <hw/common.h>
+#include <generated/csr.h>
+#include <hw/flags.h>
+
+#define DFII_NPHASES {{nphases}}
+
+static void cdelay(int i);
+{% for n in range(nphases) %}
+static void command_p{{n}}(int cmd)
+{
+    dfii_pi{{n}}_command_write(cmd);
+    dfii_pi{{n}}_command_issue_write(1);
+}
+{% endfor %}
+
+#define dfii_pird_address_write(X) dfii_pi{{rdphase}}_address_write(X)
+#define dfii_piwr_address_write(X) dfii_pi{{wrphase}}_address_write(X)
+
+#define dfii_pird_baddress_write(X) dfii_pi{{rdphase}}_baddress_write(X)
+#define dfii_piwr_baddress_write(X) dfii_pi{{wrphase}}_baddress_write(X)
+
+#define command_prd(X) command_p{{rdphase}}(X)
+#define command_pwr(X) command_p{{wrphase}}(X)
+
+#define DFII_PIX_DATA_SIZE CSR_DFII_PI0_WRDATA_SIZE
+
+const unsigned int dfii_pix_wrdata_addr[{{nphases}}] = {
+{%- for n in range(nphases) %}
+    CSR_DFII_PI{{n}}_WRDATA_ADDR,
+{%- endfor %}
+};
+
+const unsigned int dfii_pix_rddata_addr[{{nphases}}] = {
+{%- for n in range(nphases) %}
+    CSR_DFII_PI{{n}}_RDDATA_ADDR,
+{%- endfor %}
+};
+{% for name in consts %}
+#define {{name}} {{consts[name]}}
+{% endfor %}
+
+static void init_sequence(void)
+{
+{%- for comment, a, ba, cmd, delay in init_sequence %}
+    /* {{comment}} */
+    dfii_pi0_address_write(0x{{"%0x"|format(a)}});
+    dfii_pi0_baddress_write({{ba}});
+    {% if cmd[:12] == "DFII_CONTROL" -%}
+        dfii_control_write({{cmd}});
+    {%- else -%}
+        command_p0({{cmd}});
+    {%- endif %}
+    {% if delay > 0 -%}
+        cdelay({{delay}});
+    {%- endif %}
+{% endfor -%}
+}
+#endif
+""").render(**_get_sdram_phy_sequence(sdram_phy_settings))
+
+
+def get_sdram_phy_rust(sdram_phy_settings):
+    return Template("""\
+// Include this file as:
+//     include!(concat!(env!("BUILDINC_DIRECTORY"), "/generated/sdram_phy.rs"));
+#[allow(dead_code)]
+pub mod sdram_phy {
+    use csr;
+
+    fn spin_cycles(mut cycles: usize) {
+        while cycles > 0 {
+            unsafe { asm!(""::::"volatile") }
+            cycles -= 1;
+        }
+    }
+
+    pub const DFII_CONTROL_SEL:     u8 = 0x01;
+    pub const DFII_CONTROL_CKE:     u8 = 0x02;
+    pub const DFII_CONTROL_ODT:     u8 = 0x04;
+    pub const DFII_CONTROL_RESET_N: u8 = 0x08;
+
+    pub const DFII_COMMAND_CS:      u8 = 0x01;
+    pub const DFII_COMMAND_WE:      u8 = 0x02;
+    pub const DFII_COMMAND_CAS:     u8 = 0x04;
+    pub const DFII_COMMAND_RAS:     u8 = 0x08;
+    pub const DFII_COMMAND_WRDATA:  u8 = 0x10;
+    pub const DFII_COMMAND_RDDATA:  u8 = 0x20;
+
+    pub const DFII_NPHASES: usize = {{nphases}};
+
+    {% for n in range(nphases) %}
+    pub unsafe fn command_p{{n}}(cmd: u8) {
+        csr::dfii::pi{{n}}_command_write(cmd);
+        csr::dfii::pi{{n}}_command_issue_write(1);
+    }
+    {% endfor %}
+
+    pub unsafe fn dfii_pird_address_write(a: u16) { csr::dfii::pi{{rdphase}}_address_write(a) }
+    pub unsafe fn dfii_piwr_address_write(a: u16) { csr::dfii::pi{{wrphase}}_address_write(a) }
+
+    pub unsafe fn dfii_pird_baddress_write(a: u8) { csr::dfii::pi{{rdphase}}_baddress_write(a) }
+    pub unsafe fn dfii_piwr_baddress_write(a: u8) { csr::dfii::pi{{wrphase}}_baddress_write(a) }
+
+    pub unsafe fn command_prd(cmd: u8) { command_p{{rdphase}}(cmd) }
+    pub unsafe fn command_pwr(cmd: u8) { command_p{{wrphase}}(cmd) }
+
+    pub const DFII_PIX_DATA_SIZE: usize = csr::dfii::PI0_WRDATA_SIZE;
+
+    pub const DFII_PIX_WRDATA_ADDR: [*mut u32; {{nphases}}] = [
+    {%- for n in range(nphases) %}
+        csr::dfii::PI{{n}}_WRDATA_ADDR,
+    {%- endfor %}
+    ];
+
+    pub const DFII_PIX_RDDATA_ADDR: [*mut u32; {{nphases}}] = [
+    {%- for n in range(nphases) %}
+        csr::dfii::PI{{n}}_RDDATA_ADDR,
+    {%- endfor %}
+    ];
+
+    {% for name in consts %}
+    pub const {{name}}: u32 = {{consts[name]}};
+    {% endfor %}
+
+    pub unsafe fn initialize() {
+    {%- for comment, a, ba, cmd, delay in init_sequence %}
+        /* {{comment}} */
+        csr::dfii::pi0_address_write(0x{{"%0x"|format(a)}});
+        csr::dfii::pi0_baddress_write({{ba}});
+        {% if cmd[:12] == "DFII_CONTROL" -%}
+            csr::dfii::control_write({{cmd}});
+        {%- else -%}
+            command_p0({{cmd}});
+        {%- endif %}
+        {% if delay > 0 -%}
+            spin_cycles({{delay}});
+        {%- endif %}
+    {% endfor -%}
+    }
+}
+""").render(**_get_sdram_phy_sequence(sdram_phy_settings))

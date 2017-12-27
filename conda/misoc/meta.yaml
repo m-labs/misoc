@@ -26,11 +26,13 @@ requirements:
     - migen
     - pyserial
     - asyncserial
+    - jinja2
   run:
     - python >=3.5.0
     - migen
     - pyserial
     - asyncserial
+    - jinja2
 
 test:
   imports:

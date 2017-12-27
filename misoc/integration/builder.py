@@ -133,6 +133,8 @@ class Builder:
         if sdram_phy_settings is not None:
             with WriteGenerated(generated_dir, "sdram_phy.h") as f:
                 f.write(sdram_init.get_sdram_phy_header(sdram_phy_settings))
+            with WriteGenerated(generated_dir, "sdram_phy.rs") as f:
+                f.write(sdram_init.get_sdram_phy_rust(sdram_phy_settings))
 
         if self.csr_csv is not None:
             with open(self.csr_csv, "w") as f:
