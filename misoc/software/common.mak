@@ -15,7 +15,7 @@ endif
 AR_normal      := $(TARGET_PREFIX)ar
 LD_normal      := $(TARGET_PREFIX)ld
 OBJCOPY_normal := $(TARGET_PREFIX)objcopy
-CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo cargo build --target $(CARGO_TRIPLE)
+CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo cargo rustc --target $(CARGO_TRIPLE)
 
 CC_quiet      = @echo " CC      " $@ && $(CC_normal)
 CX_quiet      = @echo " CX      " $@ && $(CX_normal)
