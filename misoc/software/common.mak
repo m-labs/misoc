@@ -72,5 +72,5 @@ $(CARGO)
 endef
 
 define clean
-$(RM) cargo/ *.bin *.fbi *.a *.o $(1)
+$(RM) cargo/ *.bin *.elf *.fbi *.a *.o $(1)
 endef
