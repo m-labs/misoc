@@ -251,7 +251,7 @@ def get_sdram_phy_rust(sdram_phy_settings):
 pub mod sdram_phy {
     use csr;
 
-    fn spin_cycles(mut cycles: usize) {
+    pub fn spin_cycles(mut cycles: usize) {
         while cycles > 0 {
             unsafe { asm!(""::::"volatile") }
             cycles -= 1;
