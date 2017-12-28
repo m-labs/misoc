@@ -57,8 +57,10 @@ class LiteEthPHYMIICRG(Module, AutoCSR):
 
         self.clock_domains.cd_eth_rx = ClockDomain()
         self.clock_domains.cd_eth_tx = ClockDomain()
-        self.comb += self.cd_eth_rx.clk.eq(clock_pads.rx)
-        self.comb += self.cd_eth_tx.clk.eq(clock_pads.tx)
+        self.specials += [
+            Instance("BUFG", i_I=clock_pads.rx, o_O=self.cd_eth_rx.clk),
+            Instance("BUFG", i_I=clock_pads.tx, o_O=self.cd_eth_tx.clk)
+        ]
 
         reset = self._reset.storage
         if hasattr(pads, "rst_n"):
