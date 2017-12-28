@@ -121,7 +121,7 @@ class BaseSoC(SoCSDRAM):
                                                           dummy=10, div=4)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
-            self.flash_boot_address = 0x190000
+            self.flash_boot_address = 0x220000
             self.register_rom(self.spiflash.bus, 0x1000000)
             self.csr_devices.append("spiflash")
 
