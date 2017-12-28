@@ -99,6 +99,7 @@ class SPIMachine(Module):
         self.clk_phase = Signal()
         self.start = Signal()
         self.cs = Signal()
+        self.cs_next = Signal()
         self.oe = Signal()
         self.done = Signal()
 
@@ -156,6 +157,8 @@ class SPIMachine(Module):
             self.cg.bias.eq(self.clk_phase),
             fsm.ce.eq(self.cg.edge),
             self.cs.eq(~fsm.ongoing("IDLE")),
+            self.cs_next.eq(fsm.before_leaving("IDLE") |
+                (self.cs & ~fsm.before_entering("IDLE"))),
             self.reg.ce.eq(self.cg.edge),
             self.bits.ce.eq(self.cg.edge & self.reg.sample),
             self.done.eq(self.cg.edge & self.bits.done & fsm.ongoing("HOLD")),
@@ -304,7 +307,8 @@ class SPIMaster(Module, AutoCSR):
 
         # I/O
         all_cs = Signal(len(cs))
-        self.comb += all_cs.eq((cs & Replicate(spi.cs, len(cs))) ^ ~self._cs_polarity.storage)
+        self.comb += all_cs.eq((cs & Replicate(spi.cs, len(cs))) ^
+                ~self._cs_polarity.storage)
         offset = 0
         for pads in pads_list:
             cs_n_t = TSTriple(len(pads.cs_n))
@@ -323,7 +327,12 @@ class SPIMaster(Module, AutoCSR):
             self.specials += clk_t.get_tristate(pads.clk)
             self.comb += [
                 clk_t.oe.eq(~self._offline.storage),
-                clk_t.o.eq((spi.cg.clk & spi.cs) ^ self._clk_polarity.storage),
+            ]
+            self.sync += [
+                If(spi.cg.ce & spi.cg.edge,
+                    clk_t.o.eq((~spi.cg.clk & spi.cs_next) ^
+                        self._clk_polarity.storage),
+                )
             ]
 
             mosi_t = TSTriple()
