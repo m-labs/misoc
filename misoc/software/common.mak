@@ -1,6 +1,6 @@
 TARGET_PREFIX=$(TRIPLE)-
 
-RM ?= rm -f
+RM ?= rm -rf
 PYTHON ?= python3
 
 CARGO_TRIPLE=$(subst or1k-linux,or1k-unknown-none,$(TRIPLE))
