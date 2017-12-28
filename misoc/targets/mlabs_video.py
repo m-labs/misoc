@@ -134,7 +134,9 @@ class MiniSoC(BaseSoC):
             self.submodules.leds = gpio.GPIOOut(Cat(platform.request("user_led", i) for i in range(2)))
             self.csr_devices += ["buttons", "leds"]
 
-        self.submodules.ethphy = LiteEthPHY(platform.request("eth_clocks"),
+        eth_clocks = platform.request("eth_clocks")
+        self.sync.base50 += eth_clocks.phy.eq(~eth_clocks.phy)
+        self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             platform.request("eth"))
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone")
         self.add_wb_slave(self.mem_map["ethmac"], 0x2000, self.ethmac.bus)

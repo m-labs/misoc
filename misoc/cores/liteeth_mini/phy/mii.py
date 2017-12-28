@@ -55,9 +55,6 @@ class LiteEthPHYMIICRG(Module, AutoCSR):
 
         # # #
 
-        if hasattr(clock_pads, "phy"):
-            self.sync.base50 += clock_pads.phy.eq(~clock_pads.phy)
-
         self.clock_domains.cd_eth_rx = ClockDomain()
         self.clock_domains.cd_eth_tx = ClockDomain()
         self.comb += self.cd_eth_rx.clk.eq(clock_pads.rx)
