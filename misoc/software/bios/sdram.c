@@ -194,6 +194,14 @@ void sdrwr(char *startaddr)
 
 #ifdef CSR_DDRPHY_BASE
 
+#ifdef KUSDDRPHY
+#define ERR_DDRPHY_DELAY 512
+#else
+#define ERR_DDRPHY_DELAY 32
+#endif
+
+#ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
+
 void sdrwlon(void)
 {
 	dfii_pi0_address_write(DDR3_MR1 | (1 << 7));
@@ -209,12 +217,6 @@ void sdrwloff(void)
 	command_p0(DFII_COMMAND_RAS|DFII_COMMAND_CAS|DFII_COMMAND_WE|DFII_COMMAND_CS);
 	ddrphy_wlevel_en_write(0);
 }
-
-#ifdef CONFIG_KUSDDRPHY
-#define ERR_DDRPHY_DELAY 512
-#else
-#define ERR_DDRPHY_DELAY 32
-#endif
 
 static int write_level(int *delay, int *high_skew)
 {
@@ -285,6 +287,8 @@ static int write_level(int *delay, int *high_skew)
 
 	return ok;
 }
+
+#endif /* CSR_DDRPHY_WLEVEL_EN_ADDR */
 
 static void read_bitslip(int *delay, int *high_skew)
 {
@@ -428,8 +432,16 @@ int sdrlevel(void)
 	int delay[DFII_PIX_DATA_SIZE/2];
 	int high_skew[DFII_PIX_DATA_SIZE/2];
 
+#ifndef CSR_DDRPHY_WLEVEL_EN_ADDR
+	int i;
+	for(i=0; i<DFII_PIX_DATA_SIZE/2; i++) {
+		delay[i] = 0;
+		high_skew[i] = 0;
+	}
+#else
 	if(!write_level(delay, high_skew))
 		return 0;
+#endif
 	read_bitslip(delay, high_skew);
 	read_delays();
 
