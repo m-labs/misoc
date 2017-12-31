@@ -194,7 +194,7 @@ void sdrwr(char *startaddr)
 
 #ifdef CSR_DDRPHY_BASE
 
-#ifdef KUSDDRPHY
+#ifdef CONFIG_KUSDDRPHY
 #define ERR_DDRPHY_DELAY 512
 #else
 #define ERR_DDRPHY_DELAY 32
