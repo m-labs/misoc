@@ -82,7 +82,7 @@ class BaseSoC(SoCSDRAM):
             ])
 
         SoCSDRAM.__init__(self, platform,
-                          clk_freq=125*1000000, cpu_reset_address=0xaf0000,
+                          clk_freq=125*1000000, cpu_reset_address=0x400000,
                           **kwargs)
 
         self.submodules.crg = _CRG(platform)
@@ -102,7 +102,7 @@ class BaseSoC(SoCSDRAM):
             self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
-            self.flash_boot_address = 0xb40000
+            self.flash_boot_address = 0x420000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
 
