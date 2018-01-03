@@ -49,18 +49,19 @@ class SPIRegister(Module):
             self.o.eq(Mux(self.lsb, self.data[0], self.data[-1])),
         ]
         self.sync += [
-            If(self.shift,
-                If(self.lsb,
-                    self.data[:-1].eq(self.data[1:]),
-                ).Else(
-                    self.data[1:].eq(self.data[:-1]),
-                )
-            ),
-            If(self.sample,
-                If(self.lsb,
+            If(self.lsb,
+                If(self.sample,
                     self.data[-1].eq(self.i),
-                ).Else(
+                ),
+                If(self.shift,
+                    self.data[:-1].eq(self.data[1:]),
+                )
+            ).Else(
+                If(self.sample,
                     self.data[0].eq(self.i),
+                ),
+                If(self.shift,
+                    self.data[1:].eq(self.data[:-1]),
                 )
             )
         ]
