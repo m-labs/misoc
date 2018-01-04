@@ -158,16 +158,25 @@ class MiniSoC(BaseSoC):
                 self.mem_map["ethmac"] | self.shadow_base, ethmac_len)
 
 
+def soc_kasli_args(parser):
+    soc_sdram_args(parser)
+
+
+def soc_kasli_argdict(args):
+    r = soc_sdram_argdict(args)
+    return r
+
+
 def main():
     parser = argparse.ArgumentParser(description="MiSoC port to Kasli")
     builder_args(parser)
-    soc_sdram_args(parser)
+    soc_kasli_args(parser)
     parser.add_argument("--with-ethernet", action="store_true",
                         help="enable Ethernet support")
     args = parser.parse_args()
 
     cls = MiniSoC if args.with_ethernet else BaseSoC
-    soc = cls(**soc_sdram_argdict(args))
+    soc = cls(**soc_kasli_argdict(args))
     builder = Builder(soc, **builder_argdict(args))
     builder.build()
 
