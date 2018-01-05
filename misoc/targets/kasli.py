@@ -94,15 +94,15 @@ class BaseSoC(SoCSDRAM):
         self.csr_devices.append("ddrphy")
 
         if not self.integrated_rom_size:
-            spiflash_pads = platform.request("spiflash")
+            spiflash_pads = platform.request("spiflash2x")
             spiflash_pads.clk = Signal()
             self.specials += Instance("STARTUPE2",
                                       i_CLK=0, i_GSR=0, i_GTS=0, i_KEYCLEARB=0, i_PACK=0,
                                       i_USRCCLKO=spiflash_pads.clk, i_USRCCLKTS=0, i_USRDONEO=1, i_USRDONETS=1)
-            self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
+            self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=5, div=2)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
-            self.flash_boot_address = 0x420000
+            self.flash_boot_address = 0x440000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
 
