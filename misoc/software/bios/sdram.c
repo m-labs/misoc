@@ -200,7 +200,7 @@ void sdrwr(char *startaddr)
 #define ERR_DDRPHY_DELAY 32
 #endif
 
-#ifdef CSR_DDRPHY_WLEVEL_EN_ADDR
+#ifdef CONFIG_DDRPHY_WLEVEL
 
 void sdrwlon(void)
 {
@@ -288,7 +288,7 @@ static int write_level(int *delay, int *high_skew)
 	return ok;
 }
 
-#endif /* CSR_DDRPHY_WLEVEL_EN_ADDR */
+#endif /* CONFIG_DDRPHY_WLEVEL */
 
 static void read_bitslip(int *delay, int *high_skew)
 {
@@ -432,7 +432,7 @@ int sdrlevel(void)
 	int delay[DFII_PIX_DATA_SIZE/2];
 	int high_skew[DFII_PIX_DATA_SIZE/2];
 
-#ifndef CSR_DDRPHY_WLEVEL_EN_ADDR
+#ifndef CONFIG_DDRPHY_WLEVEL
 	int i;
 	for(i=0; i<DFII_PIX_DATA_SIZE/2; i++) {
 		delay[i] = 0;

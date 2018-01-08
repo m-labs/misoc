@@ -80,6 +80,7 @@ class BaseSoC(SoCSDRAM):
         platform.add_period_constraint(self.crg.cd_sys.clk, 8.0)
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
+        self.config["DDRPHY_WLEVEL"] = None
         self.config["KUSDDRPHY"] = None
         sdram_module = MT41J256M16(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy, sdram_controller_type,
