@@ -222,7 +222,7 @@ class PCS(Module):
         
         self.link_up = Signal()
         self.restart = Signal()
-        
+
         # # #
         
         # endpoint interface

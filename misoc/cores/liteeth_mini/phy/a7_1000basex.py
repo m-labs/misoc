@@ -1,5 +1,6 @@
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
+from migen.genlib.cdc import PulseSynchronizer
 
 from misoc.cores.a7_gtp import *
 from misoc.cores.liteeth_mini.phy.pcs_1000basex import *
@@ -259,7 +260,7 @@ class A7_1000BASEX(Module):
         self.comb += [
             rx_init.enable.eq(tx_init.done),
             rx_reset.eq(rx_init.rx_reset),
-            
+
             rx_init.rx_pma_reset_done.eq(rx_pma_reset_done),
             drpaddr.eq(rx_init.drpaddr),
             drpen.eq(rx_init.drpen),
@@ -267,6 +268,12 @@ class A7_1000BASEX(Module):
             rx_init.drprdy.eq(drprdy),
             rx_init.drpdo.eq(drpdo),
             drpwe.eq(rx_init.drpwe)
+        ]
+        ps_restart = PulseSynchronizer("eth_tx", "sys")
+        self.submodules += ps_restart
+        self.comb += [
+            ps_restart.i.eq(pcs.restart),
+            rx_init.restart.eq(ps_restart.o)
         ]
 
         # Gearbox and PCS connection
