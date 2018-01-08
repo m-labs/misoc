@@ -278,7 +278,7 @@ class A7_1000BASEX(Module):
 
         # Gearbox and PCS connection
         gearbox = Gearbox()
-        self.submodules += Gearbox()
+        self.submodules += gearbox
 
         self.comb += [
             tx_data.eq(gearbox.tx_data_half),
