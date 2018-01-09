@@ -164,7 +164,8 @@ class GTPRxInit(Module):
         )
         fsm.act("DRP_READ_ISSUE",
             rx_reset.eq(1),
-            self.drpen.eq(1)
+            self.drpen.eq(1),
+            NextState("DRP_READ_WAIT")
         )
         fsm.act("DRP_READ_WAIT",
             rx_reset.eq(1),
