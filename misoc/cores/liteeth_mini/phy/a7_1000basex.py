@@ -33,7 +33,7 @@ class Gearbox(Module):
 
 
 class A7_1000BASEX(Module):
-    def __init__(self, qpll_channel, data_pads, sys_clk_freq, internal_loopback=False):
+    def __init__(self, qpll_channel, data_pads, sys_clk_freq):
         pcs = PCS(lsb_first=True)
         self.submodules += pcs
 
@@ -124,9 +124,6 @@ class A7_1000BASEX(Module):
                 # TX electrical
                 i_TXBUFDIFFCTRL=0b100,
                 i_TXDIFFCTRL=0b1000,
-
-                # Internal Loopback
-                i_LOOPBACK=0b010 if internal_loopback else 0b000,
 
                 # RX Startup/Reset
                 i_RXPHDLYPD=1,
