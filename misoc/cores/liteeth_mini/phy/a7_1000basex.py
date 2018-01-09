@@ -163,7 +163,7 @@ class A7_1000BASEX(Module):
                 p_RXPHDLY_CFG=0x084020,
                 p_RXPH_CFG=0xc00002,
                 p_RX_DATA_WIDTH=20,
-                i_RXCOMMADETEN=1,
+                i_RXCOMMADETEN=0,
                 i_RXDLYBYPASS=1,
                 i_RXDDIEN=0,
                 o_RXDISPERR=Cat(rx_data[9], rx_data[19]),
