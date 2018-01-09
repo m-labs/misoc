@@ -62,7 +62,7 @@ class A7_1000BASEX(Module):
         rx_data = Signal(20)
         rx_pma_reset_done = Signal()
 
-        drpaddr = Signal(8)
+        drpaddr = Signal(9)
         drpen = Signal()
         drpdi = Signal(16)
         drprdy = Signal()

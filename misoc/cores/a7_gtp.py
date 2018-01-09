@@ -120,7 +120,7 @@ class GTPRxInit(Module):
         self.rx_pma_reset_done = Signal()
 
         # DRPCLK must be driven by the system clock
-        self.drpaddr = Signal(8)
+        self.drpaddr = Signal(9)
         self.drpen = Signal()
         self.drpdi = Signal(16)
         self.drprdy = Signal()
