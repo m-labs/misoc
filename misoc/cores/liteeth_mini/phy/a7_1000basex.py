@@ -104,7 +104,7 @@ class A7_1000BASEX(Module):
                 o_TXOUTCLK=self.txoutclk,
                 p_TXOUT_DIV=4,
                 i_TXSYSCLKSEL=0b00,
-                i_TXOUTCLKSEL=0b11,
+                i_TXOUTCLKSEL=0b010,
 
                 # TX Startup/Reset
                 p_TXSYNC_OVRD=1,
