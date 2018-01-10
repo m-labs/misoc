@@ -99,7 +99,7 @@ class A7_1000BASEX(Module):
                 i_PLL0REFCLK=qpll_channel.refclk,
 
                 # TX clock
-                p_TXBUF_EN="TRUE",
+                p_TX_CLK25_DIV=5,
                 p_TX_XCLK_SEL="TXOUT",
                 o_TXOUTCLK=self.txoutclk,
                 p_TXOUT_DIV=4,
@@ -113,6 +113,7 @@ class A7_1000BASEX(Module):
                 i_TXUSERRDY=tx_mmcm_locked,
 
                 # TX data
+                p_TXBUF_EN="TRUE",
                 p_TX_DATA_WIDTH=20,
                 i_TXDLYBYPASS=1,
                 i_TXCHARDISPMODE=Cat(tx_data[9], tx_data[19]),
@@ -141,7 +142,6 @@ class A7_1000BASEX(Module):
 
                 # RX clock
                 p_RX_CLK25_DIV=5,
-                p_TX_CLK25_DIV=5,
                 p_RX_XCLK_SEL="RXREC",
                 p_RXOUT_DIV=4,
                 i_RXSYSCLKSEL=0b00,
@@ -158,11 +158,11 @@ class A7_1000BASEX(Module):
 
                 # RX data
                 p_RXBUF_EN="TRUE",
+                p_RX_DATA_WIDTH=20,
                 p_RXDLY_CFG=0x001f,
                 p_RXDLY_LCFG=0x030,
                 p_RXPHDLY_CFG=0x084020,
                 p_RXPH_CFG=0xc00002,
-                p_RX_DATA_WIDTH=20,
                 i_RXCOMMADETEN=0,
                 i_RXDLYBYPASS=1,
                 i_RXDDIEN=0,
