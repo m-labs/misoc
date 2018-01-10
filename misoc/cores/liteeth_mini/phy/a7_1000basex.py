@@ -106,7 +106,7 @@ class A7_1000BASEX(Module):
                 o_TXOUTCLK=self.txoutclk,
                 p_TXOUT_DIV=4,
                 i_TXSYSCLKSEL=0b00,
-                i_TXOUTCLKSEL=0b010,
+                i_TXOUTCLKSEL=0b100,
 
                 # TX Startup/Reset
                 p_TXSYNC_OVRD=1,
@@ -192,7 +192,7 @@ class A7_1000BASEX(Module):
         self.specials += Instance("BUFG", i_I=self.rxoutclk, o_O=rxoutclk_rebuffer)
 
         tx_mmcm_fb = Signal()
-        tx_mmcm_reset = Signal()
+        tx_mmcm_reset = Signal(reset=1)
         clk_tx_unbuf = Signal()
         clk_tx_half_unbuf = Signal()
         self.specials += [
@@ -219,7 +219,7 @@ class A7_1000BASEX(Module):
         ]
 
         rx_mmcm_fb = Signal()
-        rx_mmcm_reset = Signal()
+        rx_mmcm_reset = Signal(reset=1)
         clk_rx_unbuf = Signal()
         clk_rx_half_unbuf = Signal()
         self.specials += [
@@ -253,7 +253,7 @@ class A7_1000BASEX(Module):
             tx_init.qpll_lock.eq(qpll_channel.lock),
             tx_reset.eq(tx_init.tx_reset)
         ]
-        self.sync += tx_mmcm_reset.eq(~tx_init.done)
+        self.sync += tx_mmcm_reset.eq(~qpll_channel.lock)
         tx_mmcm_reset.attr.add("no_retiming")
 
         rx_init = GTPRxInit(sys_clk_freq)
@@ -270,14 +270,31 @@ class A7_1000BASEX(Module):
             rx_init.drpdo.eq(drpdo),
             drpwe.eq(rx_init.drpwe)
         ]
-        self.sync += rx_mmcm_reset.eq(~rx_init.done)
-        rx_mmcm_reset.attr.add("no_retiming")
         ps_restart = PulseSynchronizer("eth_tx", "sys")
         self.submodules += ps_restart
         self.comb += [
             ps_restart.i.eq(pcs.restart),
             rx_init.restart.eq(ps_restart.o)
         ]
+
+        # Unlike CDRs from serious vendors, Xilinx CDRs can't tell you
+        # when they are locked. Assume CDR lock time is 50,000 UI,
+        # as per DS183. The Xilinx "wizards" also assume that.
+        cdr_lock_time = round(sys_clk_freq*50e3/1.25e9)
+        cdr_lock_counter = Signal(max=cdr_lock_time+1)
+        cdr_locked = Signal()
+        self.sync += [
+            If(rx_reset,
+                cdr_locked.eq(0),
+                cdr_lock_counter.eq(0)
+            ).Elif(cdr_lock_counter != cdr_lock_time,
+                cdr_lock_counter.eq(cdr_lock_counter + 1)
+            ).Else(
+                cdr_locked.eq(1)
+            ),
+            rx_mmcm_reset.eq(~cdr_locked)
+        ]
+        rx_mmcm_reset.attr.add("no_retiming")
 
         # Gearbox and PCS connection
         gearbox = Gearbox()
