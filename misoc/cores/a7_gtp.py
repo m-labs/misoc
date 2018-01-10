@@ -131,7 +131,7 @@ class GTPRxInit(Module):
         self.restart = Signal()
         self.done = Signal()
 
-        # Handle async signals()
+        # Handle async signals
         rx_reset = Signal()
         self.sync += self.rx_reset.eq(rx_reset)
         self.rx_reset.attr.add("no_retiming")
