@@ -266,6 +266,8 @@ class A7_1000BASEX(Module):
             rx_init.drpdo.eq(drpdo),
             drpwe.eq(rx_init.drpwe)
         ]
+        self.sync += rx_mmcm_reset.eq(~rx_init.done)
+        rx_mmcm_reset.attr.add("no_retiming")
         ps_restart = PulseSynchronizer("eth_tx", "sys")
         self.submodules += ps_restart
         self.comb += [
