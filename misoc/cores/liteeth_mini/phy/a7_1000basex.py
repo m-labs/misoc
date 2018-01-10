@@ -56,10 +56,12 @@ class A7_1000BASEX(Module):
         tx_reset = Signal()
         tx_mmcm_locked = Signal()
         tx_data = Signal(20)
+        tx_reset_done = Signal()
 
         rx_reset = Signal()
         rx_mmcm_locked = Signal()
         rx_data = Signal(20)
+        rx_reset_done = Signal()
         rx_pma_reset_done = Signal()
 
         drpaddr = Signal(9)
@@ -111,6 +113,7 @@ class A7_1000BASEX(Module):
                 i_TXPHDLYPD=1,
                 i_GTTXRESET=tx_reset,
                 i_TXUSERRDY=tx_mmcm_locked,
+                o_TXRESETDONE=tx_reset_done,
 
                 # TX data
                 p_TXBUF_EN="TRUE",
@@ -130,6 +133,7 @@ class A7_1000BASEX(Module):
                 i_RXPHDLYPD=1,
                 i_GTRXRESET=rx_reset,
                 i_RXUSERRDY=rx_mmcm_locked,
+                o_RXRESETDONE=rx_reset_done,
                 # Xilinx garbage (AR53561)
                 o_RXPMARESETDONE=rx_pma_reset_done,
                 i_DRPADDR=drpaddr,
