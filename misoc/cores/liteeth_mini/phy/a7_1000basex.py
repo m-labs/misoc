@@ -40,6 +40,7 @@ class A7_1000BASEX(Module):
         self.dw = 8
         self.sink = pcs.sink
         self.source = pcs.source
+        self.link_up = pcs.link_up
 
         self.clock_domains.cd_eth_tx = ClockDomain()
         self.clock_domains.cd_eth_rx = ClockDomain()
