@@ -121,8 +121,9 @@ class MiniSoC(BaseSoC):
 
         sfp = self.platform.request("sfp", 0)
         self.comb += [
-            sfp.rate_select.eq(1),
+            sfp.rate_select.eq(0),
             sfp.tx_disable.eq(0),
+            sfp.led.eq(~sfp.los & ~sfp.tx_fault & sfp.mod_present),
         ]
 
         if ethphy_qpll_channel is None:
