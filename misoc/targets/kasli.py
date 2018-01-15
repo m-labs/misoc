@@ -148,7 +148,7 @@ class MiniSoC(BaseSoC):
             sfp.rate_select.eq(0),
             sfp.tx_disable.eq(0),
             sfp.led.eq(~sfp.los & ~sfp.tx_fault & sfp.mod_present &
-                self.ethphy.pcs.link_up),
+                self.ethphy.link_up),
         ]
 
         self.submodules.ethmac = LiteEthMAC(
