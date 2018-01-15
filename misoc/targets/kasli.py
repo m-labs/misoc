@@ -119,13 +119,6 @@ class MiniSoC(BaseSoC):
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        sfp = self.platform.request("sfp", 0)
-        self.comb += [
-            sfp.rate_select.eq(0),
-            sfp.tx_disable.eq(0),
-            sfp.led.eq(~sfp.los & ~sfp.tx_fault & sfp.mod_present),
-        ]
-
         if ethphy_qpll_channel is None:
             clk125 = self.platform.request("clk125_gtp")
             clk125_buf = Signal()
@@ -149,6 +142,14 @@ class MiniSoC(BaseSoC):
         self.platform.add_false_path_constraints(
             self.crg.cd_sys.clk,
             self.ethphy.txoutclk, self.ethphy.rxoutclk)
+
+        sfp = self.platform.request("sfp", 0)
+        self.comb += [
+            sfp.rate_select.eq(0),
+            sfp.tx_disable.eq(0),
+            sfp.led.eq(~sfp.los & ~sfp.tx_fault & sfp.mod_present &
+                self.ethphy.pcs.link_up),
+        ]
 
         self.submodules.ethmac = LiteEthMAC(
                 phy=self.ethphy, dw=32, interface="wishbone",
