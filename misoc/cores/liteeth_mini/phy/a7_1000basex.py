@@ -676,7 +676,7 @@ class A7_1000BASEX(Module):
 
         # Get 125MHz clocks back - the GTP junk insists on outputting 62.5MHz.
         txoutclk_rebuffer = Signal()
-        self.specials += Instance("BUFG", i_I=self.txoutclk, o_O=txoutclk_rebuffer)
+        self.specials += Instance("BUFH", i_I=self.txoutclk, o_O=txoutclk_rebuffer)
         rxoutclk_rebuffer = Signal()
         self.specials += Instance("BUFG", i_I=self.rxoutclk, o_O=rxoutclk_rebuffer)
 
@@ -702,8 +702,8 @@ class A7_1000BASEX(Module):
                 p_CLKOUT1_DIVIDE=8,
                 o_CLKOUT1=clk_tx_unbuf,
             ),
-            Instance("BUFG", i_I=clk_tx_half_unbuf, o_O=self.cd_eth_tx_half.clk),
-            Instance("BUFG", i_I=clk_tx_unbuf, o_O=self.cd_eth_tx.clk),
+            Instance("BUFH", i_I=clk_tx_half_unbuf, o_O=self.cd_eth_tx_half.clk),
+            Instance("BUFH", i_I=clk_tx_unbuf, o_O=self.cd_eth_tx.clk),
             AsyncResetSynchronizer(self.cd_eth_tx, ~tx_mmcm_locked)
         ]
 
