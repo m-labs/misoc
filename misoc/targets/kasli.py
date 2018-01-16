@@ -23,7 +23,10 @@ class _CRG(Module):
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
-        clk50 = platform.request("clk50")
+        clk50 = Signal()
+        self.specials += [
+            Instance("BUFG", i_I=platform.request("clk50"), o_O=clk50)
+        ]
 
         pll_locked = Signal()
         pll_fb = Signal()
@@ -54,8 +57,8 @@ class _CRG(Module):
                      p_CLKOUT4_DIVIDE=4, p_CLKOUT4_PHASE=0.0, #o_CLKOUT4=
             ),
             Instance("BUFG", i_I=pll_sys, o_O=self.cd_sys.clk),
-            Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
-            Instance("BUFG", i_I=pll_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
+            Instance("BUFH", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
+            Instance("BUFH", i_I=pll_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_sys, ~pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
