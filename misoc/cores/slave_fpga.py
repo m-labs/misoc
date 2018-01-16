@@ -1,4 +1,5 @@
 from migen import *
+from migen.genlib.cdc import MultiReg
 
 from misoc.interconnect.csr import AutoCSR, CSR, CSRStorage, CSRStatus
 
@@ -51,10 +52,12 @@ class SlaveFPGA(Module, AutoCSR):
         ]
 
         self.comb += [
-            self._done.status.eq(io.done),
             io.program_b.eq(~self._program.storage),
             io.din.eq(shreg[0]),
             io.cclk.eq(clk)
+        ]
+        self.specials += [
+            MultiReg(io.done, self._done.status)
         ]
 
 
