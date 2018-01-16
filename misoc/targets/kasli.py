@@ -23,10 +23,14 @@ class _CRG(Module):
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
-        clk50 = Signal()
-        self.specials += [
-            Instance("BUFG", i_I=platform.request("clk50"), o_O=clk50)
-        ]
+        clk125 = platform.request("clk125_gtp")
+        self.clk125_buf = Signal()
+        clk125_div2 = Signal()
+        self.specials += Instance("IBUFDS_GTE2",
+            i_CEB=0,
+            i_I=clk125.p, i_IB=clk125.n,
+            o_O=self.clk125_buf,
+            o_ODIV2=clk125_div2)
 
         pll_locked = Signal()
         pll_fb = Signal()
@@ -39,9 +43,9 @@ class _CRG(Module):
                      p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
                      # VCO @ 1GHz
-                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=20.0,
-                     p_CLKFBOUT_MULT=20, p_DIVCLK_DIVIDE=1,
-                     i_CLKIN1=clk50, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
+                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=16.0,
+                     p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+                     i_CLKIN1=clk125_div2, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
 
                      # 125MHz
                      p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_sys,
@@ -123,18 +127,12 @@ class MiniSoC(BaseSoC):
         self.interrupt_devices.append("ethmac")
 
         if ethphy_qpll_channel is None:
-            clk125 = self.platform.request("clk125_gtp")
-            clk125_buf = Signal()
-            self.specials += Instance("IBUFDS_GTE2",
-                i_CEB=0,
-                i_I=clk125.p, i_IB=clk125.n,
-                o_O=clk125_buf)
             qpll_settings = QPLLSettings(
                 refclksel=0b001,
                 fbdiv=4,
                 fbdiv_45=5,
                 refclk_div=1)
-            qpll = QPLL(clk125_buf, qpll_settings)
+            qpll = QPLL(self.crg.clk125_buf, qpll_settings)
             self.submodules += qpll
             ethphy_qpll_channel = qpll.channels[0]
         sfp = self.platform.request("sfp_gtp", 0)
