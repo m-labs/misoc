@@ -51,7 +51,7 @@ class SlaveFPGA(Module, AutoCSR):
             )
         ]
 
-        self.comb += [
+        self.sync += [
             io.program_b.eq(~self._program.storage),
             io.din.eq(shreg[0]),
             io.cclk.eq(clk)
