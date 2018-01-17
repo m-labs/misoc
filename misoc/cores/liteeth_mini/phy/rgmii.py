@@ -20,19 +20,39 @@ class LiteEthPHYRGMIITX(Module):
         self.comb += sink.ack.eq(1)
 
 
+# FIXME. move Sayma-specific IDELAYE3 elsewhere
 class LiteEthPHYRGMIIRX(Module):
     def __init__(self, pads):
         self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
+        pad_rx_ctl_delayed = Signal()
+        self.specials += Instance("IDELAYE3",
+            p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
+            p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
+            p_DELAY_FORMAT="TIME", p_DELAY_SRC="IDATAIN",
+            p_DELAY_TYPE="FIXED", p_DELAY_VALUE=1250,
+
+            i_IDATAIN=pads.rx_ctl, o_DATAOUT=pad_rx_ctl_delayed
+        )
+
         rx_ctl = Signal()
         rx_data = Signal(8)
 
         q0 = Signal()
-        self.specials += DDRInput(pads.rx_ctl, q0, rx_ctl, ClockSignal("eth_rx"))
+        self.specials += DDRInput(pad_rx_ctl_delayed, q0, rx_ctl, ClockSignal("eth_rx"))
         for i in range(4):
-            self.specials += DDRInput(pads.rx_data[i], rx_data[4+i], rx_data[i],
+            pad_rx_data_delayed = Signal()
+            self.specials += Instance("IDELAYE3",
+                p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
+                p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
+                p_DELAY_FORMAT="TIME", p_DELAY_SRC="IDATAIN",
+                p_DELAY_TYPE="FIXED", p_DELAY_VALUE=1250,
+
+                i_IDATAIN=pads.rx_data[i], o_DATAOUT=pad_rx_data_delayed
+            )
+            self.specials += DDRInput(pad_rx_data_delayed, rx_data[4+i], rx_data[i],
                                       ClockSignal("eth_rx"))
 
         rx_ctl_d = Signal()
