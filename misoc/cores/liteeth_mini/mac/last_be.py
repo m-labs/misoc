@@ -5,9 +5,9 @@ from misoc.cores.liteeth_mini.common import eth_phy_layout
 
 
 class LiteEthMACTXLastBE(Module):
-    def __init__(self, dw):
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
@@ -29,9 +29,9 @@ class LiteEthMACTXLastBE(Module):
 
 
 class LiteEthMACRXLastBE(Module):
-    def __init__(self, dw):
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 

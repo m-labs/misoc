@@ -37,7 +37,6 @@ class A7_1000BASEX(Module):
         pcs = PCS(lsb_first=True)
         self.submodules += pcs
 
-        self.dw = 8
         self.sink = pcs.sink
         self.source = pcs.source
         self.link_up = pcs.link_up

@@ -70,7 +70,6 @@ class LiteEthPHYRGMIICRG(Module, AutoCSR):
 
 class LiteEthPHYRGMII(Module, AutoCSR):
     def __init__(self, clock_pads, pads):
-        self.dw = 8
         self.submodules.crg = LiteEthPHYRGMIICRG(clock_pads, pads)
         self.submodules.tx = LiteEthPHYRGMIITX(pads)
         self.submodules.rx = LiteEthPHYRGMIIRX(pads)

@@ -19,15 +19,14 @@ class LiteEthMACPreambleInserter(Module):
     source : out
         Preamble, SFD, and packet octets.
     """
-    def __init__(self, dw):
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
         preamble = Signal(64, reset=eth_preamble)
-        cnt_max = (64//dw)-1
-        cnt = Signal(max=cnt_max+1)
+        cnt = Signal(max=8)
         clr_cnt = Signal()
         inc_cnt = Signal()
 
@@ -51,7 +50,7 @@ class LiteEthMACPreambleInserter(Module):
         fsm.act("INSERT",
             source.stb.eq(1),
             chooser(preamble, cnt, source.data),
-            If(cnt == cnt_max,
+            If(cnt == 7,
                 If(source.ack, NextState("COPY"))
             ).Else(
                 inc_cnt.eq(source.ack)
@@ -85,10 +84,9 @@ class LiteEthMACPreambleChecker(Module):
     error : out
         Pulses every time a preamble error is detected.
     """
-    def __init__(self, dw):
-        assert dw == 8
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         self.error = Signal()
 

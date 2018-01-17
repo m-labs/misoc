@@ -8,14 +8,13 @@ from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_interpacket_gap
 
 
 class LiteEthMACGap(Module):
-    def __init__(self, dw):
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
-        gap = math.ceil(eth_interpacket_gap/(dw//8))
-        counter = Signal(max=gap)
+        counter = Signal(max=eth_interpacket_gap)
         counter_reset = Signal()
         counter_ce = Signal()
         self.sync += \
@@ -35,7 +34,7 @@ class LiteEthMACGap(Module):
         )
         fsm.act("GAP",
             counter_ce.eq(1),
-            If(counter == (gap-1),
+            If(counter == eth_interpacket_gap - 1,
                 NextState("COPY")
             )
         )

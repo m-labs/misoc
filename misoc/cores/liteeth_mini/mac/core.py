@@ -11,14 +11,11 @@ class LiteEthMACCore(Module, AutoCSR):
     def __init__(self, phy, dw, endianness="big",
             with_preamble_crc=True,
             with_padding=True):
-        if dw < phy.dw:
-            raise ValueError("Core data width({}) must be larger than PHY data width({})".format(dw, phy.dw))
-
         rx_pipeline = [phy]
         tx_pipeline = [phy]
 
         # Interpacket gap
-        tx_gap_inserter = gap.LiteEthMACGap(phy.dw)
+        tx_gap_inserter = gap.LiteEthMACGap()
         self.submodules += ClockDomainsRenamer("eth_tx")(tx_gap_inserter)
         tx_pipeline += [tx_gap_inserter]
 
@@ -29,14 +26,14 @@ class LiteEthMACCore(Module, AutoCSR):
             self.crc_errors = CSRStatus(32)
 
             # Preamble insert/check
-            preamble_inserter = preamble.LiteEthMACPreambleInserter(phy.dw)
-            preamble_checker = preamble.LiteEthMACPreambleChecker(phy.dw)
+            preamble_inserter = preamble.LiteEthMACPreambleInserter()
+            preamble_checker = preamble.LiteEthMACPreambleChecker()
             self.submodules += ClockDomainsRenamer("eth_tx")(preamble_inserter)
             self.submodules += ClockDomainsRenamer("eth_rx")(preamble_checker)
 
             # CRC insert/check
-            crc32_inserter = crc.LiteEthMACCRC32Inserter(eth_phy_layout(phy.dw))
-            crc32_checker = crc.LiteEthMACCRC32Checker(eth_phy_layout(phy.dw))
+            crc32_inserter = crc.LiteEthMACCRC32Inserter(eth_phy_layout(8))
+            crc32_checker = crc.LiteEthMACCRC32Checker(eth_phy_layout(8))
             self.submodules += ClockDomainsRenamer("eth_tx")(crc32_inserter)
             self.submodules += ClockDomainsRenamer("eth_rx")(crc32_checker)
 
@@ -60,31 +57,30 @@ class LiteEthMACCore(Module, AutoCSR):
 
         # Padding
         if with_padding:
-            padding_inserter = padding.LiteEthMACPaddingInserter(phy.dw, 60)
-            padding_checker = padding.LiteEthMACPaddingChecker(phy.dw, 60)
+            padding_inserter = padding.LiteEthMACPaddingInserter(60)
+            padding_checker = padding.LiteEthMACPaddingChecker(60)
             self.submodules += ClockDomainsRenamer("eth_tx")(padding_inserter)
             self.submodules += ClockDomainsRenamer("eth_rx")(padding_checker)
 
             tx_pipeline += [padding_inserter]
             rx_pipeline += [padding_checker]
 
-        # Delimiters
         if dw != 8:
-            tx_last_be = last_be.LiteEthMACTXLastBE(phy.dw)
-            rx_last_be = last_be.LiteEthMACRXLastBE(phy.dw)
+            # Delimiters
+            tx_last_be = last_be.LiteEthMACTXLastBE()
+            rx_last_be = last_be.LiteEthMACRXLastBE()
             self.submodules += ClockDomainsRenamer("eth_tx")(tx_last_be)
             self.submodules += ClockDomainsRenamer("eth_rx")(rx_last_be)
 
             tx_pipeline += [tx_last_be]
             rx_pipeline += [rx_last_be]
 
-        # Converters
-        if dw != phy.dw:
+            # Converters
             reverse = endianness == "big"
             tx_converter = stream.StrideConverter(eth_phy_layout(dw),
-                                     eth_phy_layout(phy.dw),
+                                     eth_phy_layout(8),
                                      reverse=reverse)
-            rx_converter = stream.StrideConverter(eth_phy_layout(phy.dw),
+            rx_converter = stream.StrideConverter(eth_phy_layout(8),
                                      eth_phy_layout(dw),
                                      reverse=reverse)
             self.submodules += ClockDomainsRenamer("eth_tx")(tx_converter)

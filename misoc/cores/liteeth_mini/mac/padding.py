@@ -7,13 +7,11 @@ from misoc.cores.liteeth_mini.common import eth_phy_layout
 
 
 class LiteEthMACPaddingInserter(Module):
-    def __init__(self, dw, padding):
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self, padding):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
-
-        padding_limit = math.ceil(padding/(dw/8))-1
 
         counter = Signal(16, reset=1)
         counter_done = Signal()
@@ -25,7 +23,7 @@ class LiteEthMACPaddingInserter(Module):
             ).Elif(counter_ce,
                 counter.eq(counter + 1)
             )
-        self.comb += counter_done.eq(counter >= padding_limit)
+        self.comb += counter_done.eq(counter >= padding-1)
 
         self.submodules.fsm = fsm = FSM(reset_state="IDLE")
         fsm.act("IDLE",
@@ -57,9 +55,9 @@ class LiteEthMACPaddingInserter(Module):
 
 
 class LiteEthMACPaddingChecker(Module):
-    def __init__(self, dw, packet_min_length):
-        self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.source = source = stream.Endpoint(eth_phy_layout(dw))
+    def __init__(self, packet_min_length):
+        self.sink = sink = stream.Endpoint(eth_phy_layout(8))
+        self.source = source = stream.Endpoint(eth_phy_layout(8))
 
         # # #
 
