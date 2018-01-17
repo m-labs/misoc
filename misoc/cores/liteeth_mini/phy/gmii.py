@@ -28,13 +28,13 @@ class LiteEthPHYGMIIRX(Module):
 
         # # #
 
-        dv_d = Signal()
+        rx_dv_d = Signal()
         self.sync += [
-            dv_d.eq(pads.dv),
-            source.stb.eq(pads.dv),
+            rx_dv_d.eq(pads.rx_dv),
+            source.stb.eq(pads.rx_dv),
             source.data.eq(pads.rx_data)
         ]
-        self.comb += source.eop.eq(~pads.dv & dv_d)
+        self.comb += source.eop.eq(~pads.rx_dv & rx_dv_d)
 
 
 class LiteEthPHYGMIICRG(Module, AutoCSR):

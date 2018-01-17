@@ -39,12 +39,12 @@ class LiteEthPHYMIIRX(Module):
         self.submodules += converter
 
         self.sync += [
-            converter.reset.eq(~pads.dv),
+            converter.reset.eq(~pads.rx_dv),
             converter.sink.stb.eq(1),
             converter.sink.data.eq(pads.rx_data)
         ]
         self.comb += [
-            converter.sink.eop.eq(~pads.dv)
+            converter.sink.eop.eq(~pads.rx_dv)
         ]
         self.comb += converter.source.connect(source)
 
