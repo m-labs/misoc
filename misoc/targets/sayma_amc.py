@@ -117,7 +117,7 @@ class MiniSoC(BaseSoC):
         self.interrupt_devices.append("ethmac")
 
         eth_clocks = self.platform.request("eth_clocks")
-        eth = self.platform.request("eth_mii")
+        eth = self.platform.request("eth_rgmii")
         self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             eth, clk_freq=self.clk_freq)
         self.comb += eth.mdc.eq(0)
@@ -128,13 +128,10 @@ class MiniSoC(BaseSoC):
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
                                ethmac_len)
 
-        self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_tx_IBUF_inst/O]")
-        self.platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets eth_clocks_rx_IBUF_inst/O]")
-
         self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
         self.ethphy.crg.cd_eth_rx.clk.attr.add("keep")
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 40.0)
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 40.0)
+        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 8.0)
+        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 8.0)
         self.platform.add_false_path_constraints(
             self.crg.cd_sys.clk,
             self.ethphy.crg.cd_eth_tx.clk, self.ethphy.crg.cd_eth_rx.clk)
