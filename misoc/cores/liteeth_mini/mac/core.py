@@ -20,8 +20,8 @@ class LiteEthMACCore(Module, AutoCSR):
         tx_pipeline += [tx_gap_inserter]
 
         # Preamble / CRC
+        self._preamble_crc = CSRConstant(with_preamble_crc)
         if with_preamble_crc:
-            self._preamble_crc = CSRStatus(reset=1)
             self.preamble_errors = CSRStatus(32)
             self.crc_errors = CSRStatus(32)
 
