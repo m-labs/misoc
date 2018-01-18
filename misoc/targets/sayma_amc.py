@@ -10,27 +10,31 @@ from migen.build.platforms.sinara import sayma_amc
 from misoc.cores.sdram_settings import MT41J256M16
 from misoc.cores.sdram_phy import kusddrphy
 from misoc.cores import spi_flash
-from misoc.cores.liteeth_mini.phy import LiteEthPHY
+from misoc.cores.liteeth_mini.phy.rgmii import LiteEthPHYRGMII
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
 
 
 class _CRG(Module):
-    def __init__(self, platform):
+    def __init__(self, platform, with_ethernet):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
+        if with_ethernet:
+            self.clock_domains.cd_eth_rx = ClockDomain()
+            self.clock_domains.cd_eth_tx = ClockDomain()
 
         clk50 = platform.request("clk50")
 
         pll_locked = Signal()
         pll_fb = Signal()
-        self.pll_sys = Signal()
+        pll_sys = Signal()
         pll_sys4x = Signal()
         pll_sys4x_dqs = Signal()
         pll_clk200 = Signal()
+        pll_eth_txclk = Signal()
         self.specials += [
             Instance("PLLE2_BASE",
                      p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
@@ -41,15 +45,18 @@ class _CRG(Module):
                      i_CLKIN1=clk50, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
 
                      # 125MHz
-                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=self.pll_sys,
+                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_sys,
 
                      # 500MHz
                      p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_sys4x,
 
                      # 200MHz
-                     p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_clk200
+                     p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_clk200,
+
+                     # 125MHz
+                     p_CLKOUT3_DIVIDE=8, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=pll_eth_txclk,
             ),
-            Instance("BUFG", i_I=self.pll_sys, o_O=self.cd_sys.clk),
+            Instance("BUFG", i_I=pll_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=pll_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
@@ -68,14 +75,52 @@ class _CRG(Module):
         self.specials += Instance("IDELAYCTRL", p_SIM_DEVICE="ULTRASCALE",
             i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
+        if with_ethernet:
+            eth_clocks = platform.request("eth_clocks")
+            pll_eth_txclk_buffered = Signal()
+            self.specials += [
+                Instance("BUFG", i_I=pll_eth_txclk, o_O=pll_eth_txclk_buffered),
+                DDROutput(0, 1, eth_clocks.tx, pll_eth_txclk_buffered)
+            ]
+            self.comb += [
+                self.cd_eth_tx.clk.eq(self.cd_sys.clk),
+                self.cd_eth_tx.rst.eq(self.cd_sys.rst)
+            ]
+
+            eth_pll_locked = Signal()
+            eth_pll_fb = Signal()
+            eth_pll_rx = Signal()
+            self.specials += [
+                Instance("PLLE2_BASE",
+                     p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
+
+                     # VCO @ 1GHz
+                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
+                     p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
+                     i_CLKIN1=eth_clocks.rx, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
+
+                     # 125MHz
+                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_pll_rx
+                ),
+                Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
+                AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
+            ]
+
+            self.cd_eth_tx.clk.attr.add("keep")
+            self.cd_eth_rx.clk.attr.add("keep")
+            platform.add_period_constraint(self.cd_eth_tx.clk, 8.0)
+            platform.add_period_constraint(self.cd_eth_rx.clk, 8.0)
+            platform.add_false_path_constraints(
+                self.cd_sys.clk, self.cd_eth_tx.clk, self.cd_eth_rx.clk)
+
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram="ddram_64", sdram_controller_type="minicon", **kwargs):
+    def __init__(self, sdram="ddram_64", sdram_controller_type="minicon", clock_ethernet=False, **kwargs):
         platform = sayma_amc.Platform()
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
                           **kwargs)
 
-        self.submodules.crg = _CRG(platform)
+        self.submodules.crg = _CRG(platform, clock_ethernet)
         self.crg.cd_sys.clk.attr.add("keep")
         platform.add_period_constraint(self.crg.cd_sys.clk, 8.0)
 
@@ -111,15 +156,13 @@ class MiniSoC(BaseSoC):
     mem_map.update(BaseSoC.mem_map)
 
     def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
-        BaseSoC.__init__(self, *args, **kwargs)
+        BaseSoC.__init__(self, clock_ethernet=True, *args, **kwargs)
 
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        eth_clocks = self.platform.request("eth_clocks")
         eth = self.platform.request("eth_rgmii")
-        self.submodules.ethphy = LiteEthPHY(eth_clocks,
-                                            eth, clk_freq=self.clk_freq)
+        self.submodules.ethphy = LiteEthPHYRGMII(eth)
         self.comb += eth.mdc.eq(0)
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
                                             nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
@@ -128,13 +171,6 @@ class MiniSoC(BaseSoC):
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base,
                                ethmac_len)
 
-        self.ethphy.crg.cd_eth_tx.clk.attr.add("keep")
-        self.ethphy.crg.cd_eth_rx.clk.attr.add("keep")
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_tx.clk, 8.0)
-        self.platform.add_period_constraint(self.ethphy.crg.cd_eth_rx.clk, 8.0)
-        self.platform.add_false_path_constraints(
-            self.crg.cd_sys.clk,
-            self.ethphy.crg.cd_eth_tx.clk, self.ethphy.crg.cd_eth_rx.clk)
 
 
 def main():
