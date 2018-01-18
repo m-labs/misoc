@@ -15,7 +15,7 @@ class LiteEthPHYRGMIITX(Module):
 
         self.specials += DDROutput(sink.stb, sink.stb, pads.tx_ctl, ClockSignal("eth_tx"))
         for i in range(4):
-            self.specials += DDROutput(sink.data[i], sink.data[i], pads.tx_data[4+i],
+            self.specials += DDROutput(sink.data[i], sink.data[4+i], pads.tx_data,
                                        ClockSignal("eth_tx"))
         self.comb += sink.ack.eq(1)
 
