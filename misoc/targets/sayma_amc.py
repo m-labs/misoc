@@ -113,12 +113,9 @@ class _CRG(Module):
             platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {rxc}]",
                 rxc=rx_clock_buffered)
 
-            self.cd_eth_tx.clk.attr.add("keep")
             self.cd_eth_rx.clk.attr.add("keep")
-            platform.add_period_constraint(self.cd_eth_tx.clk, 8.0)
             platform.add_period_constraint(self.cd_eth_rx.clk, 8.0)
-            platform.add_false_path_constraints(
-                self.cd_sys.clk, self.cd_eth_tx.clk, self.cd_eth_rx.clk)
+            platform.add_false_path_constraints(self.cd_sys.clk, self.cd_eth_rx.clk)
 
 
 class BaseSoC(SoCSDRAM):
