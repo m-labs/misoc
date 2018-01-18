@@ -110,6 +110,9 @@ class _CRG(Module):
                 AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
             ]
 
+            platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {rxc}]",
+                rxc=rx_clock_buffered)
+
             self.cd_eth_tx.clk.attr.add("keep")
             self.cd_eth_rx.clk.attr.add("keep")
             platform.add_period_constraint(self.cd_eth_tx.clk, 8.0)
