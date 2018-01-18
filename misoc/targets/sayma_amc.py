@@ -29,43 +29,41 @@ class _CRG(Module):
         clk50 = platform.request("clk50")
 
         clk50_buffered = Signal()
-        mmcm_locked = Signal()
-        mmcm_fb = Signal()
-        mmcm_sys = Signal()
-        mmcm_sys4x = Signal()
-        mmcm_sys4x_dqs = Signal()
-        mmcm_clk200 = Signal()
-        mmcm_eth_txclk = Signal()
+        pll_locked = Signal()
+        pll_fb = Signal()
+        pll_sys = Signal()
+        pll_sys4x = Signal()
+        pll_sys4x_dqs = Signal()
+        pll_clk200 = Signal()
+        pll_eth_txclk = Signal()
         self.specials += [
             Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
-            Instance("MMCME3_ADV",
-                p_STARTUP_WAIT="FALSE",  p_COMPENSATION="BUF_IN",
+            Instance("PLLE2_BASE",
+                     p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
-                # VCO @ 1GHz
-                p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=20.0,
-                p_CLKFBOUT_MULT_F=20.0, p_DIVCLK_DIVIDE=1,
-                i_CLKINSEL=1, i_CLKIN1=clk50_buffered,
-                i_CLKFBIN=mmcm_fb, o_CLKFBOUT=mmcm_fb,
-                o_LOCKED=mmcm_locked,
+                     # VCO @ 1GHz
+                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=20.0,
+                     p_CLKFBOUT_MULT=20, p_DIVCLK_DIVIDE=1,
+                     i_CLKIN1=clk50_buffered, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
 
-                # 125MHz
-                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+                     # 125MHz
+                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_sys,
 
-                # 500MHz
-                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+                     # 500MHz
+                     p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_sys4x,
 
-                # 200MHz
-                p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_clk200,
+                     # 200MHz
+                     p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_clk200,
 
-                # 125MHz
-                p_CLKOUT3_DIVIDE=8, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=mmcm_eth_txclk,
+                     # 125MHz
+                     p_CLKOUT3_DIVIDE=8, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=pll_eth_txclk,
             ),
-            Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
-            Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
-            Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=mmcm_clk200, o_O=self.cd_clk200.clk),
-            AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked),
-            AsyncResetSynchronizer(self.cd_clk200, ~mmcm_locked),
+            Instance("BUFG", i_I=pll_sys, o_O=self.cd_sys.clk),
+            Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
+            Instance("BUFG", i_I=pll_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
+            Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            AsyncResetSynchronizer(self.cd_sys, ~pll_locked),
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
 
         reset_counter = Signal(4, reset=15)
@@ -81,10 +79,10 @@ class _CRG(Module):
 
         if with_ethernet:
             eth_clocks = platform.request("eth_clocks")
-            mmcm_eth_txclk_buffered = Signal()
+            pll_eth_txclk_buffered = Signal()
             self.specials += [
-                Instance("BUFG", i_I=mmcm_eth_txclk, o_O=mmcm_eth_txclk_buffered),
-                DDROutput(0, 1, eth_clocks.tx, mmcm_eth_txclk_buffered)
+                Instance("BUFG", i_I=pll_eth_txclk, o_O=pll_eth_txclk_buffered),
+                DDROutput(0, 1, eth_clocks.tx, pll_eth_txclk_buffered)
             ]
             self.comb += [
                 self.cd_eth_tx.clk.eq(self.cd_sys.clk),
@@ -92,26 +90,24 @@ class _CRG(Module):
             ]
 
             rx_clock_buffered = Signal()
-            eth_mmcm_locked = Signal()
-            eth_mmcm_fb = Signal()
-            eth_mmcm_rx = Signal()
+            eth_pll_locked = Signal()
+            eth_pll_fb = Signal()
+            eth_pll_rx = Signal()
             self.specials += [
                 Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
-                Instance("MMCME3_ADV",
-                    p_STARTUP_WAIT="FALSE", p_COMPENSATION="BUF_IN",
+                Instance("PLLE2_BASE",
+                     p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
 
-                    # VCO @ 1GHz
-                    p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
-                    p_CLKFBOUT_MULT_F=8.0, p_DIVCLK_DIVIDE=1,
-                    i_CLKINSEL=1, i_CLKIN1=rx_clock_buffered,
-                    i_CLKFBIN=eth_mmcm_fb, o_CLKFBOUT=eth_mmcm_fb,
-                    o_LOCKED=eth_mmcm_locked,
+                     # VCO @ 1GHz
+                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
+                     p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
+                     i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
 
-                    # 125MHz
-                    p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_mmcm_rx
+                     # 125MHz
+                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_pll_rx
                 ),
-                Instance("BUFG", i_I=eth_mmcm_rx, o_O=self.cd_eth_rx.clk),
-                AsyncResetSynchronizer(self.cd_eth_rx, ~eth_mmcm_locked),
+                Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
+                AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
             ]
 
             platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {rxc}]",
