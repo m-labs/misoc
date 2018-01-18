@@ -87,17 +87,19 @@ class _CRG(Module):
                 self.cd_eth_tx.rst.eq(self.cd_sys.rst)
             ]
 
+            rx_clock_buffered = Signal()
             eth_pll_locked = Signal()
             eth_pll_fb = Signal()
             eth_pll_rx = Signal()
             self.specials += [
+                Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
                 Instance("PLLE2_BASE",
                      p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
 
                      # VCO @ 1GHz
                      p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
                      p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
-                     i_CLKIN1=eth_clocks.rx, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
+                     i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
 
                      # 125MHz
                      p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_pll_rx
