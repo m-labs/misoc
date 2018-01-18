@@ -104,7 +104,7 @@ class _CRG(Module):
                     i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
 
                     # 125MHz
-                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_pll_rx
+                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=135.0, o_CLKOUT0=eth_pll_rx
                 ),
                 Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
                 AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
