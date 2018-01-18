@@ -39,24 +39,24 @@ class _CRG(Module):
         self.specials += [
             Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
             Instance("PLLE2_BASE",
-                     p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
+                p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
-                     # VCO @ 1GHz
-                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=20.0,
-                     p_CLKFBOUT_MULT=20, p_DIVCLK_DIVIDE=1,
-                     i_CLKIN1=clk50_buffered, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
+                # VCO @ 1GHz
+                p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=20.0,
+                p_CLKFBOUT_MULT=20, p_DIVCLK_DIVIDE=1,
+                i_CLKIN1=clk50_buffered, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
 
-                     # 125MHz
-                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_sys,
+                # 125MHz
+                p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_sys,
 
-                     # 500MHz
-                     p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_sys4x,
+                # 500MHz
+                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_sys4x,
 
-                     # 200MHz
-                     p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_clk200,
+                # 200MHz
+                p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_clk200,
 
-                     # 125MHz
-                     p_CLKOUT3_DIVIDE=8, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=pll_eth_txclk,
+                # 125MHz
+                p_CLKOUT3_DIVIDE=8, p_CLKOUT3_PHASE=0.0, o_CLKOUT3=pll_eth_txclk,
             ),
             Instance("BUFG", i_I=pll_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
@@ -96,15 +96,15 @@ class _CRG(Module):
             self.specials += [
                 Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
                 Instance("PLLE2_BASE",
-                     p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
+                    p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
 
-                     # VCO @ 1GHz
-                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
-                     p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
-                     i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
+                    # VCO @ 1GHz
+                    p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
+                    p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
+                    i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
 
-                     # 125MHz
-                     p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_pll_rx
+                    # 125MHz
+                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=45.0, o_CLKOUT0=eth_pll_rx
                 ),
                 Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
                 AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
