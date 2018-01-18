@@ -44,33 +44,8 @@ class LiteEthPHYRGMIIRX(Module):
         self.comb += source.eop.eq(~rx_ctl & rx_ctl_d)
 
 
-class LiteEthPHYRGMIICRG(Module, AutoCSR):
-    def __init__(self, clock_pads, pads):
-        self._reset = CSRStorage()
-
-        # # #
-
-        self.clock_domains.cd_eth_rx = ClockDomain()
-        self.clock_domains.cd_eth_tx = ClockDomain()
-
-        self.specials += [
-            Instance("BUFG", i_I=clock_pads.rx, o_O=self.cd_eth_rx.clk),
-            DDROutput(0, 1, clock_pads.tx, ClockSignal("eth_tx"))
-        ]
-        self.comb += self.cd_eth_tx.clk.eq(self.cd_eth_rx.clk)
-
-        reset = self._reset.storage
-        if hasattr(pads, "rst_n"):
-            self.comb += pads.rst_n.eq(~reset)
-        self.specials += [
-            AsyncResetSynchronizer(self.cd_eth_tx, reset),
-            AsyncResetSynchronizer(self.cd_eth_rx, reset),
-        ]
-
-
 class LiteEthPHYRGMII(Module, AutoCSR):
-    def __init__(self, clock_pads, pads):
-        self.submodules.crg = LiteEthPHYRGMIICRG(clock_pads, pads)
+    def __init__(self, pads):
         self.submodules.tx = LiteEthPHYRGMIITX(pads)
         self.submodules.rx = LiteEthPHYRGMIIRX(pads)
         self.sink, self.source = self.tx.sink, self.rx.source
