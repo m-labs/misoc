@@ -15,7 +15,7 @@ class LiteEthPHYRGMIITX(Module):
 
         self.specials += DDROutput(sink.stb, sink.stb, pads.tx_ctl, ClockSignal("eth_tx"))
         for i in range(4):
-            self.specials += DDROutput(sink.data[i], sink.data[4+i], pads.tx_data[i],
+            self.specials += DDROutput(sink.data[i], sink.data[i], pads.tx_data[4+i],
                                        ClockSignal("eth_tx"))
         self.comb += sink.ack.eq(1)
 
@@ -30,9 +30,9 @@ class LiteEthPHYRGMIIRX(Module):
         rx_data = Signal(8)
 
         q0 = Signal()
-        self.specials += DDRInput(pads.rx_ctl, q0, rx_ctl, ClockSignal("eth_rx"))
+        self.specials += DDRInput(pads.rx_ctl, rx_ctl, q0, ClockSignal("eth_rx"))
         for i in range(4):
-            self.specials += DDRInput(pads.rx_data[i], rx_data[4+i], rx_data[i],
+            self.specials += DDRInput(pads.rx_data[i], rx_data[i], rx_data[4+i],
                                       ClockSignal("eth_rx"))
 
         rx_ctl_d = Signal()
