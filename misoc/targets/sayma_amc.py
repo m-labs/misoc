@@ -28,6 +28,7 @@ class _CRG(Module):
 
         clk50 = platform.request("clk50")
 
+        clk50_buffered = Signal()
         pll_locked = Signal()
         pll_fb = Signal()
         pll_sys = Signal()
@@ -36,13 +37,14 @@ class _CRG(Module):
         pll_clk200 = Signal()
         pll_eth_txclk = Signal()
         self.specials += [
+            Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
             Instance("PLLE2_BASE",
                      p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
                      # VCO @ 1GHz
                      p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=20.0,
                      p_CLKFBOUT_MULT=20, p_DIVCLK_DIVIDE=1,
-                     i_CLKIN1=clk50, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
+                     i_CLKIN1=clk50_buffered, i_CLKFBIN=pll_fb, o_CLKFBOUT=pll_fb,
 
                      # 125MHz
                      p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_sys,
