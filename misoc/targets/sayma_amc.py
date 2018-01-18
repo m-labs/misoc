@@ -38,7 +38,7 @@ class _CRG(Module):
         pll_eth_txclk = Signal()
         self.specials += [
             Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
-            Instance("PLLE2_BASE",
+            Instance("PLLE2_BASE", name="crg_main_mmcm",
                 p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz
@@ -95,7 +95,7 @@ class _CRG(Module):
             eth_pll_rx = Signal()
             self.specials += [
                 Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
-                Instance("PLLE2_BASE",
+                Instance("PLLE2_BASE", name="crg_ethrx_mmcm",
                     p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
 
                     # VCO @ 1GHz
