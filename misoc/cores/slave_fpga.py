@@ -8,7 +8,7 @@ class SlaveFPGA(Module, AutoCSR):
     def __init__(self, io):
         self._program = CSRStorage()
         self._done = CSRStatus()
-        self._init = CSRStatus()
+        self._error = CSRStatus()
 
         self._divisor = CSRStorage(32)
         self._data = CSRStorage(32)
@@ -59,7 +59,7 @@ class SlaveFPGA(Module, AutoCSR):
         ]
         self.specials += [
             MultiReg(io.done, self._done.status),
-            MultiReg(~io.init_b, self._init.status)
+            MultiReg(~io.init_b, self._error.status)
         ]
 
 
