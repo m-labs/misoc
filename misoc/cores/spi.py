@@ -10,27 +10,32 @@ from misoc.interconnect.csr import *
 
 class SPIClockGen(Module):
     def __init__(self, width):
+        # SPI clock cycle duration for the current cycle
         self.load = Signal(width)
-        self.bias = Signal()  # bias this clock phase to longer times
+        # The LSB of `load` is applied to the SPI clock phase
+        # with `clk == bias`
+        self.bias = Signal()
         self.edge = Signal()
         self.clk = Signal(reset=1)
 
         cnt = Signal.like(self.load)
+        cnt_done = Signal()
         bias = Signal()
-        zero = Signal()
+        bias_done = Signal()
         self.comb += [
-            zero.eq(cnt == 0),
-            self.edge.eq(zero & ~bias),
+            cnt_done.eq(cnt == self.load[1:]),
+            bias.eq(self.load[0] & (self.clk == self.bias)),
+            self.edge.eq(cnt_done & (~bias | bias_done)),
         ]
         self.sync += [
-            If(zero,
-                bias.eq(0),
+            If(cnt_done,
+                bias_done.eq(1),
             ).Else(
-                cnt.eq(cnt - 1),
+                cnt.eq(cnt + 1),
             ),
             If(self.edge,
-                cnt.eq(self.load[1:]),
-                bias.eq(self.load[0] & (self.clk ^ self.bias)),
+                cnt.eq(0),
+                bias_done.eq(0),
                 self.clk.eq(~self.clk),
             )
         ]
@@ -143,17 +148,23 @@ class SPIMachine(Module):
         )
 
         write0 = Signal()
+        read0 = Signal()
         self.sync += [
             If(self.cg.edge & self.reg.shift,
                 write0.eq(self.bits.write),
-            )
+                read0.eq(self.bits.read),
+            ),
+            If(self.cg.edge & fsm.before_entering("IDLE"),
+                write0.eq(0),
+                read0.eq(0),
+            ),
         ]
         self.comb += [
             self.cg.ce.eq(self.start | self.cs | ~self.cg.edge),
-            If(self.bits.write | ~self.bits.read,
-                self.cg.load.eq(self.div_write),
-            ).Else(
+            If((read0 | self.bits.read) & ~self.bits.write,
                 self.cg.load.eq(self.div_read),
+            ).Else(
+                self.cg.load.eq(self.div_write),
             ),
             self.cg.bias.eq(self.clk_phase),
             fsm.ce.eq(self.cg.edge),
