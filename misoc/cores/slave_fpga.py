@@ -8,6 +8,7 @@ class SlaveFPGA(Module, AutoCSR):
     def __init__(self, io):
         self._program = CSRStorage()
         self._done = CSRStatus()
+        self._init = CSRStatus()
 
         self._divisor = CSRStorage(32)
         self._data = CSRStorage(32)
@@ -57,7 +58,8 @@ class SlaveFPGA(Module, AutoCSR):
             io.cclk.eq(clk)
         ]
         self.specials += [
-            MultiReg(io.done, self._done.status)
+            MultiReg(io.done, self._done.status),
+            MultiReg(~io.init_b, self._init.status)
         ]
 
 
@@ -65,6 +67,7 @@ class _TestIO(Module):
     def __init__(self):
         self.done = Signal()
         self.program_b = Signal()
+        self.init_b = Signal()
         self.din = Signal()
         self.cclk = Signal()
 
