@@ -93,6 +93,7 @@ class BaseSoC(SoCSDRAM):
                           **kwargs)
 
         self.submodules.crg = _CRG(platform)
+        self.platform.add_period_constraint(self.crg.cd_sys.clk, 1e9/self.clk_freq)
 
         self.submodules.ddrphy = a7ddrphy.A7DDRPHY(platform.request("ddram"))
         sdram_module = MT41K256M16(self.clk_freq, "1:4")
@@ -131,7 +132,6 @@ class MiniSoC(BaseSoC):
         self.submodules.ethphy = A7_1000BASEX(self.ethphy_qpll_channel, sfp, self.clk_freq)
         self.platform.add_period_constraint(self.ethphy.txoutclk, 16.)
         self.platform.add_period_constraint(self.ethphy.rxoutclk, 16.)
-        self.platform.add_period_constraint(self.crg.cd_sys.clk, 1e9/self.clk_freq)
         self.platform.add_false_path_constraints(
             self.crg.cd_sys.clk,
             self.ethphy.txoutclk, self.ethphy.rxoutclk)
