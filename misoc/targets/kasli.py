@@ -120,23 +120,15 @@ class MiniSoC(BaseSoC):
     }
     mem_map.update(BaseSoC.mem_map)
 
-    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, ethphy_qpll_channel=None, **kwargs):
+    def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
+        self.create_qpll()
 
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        if ethphy_qpll_channel is None:
-            qpll_settings = QPLLSettings(
-                refclksel=0b001,
-                fbdiv=4,
-                fbdiv_45=5,
-                refclk_div=1)
-            qpll = QPLL(self.crg.clk125_buf, qpll_settings)
-            self.submodules += qpll
-            ethphy_qpll_channel = qpll.channels[0]
         sfp = self.platform.request("sfp", 0)
-        self.submodules.ethphy = A7_1000BASEX(ethphy_qpll_channel, sfp, self.clk_freq)
+        self.submodules.ethphy = A7_1000BASEX(self.ethphy_qpll_channel, sfp, self.clk_freq)
         self.platform.add_period_constraint(self.ethphy.txoutclk, 16.)
         self.platform.add_period_constraint(self.ethphy.rxoutclk, 16.)
         self.platform.add_period_constraint(self.crg.cd_sys.clk, 1e9/self.clk_freq)
@@ -159,6 +151,16 @@ class MiniSoC(BaseSoC):
         self.add_wb_slave(self.mem_map["ethmac"], ethmac_len, self.ethmac.bus)
         self.add_memory_region("ethmac",
                 self.mem_map["ethmac"] | self.shadow_base, ethmac_len)
+
+    def create_qpll(self):
+        qpll_settings = QPLLSettings(
+            refclksel=0b001,
+            fbdiv=4,
+            fbdiv_45=5,
+            refclk_div=1)
+        qpll = QPLL(self.crg.clk125_buf, qpll_settings)
+        self.submodules += qpll
+        self.ethphy_qpll_channel = qpll.channels[0]
 
 
 def soc_kasli_args(parser):
