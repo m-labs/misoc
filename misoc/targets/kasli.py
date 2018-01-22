@@ -24,6 +24,7 @@ class _CRG(Module):
         self.clock_domains.cd_clk200 = ClockDomain()
 
         clk125 = platform.request("clk125_gtp")
+        platform.add_period_constraint(clk125, 8.)
         self.clk125_buf = Signal()
         clk125_div2 = Signal()
         self.specials += Instance("IBUFDS_GTE2",
