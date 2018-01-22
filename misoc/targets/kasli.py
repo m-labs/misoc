@@ -135,7 +135,7 @@ class MiniSoC(BaseSoC):
             qpll = QPLL(self.crg.clk125_buf, qpll_settings)
             self.submodules += qpll
             ethphy_qpll_channel = qpll.channels[0]
-        sfp = self.platform.request("sfp_gtp", 0)
+        sfp = self.platform.request("sfp", 0)
         self.submodules.ethphy = A7_1000BASEX(ethphy_qpll_channel, sfp, self.clk_freq)
         self.platform.add_period_constraint(self.ethphy.txoutclk, 16.)
         self.platform.add_period_constraint(self.ethphy.rxoutclk, 16.)
@@ -144,11 +144,11 @@ class MiniSoC(BaseSoC):
             self.crg.cd_sys.clk,
             self.ethphy.txoutclk, self.ethphy.rxoutclk)
 
-        sfp = self.platform.request("sfp", 0)
+        sfp_ctl = self.platform.request("sfp_ctl", 0)
         self.comb += [
-            sfp.rate_select.eq(0),
-            sfp.tx_disable.eq(0),
-            sfp.led.eq(~sfp.los & ~sfp.tx_fault & sfp.mod_present &
+            sfp_ctl.rate_select.eq(0),
+            sfp_ctl.tx_disable.eq(0),
+            sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & sfp_ctl.mod_present &
                 self.ethphy.link_up),
         ]
 
