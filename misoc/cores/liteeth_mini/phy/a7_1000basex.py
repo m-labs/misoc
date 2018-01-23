@@ -396,16 +396,8 @@ class A7_1000BASEX(Module):
             i_DRPEN                         =drpen,
             o_DRPRDY                        =drprdy,
             i_DRPWE                         =drpwe,
-            # Clocking Ports
-            i_RXSYSCLKSEL                    =0b00,
-            i_TXSYSCLKSEL                    =0b00,
             # FPGA TX Interface Datapath Configuration
             i_TX8B10BEN                      =0,
-            # GTPE2_CHANNEL Clocking Ports
-            i_PLL0CLK                        =qpll_channel.clk,
-            i_PLL0REFCLK                     =qpll_channel.refclk,
-            i_PLL1CLK                        =0,
-            i_PLL1REFCLK                     =0,
             # Loopback Ports
             i_LOOPBACK                       =0,
             # PCI Express Ports
@@ -671,6 +663,30 @@ class A7_1000BASEX(Module):
             # Transmit Ports - pattern Generator Ports
             i_TXPRBSSEL                      =0
         )
+        if qpll_channel.index == 0:
+            xilinx_mess.update(
+                # Clocking Ports
+                i_RXSYSCLKSEL                    =0b00,
+                i_TXSYSCLKSEL                    =0b00,
+                # GTPE2_CHANNEL Clocking Ports
+                i_PLL0CLK                        =qpll_channel.clk,
+                i_PLL0REFCLK                     =qpll_channel.refclk,
+                i_PLL1CLK                        =0,
+                i_PLL1REFCLK                     =0,
+            )
+        elif qpll_channel.index == 1:
+            xilinx_mess.update(
+                # Clocking Ports
+                i_RXSYSCLKSEL                    =0b11,
+                i_TXSYSCLKSEL                    =0b11,
+                # GTPE2_CHANNEL Clocking Ports
+                i_PLL0CLK                        =0,
+                i_PLL0REFCLK                     =0,
+                i_PLL1CLK                        =qpll_channel.clk,
+                i_PLL1REFCLK                     =qpll_channel.refclk,
+            )
+        else:
+            raise ValueError
         self.specials += Instance("GTPE2_CHANNEL", **xilinx_mess)
 
         # Get 125MHz clocks back - the GTP junk insists on outputting 62.5MHz.
