@@ -25,14 +25,15 @@ class QPLL(Module):
 
         channel_settings = dict()
         for i, qpllsettings in enumerate((qpllsettings0, qpllsettings1)):
+            channel = QPLLChannel()
+            self.channels.append(channel)
+
             def add_setting(k, v):
                 channel_settings[k.replace("PLLX", "PLL"+str(i))] = v
 
             if qpllsettings is None:
                 add_setting("i_PLLXPD", 1)
             else:
-                channel = QPLLChannel()
-                self.channels.append(channel)
                 add_setting("i_PLLXPD", 0)
                 add_setting("i_PLLXLOCKEN", 1)
                 add_setting("i_PLLXREFCLKSEL", qpllsettings.refclksel)
