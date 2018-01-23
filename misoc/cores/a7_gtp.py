@@ -12,7 +12,8 @@ QPLLSettings = namedtuple("QPLLSettings", "refclksel fbdiv fbdiv_45 refclk_div")
 
 
 class QPLLChannel:
-    def __init__(self):
+    def __init__(self, index):
+        self.index = index
         self.reset = Signal()
         self.lock = Signal()
         self.clk = Signal()
@@ -25,7 +26,7 @@ class QPLL(Module):
 
         channel_settings = dict()
         for i, qpllsettings in enumerate((qpllsettings0, qpllsettings1)):
-            channel = QPLLChannel()
+            channel = QPLLChannel(i)
             self.channels.append(channel)
 
             def add_setting(k, v):
