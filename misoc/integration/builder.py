@@ -209,6 +209,9 @@ def builder_args(parser):
 
 
 def builder_argdict(args):
+    if hasattr(args, "variant") and args.output_dir:
+        args.output_dir = os.path.join(args.output_dir, args.variant.lower())
+
     return {
         "output_dir": args.output_dir,
         "compile_software": not args.no_compile_software,
