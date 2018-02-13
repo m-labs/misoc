@@ -59,7 +59,7 @@ class SoCCore(Module):
         self.csr_devices = [
             "uart_phy",
             "uart",
-            "identifier_mem",
+            "identifier",
             "timer0",
             "tmpu"
         ]
