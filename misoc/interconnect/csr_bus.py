@@ -53,7 +53,7 @@ class Interconnect(Module):
 
 
 class SRAM(Module):
-    def __init__(self, mem_or_size, address, read_only=None, init=None, bus=None):
+    def __init__(self, mem_or_size, address, read_only=False, init=None, bus=None):
         if bus is None:
             bus = Interface()
         self.bus = bus
@@ -69,11 +69,6 @@ class SRAM(Module):
             self._page = CSRStorage(page_bits, name=mem.name_override + "_page")
         else:
             self._page = None
-        if read_only is None:
-            if hasattr(mem, "bus_read_only"):
-                read_only = mem.bus_read_only
-            else:
-                read_only = False
 
         ###
 

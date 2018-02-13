@@ -612,7 +612,7 @@ class Cache(Module):
 
 
 class SRAM(Module):
-    def __init__(self, mem_or_size, read_only=None, init=None, bus=None):
+    def __init__(self, mem_or_size, read_only=False, init=None, bus=None):
         if bus is None:
             bus = Interface()
         self.bus = bus
@@ -622,11 +622,6 @@ class SRAM(Module):
             self.mem = mem_or_size
         else:
             self.mem = Memory(bus_data_width, mem_or_size//(bus_data_width//8), init=init)
-        if read_only is None:
-            if hasattr(self.mem, "bus_read_only"):
-                read_only = self.mem.bus_read_only
-            else:
-                read_only = False
 
         ###
 
