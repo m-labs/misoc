@@ -9,7 +9,6 @@ from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_mtu
 class LiteEthMACSRAMWriter(Module, AutoCSR):
     def __init__(self, dw, depth, nslots=2):
         self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
-        self.crc_error = Signal()
 
         slotbits = max(log2_int(nslots), 1)
         lengthbits = 32
