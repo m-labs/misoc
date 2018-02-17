@@ -20,7 +20,6 @@ class _CRG(Module):
     def __init__(self, platform, with_ethernet):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
-        self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
         if with_ethernet:
             self.clock_domains.cd_eth_rx = ClockDomain()
@@ -33,7 +32,6 @@ class _CRG(Module):
         pll_fb = Signal()
         pll_sys = Signal()
         pll_sys4x = Signal()
-        pll_sys4x_dqs = Signal()
         pll_clk200 = Signal()
         pll_eth_txclk = Signal()
         self.specials += [
@@ -60,7 +58,6 @@ class _CRG(Module):
             ),
             Instance("BUFG", i_I=pll_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
-            Instance("BUFG", i_I=pll_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_sys, ~pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
