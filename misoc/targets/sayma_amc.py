@@ -123,7 +123,6 @@ class BaseSoC(SoCSDRAM):
 
         self.submodules.crg = _CRG(platform, clock_ethernet)
         self.crg.cd_sys.clk.attr.add("keep")
-        platform.add_period_constraint(self.crg.cd_sys.clk, 8.0)
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
         self.config["DDRPHY_WLEVEL"] = None
