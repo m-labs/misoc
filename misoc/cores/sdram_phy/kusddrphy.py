@@ -243,7 +243,7 @@ class KUSDDRPHY(Module, AutoCSR):
                     i_ODATAIN=dq_o_nodelay, o_DATAOUT=dq_o_delayed
                 ),
                 Instance("IDELAYE3",
-                    p_CASCADE="NONE", p_UPDATE_MODE="ASYNC",p_REFCLK_FREQUENCY=200.0,
+                    p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
                     p_DELAY_FORMAT="COUNT", p_DELAY_SRC="IDATAIN",
                     p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=0,
