@@ -238,6 +238,7 @@ class SPIInterface(Module):
         for p in pads:
             n = len(p.cs_n)
             cs = TSTriple(n)
+            cs.o.reset = C((1 << n) - 1)
             clk = TSTriple()
             mosi = TSTriple()
             miso = TSTriple()
@@ -290,6 +291,7 @@ class SPIInterfaceXC7Diff(Module):
         self.sdo = Signal()
 
         cs = Signal.like(self.cs)
+        cs.reset = C((1 << n) - 1)
         clk = Signal()
         miso = Signal()
         mosi = Signal()
