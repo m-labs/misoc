@@ -1,11 +1,18 @@
 import collections
 from functools import reduce
 from operator import or_
-
+import warnings
 
 from migen import *
 from migen.genlib.fsm import FSM, NextState
 from misoc.interconnect.csr import *
+
+
+"""
+This core is deprecated. The interface is complicated and hard to use
+right in the case of chained transactions. Use the new `spi2` core.
+"""
+warnings.warn("Core `spi` is deprecated. Use `spi2`.", DeprecationWarning)
 
 
 class SPIClockGen(Module):
@@ -180,6 +187,9 @@ class SPIMachine(Module):
 
 class SPIMaster(Module, AutoCSR):
     """SPI Master.
+
+    *This core is deprecated. The interface is complicated and hard to use
+    right in the case of chained transactions. Use the new `spi2` core.*
 
     Notes:
         * M = 32 is the data width (width of the data register,
