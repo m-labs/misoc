@@ -158,7 +158,7 @@ class MiniSoC(BaseSoC):
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        eth = self.platform.request("eth_rgmii")
+        eth = self.platform.request("eth")
         self.submodules.ethphy = LiteEthPHYRGMII(eth)
         self.comb += eth.mdc.eq(0)
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
