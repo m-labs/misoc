@@ -291,7 +291,7 @@ class SPIInterfaceXC7Diff(Module):
         self.sdo = Signal()
 
         cs = Signal.like(self.cs)
-        cs.reset = C((1 << n) - 1)
+        cs.reset = C((1 << len(self.cs)) - 1)
         clk = Signal()
         miso = Signal()
         mosi = Signal()
