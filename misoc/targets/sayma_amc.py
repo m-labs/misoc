@@ -50,7 +50,7 @@ class _CRG(Module):
                 p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk200,
 
                 # 125MHz
-                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=pll_eth_txclk,
+                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=292.5, o_CLKOUT2=pll_eth_txclk,
             ),
             Instance("BUFGCE_DIV", p_BUFGCE_DIVIDE=4,
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys.clk),
