@@ -36,6 +36,7 @@ class _CRG(Module):
         self.specials += [
             Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
             Instance("PLLE2_BASE", name="crg_main_mmcm",
+                attr={("LOC", "MMCME3_ADV_X1Y0")},
                 p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz
@@ -50,7 +51,7 @@ class _CRG(Module):
                 p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk200,
 
                 # 125MHz
-                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=292.5, o_CLKOUT2=pll_eth_txclk,
+                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=45.0, o_CLKOUT2=pll_eth_txclk,
             ),
             Instance("BUFGCE_DIV", p_BUFGCE_DIVIDE=4,
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys.clk),
@@ -90,6 +91,7 @@ class _CRG(Module):
             self.specials += [
                 Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
                 Instance("PLLE2_BASE", name="crg_ethrx_mmcm",
+                    attr={("LOC", "MMCME3_ADV_X1Y3")},
                     p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
 
                     # VCO @ 1GHz
@@ -98,7 +100,7 @@ class _CRG(Module):
                     i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
 
                     # 125MHz
-                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=135.0, o_CLKOUT0=eth_pll_rx
+                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=180.0, o_CLKOUT0=eth_pll_rx
                 ),
                 Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
                 AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
