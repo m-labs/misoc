@@ -51,7 +51,7 @@ class _CRG(Module):
                 p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk200,
 
                 # 125MHz
-                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=45.0, o_CLKOUT2=pll_eth_txclk,
+                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_eth_txclk,
             ),
             Instance("BUFGCE_DIV", p_BUFGCE_DIVIDE=4,
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys.clk),
@@ -100,7 +100,7 @@ class _CRG(Module):
                     i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
 
                     # 125MHz
-                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=180.0, o_CLKOUT0=eth_pll_rx
+                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=eth_pll_rx
                 ),
                 Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
                 AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
@@ -112,6 +112,13 @@ class _CRG(Module):
             self.cd_eth_rx.clk.attr.add("keep")
             platform.add_period_constraint(self.cd_eth_rx.clk, 8.0)
             platform.add_false_path_constraints(self.cd_sys.clk, self.cd_eth_rx.clk)
+
+            # For mysterious reasons, it doesn't work if you set those values in the
+            # original MMCM instantiation.
+            platform.toolchain.bitstream_commands.extend([
+                "set_property CLKOUT0_PHASE 157.5 [get_cells crg_ethrx_mmcm]",
+                "set_property CLKOUT2_PHASE 45.0 [get_cells crg_main_mmcm]"
+            ])
 
 
 class BaseSoC(SoCSDRAM):
