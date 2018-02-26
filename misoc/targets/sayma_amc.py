@@ -32,7 +32,6 @@ class _CRG(Module):
         pll_fb = Signal()
         pll_sys4x = Signal()
         pll_clk200 = Signal()
-        pll_eth_txclk = Signal()
         self.specials += [
             Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
             Instance("PLLE2_BASE", name="crg_main_mmcm",
@@ -49,9 +48,6 @@ class _CRG(Module):
 
                 # 200MHz
                 p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk200,
-
-                # 125MHz
-                p_CLKOUT2_DIVIDE=8, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=pll_eth_txclk,
             ),
             Instance("BUFGCE_DIV", p_BUFGCE_DIVIDE=4,
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys.clk),
