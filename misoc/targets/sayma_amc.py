@@ -74,10 +74,27 @@ class _CRG(Module):
 
         if with_ethernet:
             eth_clocks = platform.request("eth_clocks")
-            pll_eth_txclk_buffered = Signal()
+
+            # Note: Sharing the main MMCM is not advisable due to the
+            # BUFGCE_DIV phase alignment problem.
+            ethtx_pll_fb = Signal()
+            ethtx_pll_out = Signal()
+            ethtx_pll_out_buffered = Signal()
             self.specials += [
-                Instance("BUFG", i_I=pll_eth_txclk, o_O=pll_eth_txclk_buffered),
-                DDROutput(0, 1, eth_clocks.tx, pll_eth_txclk_buffered)
+                Instance("PLLE2_BASE", name="crg_ethtx_mmcm",
+                    attr={("LOC", "MMCME3_ADV_X1Y4")},
+                    p_STARTUP_WAIT="FALSE",
+
+                    # VCO @ 1GHz
+                    p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
+                    p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
+                    i_CLKIN1=self.cd_sys.clk, i_CLKFBIN=ethtx_pll_fb, o_CLKFBOUT=ethtx_pll_fb,
+
+                    # 125MHz
+                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=ethtx_pll_out
+                ),
+                Instance("BUFG", i_I=ethtx_pll_out, o_O=ethtx_pll_out_buffered),
+                DDROutput(0, 1, eth_clocks.tx, ethtx_pll_out_buffered)
             ]
             self.comb += [
                 self.cd_eth_tx.clk.eq(self.cd_sys.clk),
@@ -85,27 +102,29 @@ class _CRG(Module):
             ]
 
             rx_clock_buffered = Signal()
-            eth_pll_locked = Signal()
-            eth_pll_fb = Signal()
-            eth_pll_rx = Signal()
+            ethrx_pll_locked = Signal()
+            ethrx_pll_fb = Signal()
+            ethrx_pll_out = Signal()
             self.specials += [
                 Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
                 Instance("PLLE2_BASE", name="crg_ethrx_mmcm",
                     attr={("LOC", "MMCME3_ADV_X1Y3")},
-                    p_STARTUP_WAIT="FALSE", o_LOCKED=eth_pll_locked,
+                    p_STARTUP_WAIT="FALSE", o_LOCKED=ethrx_pll_locked,
 
                     # VCO @ 1GHz
                     p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
                     p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
-                    i_CLKIN1=rx_clock_buffered, i_CLKFBIN=eth_pll_fb, o_CLKFBOUT=eth_pll_fb,
+                    i_CLKIN1=rx_clock_buffered, i_CLKFBIN=ethrx_pll_fb, o_CLKFBOUT=ethrx_pll_fb,
 
                     # 125MHz
-                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=eth_pll_rx
+                    p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=ethrx_pll_out
                 ),
-                Instance("BUFG", i_I=eth_pll_rx, o_O=self.cd_eth_rx.clk),
-                AsyncResetSynchronizer(self.cd_eth_rx, ~eth_pll_locked),
+                Instance("BUFG", i_I=ethrx_pll_out, o_O=self.cd_eth_rx.clk),
+                AsyncResetSynchronizer(self.cd_eth_rx, ~ethrx_pll_locked),
             ]
 
+            platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {sysc}]",
+                sysc=self.cd_sys.clk)
             platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {rxc}]",
                 rxc=rx_clock_buffered)
 
@@ -117,7 +136,7 @@ class _CRG(Module):
             # original MMCM instantiation.
             platform.toolchain.bitstream_commands.extend([
                 "set_property CLKOUT0_PHASE 157.5 [get_cells crg_ethrx_mmcm]",
-                "set_property CLKOUT2_PHASE 45.0 [get_cells crg_main_mmcm]"
+                "set_property CLKOUT0_PHASE 180.0 [get_cells crg_ethtx_mmcm]"
             ])
 
 
