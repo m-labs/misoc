@@ -231,7 +231,6 @@ class Flterm:
                     for c in data:
                         magic_detect_buffer = magic_detect_buffer[1:] + bytes([c])
                         if magic_detect_buffer == sfl_magic_req:
-                            magic_detect_buffer = b""
                             await self.answer_magic()
                             break
 
