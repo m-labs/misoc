@@ -208,23 +208,30 @@ class Flterm:
 
     async def main_coro(self):
         magic_detect_buffer = b"\x00"*len(sfl_magic_req)
+        port_reader = None
+        key_getter = None
         while True:
-            fs = [asyncio.ensure_future(self.port.read(1024))]
+            if port_reader is None:
+                port_reader = asyncio.ensure_future(self.port.read(1024))
+            fs = [port_reader]
             if not self.output_only:
-                fs += [asyncio.ensure_future(self.keyqueue.get())]
+                if key_getter is None:
+                    key_getter = asyncio.ensure_future(self.keyqueue.get())
+                fs += [key_getter]
             try:
                 done, pending = await asyncio.wait(
                     fs, return_when=asyncio.FIRST_COMPLETED)
-            except:
+            except asyncio.CancelledError:
                 for f in fs:
                     f.cancel()
+                    try:
+                        await f
+                    except asyncio.CancelledError:
+                        pass
                 raise
-            for f in pending:
-                f.cancel()
-                await asyncio.wait([f])
-
-            if fs[0] in done:
-                data = fs[0].result()
+            if port_reader in done:
+                data = port_reader.result()
+                port_reader = None
                 sys.stdout.buffer.write(data)
                 sys.stdout.flush()
 
@@ -235,8 +242,9 @@ class Flterm:
                             await self.answer_magic()
                             break
 
-            if len(fs) > 1 and fs[1] in done:
-                await self.port.write(fs[1].result())
+            if key_getter in done:
+                await self.port.write(key_getter.result())
+                key_getter = None
 
     async def upload_only_coro(self):
         magic_detect_buffer = b"\x00"*len(sfl_magic_req)
