@@ -83,11 +83,6 @@ class _CRG(Module):
 class BaseSoC(SoCSDRAM):
     def __init__(self, sdram_controller_type="minicon", **kwargs):
         platform = kasli.Platform()
-        platform.toolchain.bitstream_commands.extend([
-            "set_property BITSTREAM.GENERAL.COMPRESS True [current_design]",
-            "set_property CFGBVS VCCO [current_design]",
-            "set_property CONFIG_VOLTAGE 2.5 [current_design]",
-            ])
 
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125*1000000, cpu_reset_address=0x400000,
