@@ -131,7 +131,8 @@ class Flterm:
 
         self.port = asyncserial.AsyncSerial(port, baudrate=speed)
 
-        if not (upload_only or output_only):
+    def init(self):
+        if not (self.upload_only or self.output_only):
             self.keyqueue = asyncio.Queue(100)
             def getkey_callback(c):
                 self.keyqueue.put_nowait(c)
@@ -254,8 +255,12 @@ class Flterm:
         if not (self.upload_only or self.output_only):
             deinit_getkey()
         self.main_task.cancel()
-        await asyncio.wait([self.main_task])
-        self.port.close()
+        try:
+            await self.main_task
+        except asyncio.CancelledError:
+            pass
+        finally:
+            self.port.close()
 
 
 def _get_args():
@@ -278,15 +283,16 @@ def main():
         asyncio.set_event_loop(loop)
     else:
         loop = asyncio.get_event_loop()
-    try:
         args = _get_args()
-        flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_addr,
-                        args.upload_only, args.output_only)
-        try:
-            loop.run_until_complete(flterm.main_task)
-        finally:
-            loop.run_until_complete(flterm.close())
+    flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_addr,
+                    args.upload_only, args.output_only)
+    try:
+        flterm.init()
+        loop.run_until_complete(flterm.main_task)
+    except KeyboardInterrupt:
+        pass
     finally:
+        loop.run_until_complete(flterm.close())
         loop.close()
 
 
