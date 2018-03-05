@@ -81,8 +81,10 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram_controller_type="minicon", **kwargs):
-        platform = kasli.Platform()
+    def __init__(self, sdram_controller_type="minicon", platform=None,
+                 **kwargs):
+        if platform is None:
+            platform = kasli.Platform()
 
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125*1000000, cpu_reset_address=0x400000,
