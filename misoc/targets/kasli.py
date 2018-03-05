@@ -81,10 +81,9 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram_controller_type="minicon", platform=None,
+    def __init__(self, sdram_controller_type="minicon", hw_rev="v1.0",
                  **kwargs):
-        if platform is None:
-            platform = kasli.Platform()
+        platform = kasli.Platform(hw_rev=hw_rev)
 
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125*1000000, cpu_reset_address=0x400000,
@@ -163,10 +162,13 @@ class MiniSoC(BaseSoC):
 
 def soc_kasli_args(parser):
     soc_sdram_args(parser)
+    parser.add_argument("--hw-rev", default="v1.0",
+                        help="Kasli hardware revision: v1.0/v1.1")
 
 
 def soc_kasli_argdict(args):
     r = soc_sdram_argdict(args)
+    r["hw_rev"] = args.hw_rev
     return r
 
 
