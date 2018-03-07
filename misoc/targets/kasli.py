@@ -163,7 +163,8 @@ class MiniSoC(BaseSoC):
 def soc_kasli_args(parser):
     soc_sdram_args(parser)
     parser.add_argument("--hw-rev", default="v1.0",
-                        help="Kasli hardware revision: v1.0/v1.1")
+                        help="Kasli hardware revision: v1.0/v1.1 "
+                             "(default: %(default)s)")
 
 
 def soc_kasli_argdict(args):
