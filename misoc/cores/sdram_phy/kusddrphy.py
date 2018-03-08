@@ -2,7 +2,7 @@
 # tCK=5ns CL=7 CWL=6
 
 from migen import *
-from migen.genlib.misc import BitSlip
+from migen.genlib.misc import BitSlip, WaitTimer
 
 from misoc.interconnect.dfi import *
 from misoc.interconnect.csr import *
@@ -16,6 +16,7 @@ class KUSDDRPHY(Module, AutoCSR):
         databits = len(pads.dq)
         nphases = 4
 
+        self._en_vtc = CSRStorage(reset=1)
         self._wlevel_en = CSRStorage()
         self._wlevel_strobe = CSR()
         self._dly_sel = CSRStorage(databits//8)
@@ -26,6 +27,7 @@ class KUSDDRPHY(Module, AutoCSR):
         self._wdly_dq_inc = CSR()
         self._wdly_dqs_rst = CSR()
         self._wdly_dqs_inc = CSR()
+        self._wdly_dqs_taps = CSRStatus(9)
 
         self.settings = sdram_settings.PhySettings(
             memtype="DDR3",
@@ -140,10 +142,10 @@ class KUSDDRPHY(Module, AutoCSR):
                 Instance("ODELAYE3",
                     p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
-                    p_DELAY_FORMAT="COUNT", p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=0,
+                    p_DELAY_FORMAT="TIME", p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=0,
 
                     i_CLK=ClockSignal(),
-                    i_INC=1, i_EN_VTC=0,
+                    i_INC=1, i_EN_VTC=self._en_vtc.storage,
                     i_RST=self._dly_sel.storage[i] & self._wdly_dq_rst.re,
                     i_CE=self._dly_sel.storage[i] & self._wdly_dq_inc.re,
 
@@ -153,6 +155,19 @@ class KUSDDRPHY(Module, AutoCSR):
             dqs_nodelay = Signal()
             dqs_delayed = Signal()
             dqs_t = Signal()
+            if i == 0:
+                # Store initial DQS DELAY_VALUE (in taps) to
+                # be able to reload DELAY_VALUE after reset.
+                dqs_taps = Signal(9)
+                dqs_taps_timer = WaitTimer(2**16)
+                self.submodules += dqs_taps_timer
+                dqs_taps_done = Signal()
+                self.comb += dqs_taps_timer.wait.eq(~dqs_taps_done)
+                self.sync += \
+                    If(dqs_taps_timer.done,
+                        dqs_taps_done.eq(1),
+                        self._wdly_dqs_taps.status.eq(dqs_taps)
+                    )
             self.specials += [
                 Instance("OSERDESE3",
                     p_DATA_WIDTH=8, p_INIT=0,
@@ -170,12 +185,13 @@ class KUSDDRPHY(Module, AutoCSR):
                 Instance("ODELAYE3",
                     p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
-                    p_DELAY_FORMAT="COUNT", p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=64,
+                    p_DELAY_FORMAT="TIME", p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=500,
 
                     i_CLK=ClockSignal(),
-                    i_INC=1, i_EN_VTC=0,
+                    i_INC=1, i_EN_VTC=self._en_vtc.storage,
                     i_RST=self._dly_sel.storage[i] & self._wdly_dqs_rst.re,
                     i_CE=self._dly_sel.storage[i] & self._wdly_dqs_inc.re,
+                    o_CNTVALUEOUT=Signal(9) if i != 0 else dqs_taps,
 
                     i_ODATAIN=dqs_nodelay, o_DATAOUT=dqs_delayed
                 ),
@@ -233,23 +249,23 @@ class KUSDDRPHY(Module, AutoCSR):
                 Instance("ODELAYE3",
                     p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
-                    p_DELAY_FORMAT="COUNT", p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=0,
+                    p_DELAY_FORMAT="TIME", p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=0,
 
                     i_CLK=ClockSignal(),
-                    i_INC=1, i_EN_VTC=0,
+                    i_INC=1, i_EN_VTC=self._en_vtc.storage,
                     i_RST=self._dly_sel.storage[i//8] & self._wdly_dq_rst.re,
                     i_CE=self._dly_sel.storage[i//8] & self._wdly_dq_inc.re,
 
                     i_ODATAIN=dq_o_nodelay, o_DATAOUT=dq_o_delayed
                 ),
                 Instance("IDELAYE3",
-                    p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
+                    p_CASCADE="NONE", p_UPDATE_MODE="ASYNC",p_REFCLK_FREQUENCY=200.0,
                     p_IS_CLK_INVERTED=0, p_IS_RST_INVERTED=0,
-                    p_DELAY_FORMAT="COUNT", p_DELAY_SRC="IDATAIN",
+                    p_DELAY_FORMAT="TIME", p_DELAY_SRC="IDATAIN",
                     p_DELAY_TYPE="VARIABLE", p_DELAY_VALUE=0,
 
                     i_CLK=ClockSignal(),
-                    i_INC=1, i_EN_VTC=0,
+                    i_INC=1, i_EN_VTC=self._en_vtc.storage,
                     i_RST=self._dly_sel.storage[i//8] & self._rdly_dq_rst.re,
                     i_CE=self._dly_sel.storage[i//8] & self._rdly_dq_inc.re,
 
