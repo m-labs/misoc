@@ -26,14 +26,20 @@ class LiteEthPHYRGMIIRX(Module):
 
         # # #
 
+        rx_ctl_u = Signal()
+        rx_data_u = Signal(8)
+        q0 = Signal()
+        self.specials += DDRInput(pads.rx_ctl, rx_ctl_u, q0, ClockSignal("eth_rx"))
+        for i in range(4):
+            self.specials += DDRInput(pads.rx_data[i], rx_data_u[i], rx_data_u[4+i],
+                                      ClockSignal("eth_rx"))
+        # register to ease rx_ctl timing, e.g. on Sayma
         rx_ctl = Signal()
         rx_data = Signal(8)
-
-        q0 = Signal()
-        self.specials += DDRInput(pads.rx_ctl, rx_ctl, q0, ClockSignal("eth_rx"))
-        for i in range(4):
-            self.specials += DDRInput(pads.rx_data[i], rx_data[i], rx_data[4+i],
-                                      ClockSignal("eth_rx"))
+        self.sync.eth_rx += [
+            rx_ctl.eq(rx_ctl_u),
+            rx_data.eq(rx_data_u)
+        ]
 
         rx_ctl_d = Signal()
         self.sync.eth_rx += [
