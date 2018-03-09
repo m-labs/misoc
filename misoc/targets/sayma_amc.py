@@ -57,9 +57,9 @@ class _CRG(Module):
 
         # https://www.xilinx.com/support/answers/67885.html
         platform.add_platform_command(
-            "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets of [get_pins main_bufgce_div/O]]")
+            "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce_div/O]]")
         platform.add_platform_command(
-            "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets of [get_pins main_bufgce/O]]")
+            "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce/O]]")
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
