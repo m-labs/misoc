@@ -45,13 +45,21 @@ class _CRG(Module):
                 # 200MHz
                 p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk200,
             ),
-            Instance("BUFGCE_DIV", p_BUFGCE_DIVIDE=4,
+            Instance("BUFGCE_DIV", name="main_bufgce_div",
+                p_BUFGCE_DIVIDE=4,
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys.clk),
-            Instance("BUFGCE", i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
+            Instance("BUFGCE", name="main_bufgce",
+                i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_sys, ~pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
+
+        # https://www.xilinx.com/support/answers/67885.html
+        platform.add_platform_command(
+            "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets of [get_pins main_bufgce_div/O]]")
+        platform.add_platform_command(
+            "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets of [get_pins main_bufgce/O]]")
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
