@@ -21,6 +21,7 @@ class _CRG(Module):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
+        self.clock_domains.cd_ic = ClockDomain()
 
         clk50 = platform.request("clk50")
         clk50_buffered = Signal()
@@ -51,7 +52,6 @@ class _CRG(Module):
             Instance("BUFGCE", name="main_bufgce",
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
-            AsyncResetSynchronizer(self.cd_sys, ~pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
 
@@ -61,16 +61,31 @@ class _CRG(Module):
         platform.add_platform_command(
             "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce/O]]")
 
-        reset_counter = Signal(4, reset=15)
+        ic_reset_counter = Signal(max=16, reset=15)
         ic_reset = Signal(reset=1)
         self.sync.clk200 += \
-            If(reset_counter != 0,
-                reset_counter.eq(reset_counter - 1)
+            If(ic_reset_counter != 0,
+                ic_reset_counter.eq(ic_reset_counter - 1)
             ).Else(
                 ic_reset.eq(0)
             )
-        self.specials += Instance("IDELAYCTRL", p_SIM_DEVICE="ULTRASCALE",
-            i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
+        ic_rdy = Signal()
+        ic_rdy_counter = Signal(max=64, reset=63)
+        self.cd_sys.rst.reset = 1
+        self.comb += self.cd_ic.clk.eq(self.cd_sys.clk)
+        self.sync.ic += [
+            If(ic_rdy_counter != 0,
+                ic_rdy_counter.eq(ic_rdy_counter - 1)
+            ).Else(
+                self.cd_sys.rst.eq(0)
+            )
+        ]
+        self.specials += [
+            Instance("IDELAYCTRL", p_SIM_DEVICE="ULTRASCALE",
+                     i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset,
+                     o_RDY=ic_rdy),
+            AsyncResetSynchronizer(self.cd_ic, ~ic_rdy | ic_reset)
+        ]
 
 
 class BaseSoC(SoCSDRAM):
