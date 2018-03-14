@@ -64,7 +64,6 @@ class KUSDDRPHY(Module, AutoCSR):
                 p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                 p_DELAY_FORMAT="TIME", p_DELAY_TYPE="FIXED", p_DELAY_VALUE=0,
                 i_CLK=ClockSignal(),
-                i_RST=ResetSignal(),
                 i_EN_VTC=1,
                 i_ODATAIN=clk_o_nodelay, o_DATAOUT=clk_o_delayed
             ),
@@ -95,7 +94,6 @@ class KUSDDRPHY(Module, AutoCSR):
                     p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_DELAY_FORMAT="TIME", p_DELAY_TYPE="FIXED", p_DELAY_VALUE=0,
                     i_CLK=ClockSignal(),
-                    i_RST=ResetSignal(),
                     i_EN_VTC=1,
                     i_ODATAIN=a_o_nodelay, o_DATAOUT=pads.a[i]
                 )
@@ -120,7 +118,6 @@ class KUSDDRPHY(Module, AutoCSR):
                     p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_DELAY_FORMAT="TIME", p_DELAY_TYPE="FIXED", p_DELAY_VALUE=0,
                     i_CLK=ClockSignal(),
-                    i_RST=ResetSignal(),
                     i_EN_VTC=1,
                     i_ODATAIN=ba_o_nodelay, o_DATAOUT=pads.ba[i]
                 )
@@ -144,7 +141,6 @@ class KUSDDRPHY(Module, AutoCSR):
                     p_CASCADE="NONE", p_UPDATE_MODE="ASYNC", p_REFCLK_FREQUENCY=200.0,
                     p_DELAY_FORMAT="TIME", p_DELAY_TYPE="FIXED", p_DELAY_VALUE=0,
                     i_CLK=ClockSignal(),
-                    i_RST=ResetSignal(),
                     i_EN_VTC=1,
                     i_ODATAIN=x_o_nodelay, o_DATAOUT=getattr(pads, name)
                 )
