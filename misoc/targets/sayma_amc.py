@@ -61,7 +61,7 @@ class _CRG(Module):
         platform.add_platform_command(
             "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce/O]]")
 
-        ic_reset_counter = Signal(max=16, reset=15)
+        ic_reset_counter = Signal(max=64, reset=63)
         ic_reset = Signal(reset=1)
         self.sync.clk200 += \
             If(ic_reset_counter != 0,
@@ -74,17 +74,19 @@ class _CRG(Module):
         self.cd_sys.rst.reset = 1
         self.comb += self.cd_ic.clk.eq(self.cd_sys.clk)
         self.sync.ic += [
-            If(ic_rdy_counter != 0,
-                ic_rdy_counter.eq(ic_rdy_counter - 1)
-            ).Else(
-                self.cd_sys.rst.eq(0)
+            If(ic_rdy,
+                If(ic_rdy_counter != 0,
+                    ic_rdy_counter.eq(ic_rdy_counter - 1)
+                ).Else(
+                    self.cd_sys.rst.eq(0)
+                )
             )
         ]
         self.specials += [
             Instance("IDELAYCTRL", p_SIM_DEVICE="ULTRASCALE",
                      i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset,
                      o_RDY=ic_rdy),
-            AsyncResetSynchronizer(self.cd_ic, ~ic_rdy | ic_reset)
+            AsyncResetSynchronizer(self.cd_ic, ic_reset)
         ]
 
 
