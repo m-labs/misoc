@@ -291,7 +291,7 @@ def main():
         asyncio.set_event_loop(loop)
     else:
         loop = asyncio.get_event_loop()
-        args = _get_args()
+    args = _get_args()
     flterm = Flterm(args.port, args.speed, args.kernel, args.kernel_addr,
                     args.upload_only, args.output_only)
     try:
