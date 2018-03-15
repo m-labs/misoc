@@ -247,8 +247,9 @@ class SPIInterface(Module):
             self.specials += [
                     cs.get_tristate(p.cs_n),
                     clk.get_tristate(p.clk),
-                    mosi.get_tristate(p.mosi),
             ]
+            if hasattr(p, "mosi"):
+                self.specials += mosi.get_tristate(p.mosi)
             if hasattr(p, "miso"):
                 self.specials += miso.get_tristate(p.miso)
             self.comb += [
@@ -328,13 +329,14 @@ class SPIInterfaceXC7Diff(Module):
             i_INTERMDISABLE=1,
             i_I=clk, i_T=self.offline,
             io_IO=pads.clk, io_IOB=pads_n.clk)
-        self.specials += Instance("IOBUFDS_INTERMDISABLE",
-            p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="TRUE",
-            p_USE_IBUFDISABLE="TRUE",
-            i_IBUFDISABLE=self.offline | ~self.half_duplex,
-            i_INTERMDISABLE=self.offline | ~self.half_duplex,
-            o_O=mosi, i_I=self.sdo, i_T=self.offline | self.half_duplex,
-            io_IO=pads.mosi, io_IOB=pads_n.mosi)
+        if hasattr(pads, "mosi"):
+            self.specials += Instance("IOBUFDS_INTERMDISABLE",
+                p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="TRUE",
+                p_USE_IBUFDISABLE="TRUE",
+                i_IBUFDISABLE=self.offline | ~self.half_duplex,
+                i_INTERMDISABLE=self.offline | ~self.half_duplex,
+                o_O=mosi, i_I=self.sdo, i_T=self.offline | self.half_duplex,
+                io_IO=pads.mosi, io_IOB=pads_n.mosi)
         if hasattr(pads, "miso"):
             self.specials += Instance("IOBUFDS_INTERMDISABLE",
                 p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="TRUE",
@@ -374,6 +376,7 @@ class SPIMaster(Module, AutoCSR):
           must to be set when reading data is desired.
         * For 4-wire SPI there is no difference between read and write.
           For 3-wire SPI serial data is read from mosi which is an input.
+        * 3-wire SPI with MISO but no MOSI (used by some ADCs) is also supported.
         * The first bit output on mosi is always the MSB/LSB (depending on
           self._lsb_first) of the data register, independent of
           length. The last bit input from miso always ends up in
