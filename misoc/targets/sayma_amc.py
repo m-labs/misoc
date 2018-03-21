@@ -62,6 +62,10 @@ class _CRG(Module):
             "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce_div/O]]")
         platform.add_platform_command(
             "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce/O]]")
+        platform.add_platform_command(
+            "set_property USER_CLOCK_ROOT X2Y2 [get_nets -of [get_pins main_bufgce_div/O]]")
+        platform.add_platform_command(
+            "set_property USER_CLOCK_ROOT X2Y2 [get_nets -of [get_pins main_bufgce/O]]")
 
         ic_reset_counter = Signal(max=64, reset=63)
         ic_reset = Signal(reset=1)
