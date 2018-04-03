@@ -49,7 +49,7 @@ class _CRG(Module):
                 o_LOCKED=mmcm_locked,
 
                 # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=16.0, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT_F=15.5, p_DIVCLK_DIVIDE=1,
 
                 # ~125MHz
                 p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
@@ -87,7 +87,7 @@ class BaseSoC(SoCSDRAM):
         platform = kasli.Platform(hw_rev=hw_rev)
 
         SoCSDRAM.__init__(self, platform,
-                          clk_freq=125*1000000, cpu_reset_address=0x400000,
+                          clk_freq=125e6*15.5/16, cpu_reset_address=0x400000,
                           **kwargs)
 
         self.submodules.crg = _CRG(platform)
