@@ -137,10 +137,14 @@ class MiniSoC(BaseSoC):
             self.ethphy.txoutclk, self.ethphy.rxoutclk)
 
         sfp_ctl = self.platform.request("sfp_ctl", 0)
+        if hasattr(sfp_ctl, "mod_present"):
+            mod_present = sfp_ctl.mod_present
+        else:
+            mod_present = ~sfp_ctl.mod_present_n
         self.comb += [
             sfp_ctl.rate_select.eq(0),
             sfp_ctl.tx_disable.eq(0),
-            sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & sfp_ctl.mod_present &
+            sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & mod_present &
                 self.ethphy.link_up),
         ]
 
