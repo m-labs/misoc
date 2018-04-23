@@ -10,3 +10,6 @@
 [submodule "misoc/software/unwinder"]
 	path = misoc/software/unwinder
 	url = http://llvm.org/git/libunwind.git
+[submodule "misoc/cores/vexriscv/verilog"]
+	path = misoc/cores/vexriscv/verilog
+	url = https://github.com/m-labs/VexRiscv-verilog.git
