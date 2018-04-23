@@ -34,6 +34,15 @@ void flush_cpu_icache(void)
 
 	for (i = 0; i < cache_size; i += cache_block_size)
 		mtspr(SPR_ICBIR, i);
+#elif defined (__vexriscv__)
+	asm volatile(
+		".word(0x400F)\n"
+		"nop\n"
+		"nop\n"
+		"nop\n"
+		"nop\n"
+		"nop\n"
+	);
 #else
 #error Unsupported architecture
 #endif
@@ -62,6 +71,13 @@ void flush_cpu_dcache(void)
 
 	for (i = 0; i < cache_size; i += cache_block_size)
 		mtspr(SPR_DCBIR, i);
+#elif defined (__vexriscv__)
+    unsigned long cacheInfo = read_csr(0xCC0);
+    unsigned long cacheWaySize = cacheInfo & 0xFFFFF;
+    unsigned long cacheLineSize = (cacheInfo >> 20) & 0xFFF;
+    for(register unsigned long idx asm ("a0") = 0;idx < cacheWaySize;idx += cacheLineSize){
+        asm volatile(".word(0b01110000000001010101000000001111)");
+    }
 #else
 #error Unsupported architecture
 #endif
@@ -80,6 +96,8 @@ void flush_l2_cache(void)
 		__asm__ volatile("lw %0, (%1+0)\n":"=r"(dummy):"r"(addr));
 #elif defined (__or1k__)
 		__asm__ volatile("l.lwz %0, 0(%1)\n":"=r"(dummy):"r"(addr));
+#elif defined (__vexriscv__)
+		__asm__ volatile("lw x0, 0(%0)\n":"r"(addr));
 #else
 #error Unsupported architecture
 #endif
