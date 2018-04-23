@@ -12,6 +12,10 @@ def get_cpu_mak(cpu):
         triple = "or1k-linux"
         cpuflags = "-mhard-mul -mhard-div -mror -mffl1 -maddc"
         clang = "1"
+    if cpu == "vexriscv":
+        triple = "riscv64-unknown-elf" # GCC from https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-20171231-x86_64-linux-centos6.tar.gz
+        cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32 -nostdlib -lgcc -mcmodel=medany -nostartfiles -ffreestanding -Wl,-Bstatic"
+        clang = ""
     else:
         raise ValueError("Unsupported CPU type: "+cpu)
     return [
@@ -23,7 +27,10 @@ def get_cpu_mak(cpu):
 
 
 def get_linker_output_format(cpu_type):
-    return "OUTPUT_FORMAT(\"elf32-{}\")\n".format(cpu_type)
+    if cpu_type == "vexriscv":
+        return "OUTPUT_FORMAT(\"elf32-littleriscv\", \"elf32-littleriscv\", \"elf32-littleriscv\")"
+    else:
+        return "OUTPUT_FORMAT(\"elf32-{}\")\n".format(cpu_type)
 
 
 def get_linker_regions(regions):
