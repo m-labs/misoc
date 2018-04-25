@@ -5,14 +5,7 @@
 extern "C" {
 #endif
 
-#ifdef __or1k__
 #include <system.h>
-#endif
-
-#ifdef __vexriscv__
-#include <system.h>
-#include <csr-defs.h>
-#endif
 
 static inline unsigned int irq_getie(void)
 {
@@ -39,7 +32,7 @@ static inline void irq_setie(unsigned int ie)
 	else
 		mtspr(SPR_SR, mfspr(SPR_SR) & ~SPR_SR_IEE);
 #elif defined (__vexriscv__)
-    if(ie) csrs(mstatus,CSR_MSTATUS_MIE); else csrc(mstatus,CSR_MSTATUS_MIE);
+	if(ie) csrs(mstatus,CSR_MSTATUS_MIE); else csrc(mstatus,CSR_MSTATUS_MIE);
 #else
 #error Unsupported architecture
 #endif
@@ -54,9 +47,9 @@ static inline unsigned int irq_getmask(void)
 #elif defined (__or1k__)
 	return mfspr(SPR_PICMR);
 #elif defined (__vexriscv__)
-    unsigned int mask;
-    asm volatile ("csrr %0, %1" : "=r"(mask) : "i"(CSR_IRQ_MASK));
-    return mask;
+	unsigned int mask;
+	asm volatile ("csrr %0, %1" : "=r"(mask) : "i"(CSR_IRQ_MASK));
+	return mask;
 #else
 #error Unsupported architecture
 #endif
@@ -69,7 +62,7 @@ static inline void irq_setmask(unsigned int mask)
 #elif defined (__or1k__)
 	mtspr(SPR_PICMR, mask);
 #elif defined (__vexriscv__)
-    asm volatile ("csrw %0, %1" :: "i"(CSR_IRQ_MASK), "r"(mask));
+	asm volatile ("csrw %0, %1" :: "i"(CSR_IRQ_MASK), "r"(mask));
 #else
 #error Unsupported architecture
 #endif
@@ -84,9 +77,9 @@ static inline unsigned int irq_pending(void)
 #elif defined (__or1k__)
 	return mfspr(SPR_PICSR);
 #elif defined (__vexriscv__)
-    unsigned int pending;
-    asm volatile ("csrr %0, %1" : "=r"(pending) : "i"(CSR_IRQ_PENDING));
-    return pending;
+	unsigned int pending;
+	asm volatile ("csrr %0, %1" : "=r"(pending) : "i"(CSR_IRQ_PENDING));
+	return pending;
 #else
 #error Unsupported architecture
 #endif

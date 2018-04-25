@@ -14,7 +14,7 @@ def get_cpu_mak(cpu):
         clang = "1"
     elif cpu == "vexriscv":
         triple = "riscv64-unknown-elf"
-        cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32 -mcmodel=medany -nostartfiles"
+        cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32"
         clang = ""
     else:
         raise ValueError("Unsupported CPU type: "+cpu)
