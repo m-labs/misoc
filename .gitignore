@@ -3,7 +3,3 @@ __pycache__
 *.egg-info
 *.vcd
 outgoing
-build
-dist
-.idea
-misoc_*

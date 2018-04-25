@@ -56,6 +56,8 @@ trap_entry:
 
 crtInit:
   la sp, _fstack + 4
+  la a0, trap_entry
+  csrw mtvec, a0
 
 bss_init:
   la a0, _fbss
@@ -67,7 +69,7 @@ bss_loop:
   j bss_loop
 bss_done:
 
-  li a0, 0x880     //880 enable timer + external interrupts
+  li a0, 0x880  //880 enable timer + external interrupt sources (until mstatus.MIE is set, they will never trigger an interrupt)
   csrw mie,a0
 
   call main
