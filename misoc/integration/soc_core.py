@@ -73,8 +73,7 @@ class SoCCore(Module):
             self.submodules.cpu = mor1kx.MOR1KX(platform,
                     OPTION_RESET_PC=self.cpu_reset_address)
         elif cpu_type == "vexriscv":
-            assert self.cpu_reset_address == 0, "The reset vector of the default VexRiscv core is fixed to 0x00000000. Misoc want it to be at 0x{:08X}".format(self.cpu_reset_address)
-            self.submodules.cpu = vexriscv.VexRiscv(platform)
+            self.submodules.cpu = vexriscv.VexRiscv(platform, self.cpu_reset_address)
         else:
             raise ValueError("Unsupported CPU type: {}".format(cpu_type))
         self.submodules.tmpu = tmpu.TMPU(self.cpu.dbus)

@@ -4,6 +4,10 @@
 #include <spr-defs.h>
 #endif
 
+#ifdef __vexriscv__
+#include <csr-defs.h>
+#endif
+
 #include <system.h>
 #include <generated/mem.h>
 #include <generated/csr.h>
@@ -72,11 +76,12 @@ void flush_cpu_dcache(void)
 	for (i = 0; i < cache_size; i += cache_block_size)
 		mtspr(SPR_DCBIR, i);
 #elif defined (__vexriscv__)
-    unsigned long cacheInfo = read_csr(0xCC0);
-    unsigned long cacheWaySize = cacheInfo & 0xFFFFF;
-    unsigned long cacheLineSize = (cacheInfo >> 20) & 0xFFF;
-    for(register unsigned long idx asm ("a0") = 0;idx < cacheWaySize;idx += cacheLineSize){
-        asm volatile(".word(0b01110000000001010101000000001111)");
+    unsigned long cache_info;
+    asm volatile ("csrr %0, %1" : "=r"(cache_info) : "i"(CSR_DCACHE_INFO));
+    unsigned long cache_way_size = cache_info & 0xFFFFF;
+    unsigned long cache_line_size = (cache_info >> 20) & 0xFFF;
+    for(register unsigned long idx = 0;idx < cache_way_size;idx += cache_line_size){
+        asm volatile("mv x10, %0 \n .word(0b01110000000001010101000000001111)"::"r"(idx));
     }
 #else
 #error Unsupported architecture
@@ -87,20 +92,8 @@ void flush_cpu_dcache(void)
 void flush_l2_cache(void)
 {
 	unsigned int i;
-	register unsigned int addr;
-	register unsigned int dummy;
-
 	for(i=0;i<2*CONFIG_L2_SIZE/4;i++) {
-		addr = MAIN_RAM_BASE + i*4;
-#if defined (__lm32__)
-		__asm__ volatile("lw %0, (%1+0)\n":"=r"(dummy):"r"(addr));
-#elif defined (__or1k__)
-		__asm__ volatile("l.lwz %0, 0(%1)\n":"=r"(dummy):"r"(addr));
-#elif defined (__vexriscv__)
-		__asm__ volatile("lw x0, 0(%0)\n":"r"(addr));
-#else
-#error Unsupported architecture
-#endif
+	    ((volatile unsigned int *) MAIN_RAM_BASE)[i];
 	}
 }
 #endif

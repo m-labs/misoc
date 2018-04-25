@@ -12,9 +12,9 @@ def get_cpu_mak(cpu):
         triple = "or1k-linux"
         cpuflags = "-mhard-mul -mhard-div -mror -mffl1 -maddc"
         clang = "1"
-    if cpu == "vexriscv":
-        triple = "riscv64-unknown-elf" # GCC from https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-20171231-x86_64-linux-centos6.tar.gz
-        cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32 -nostdlib -lgcc -mcmodel=medany -nostartfiles -ffreestanding -Wl,-Bstatic"
+    elif cpu == "vexriscv":
+        triple = "riscv64-unknown-elf"
+        cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32 -mcmodel=medany -nostartfiles"
         clang = ""
     else:
         raise ValueError("Unsupported CPU type: "+cpu)
