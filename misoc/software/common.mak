@@ -67,6 +67,12 @@ ifeq ($(CPU),vexriscv)
 	LDFLAGS += -nostartfiles
 endif
 
+ifeq ($(CPU),vexriscv)
+	CPU_ENDIANNESS = LITTLE
+else
+	CPU_ENDIANNESS = BIG
+endif
+
 define assemble
 $(CC) -c $(CFLAGS) -o $@ $<
 endef

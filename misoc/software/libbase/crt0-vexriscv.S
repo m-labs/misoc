@@ -3,8 +3,7 @@
 .global _start
 
 _start:
-crtStart:
-  j crtInit
+  j crt_init
   nop
   nop
   nop
@@ -54,7 +53,7 @@ trap_entry:
   .text
 
 
-crtInit:
+crt_init:
   la sp, _fstack + 4
   la a0, trap_entry
   csrw mtvec, a0
@@ -73,5 +72,5 @@ bss_done:
   csrw mie,a0
 
   call main
-infinitLoop:
-  j infinitLoop
+infinit_loop:
+  j infinit_loop

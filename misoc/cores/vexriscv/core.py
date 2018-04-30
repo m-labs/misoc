@@ -11,17 +11,14 @@ class VexRiscv(Module):
         self.dbus = d = wishbone.Interface()
 
         self.interrupt = Signal(32)
-        self.timer_interrupt = Signal(1)
-
-        self.external_reset_vector = Signal(32)
 
         self.specials += Instance("VexRiscv",
                                   i_clk=ClockSignal(),
                                   i_reset=ResetSignal(),
 
-                                  i_externalResetVector=self.external_reset_vector,
+                                  i_externalResetVector=cpu_reset_address,
                                   i_externalInterruptArray=self.interrupt,
-                                  i_timerInterrupt=self.timer_interrupt,
+                                  i_timerInterrupt=0,
 
                                   o_iBusWishbone_ADR=i.adr,
                                   o_iBusWishbone_DAT_MOSI=i.dat_w,
@@ -46,11 +43,6 @@ class VexRiscv(Module):
                                   i_dBusWishbone_DAT_MISO=d.dat_r,
                                   i_dBusWishbone_ACK=d.ack,
                                   i_dBusWishbone_ERR=d.err)
-
-        self.comb += [
-            self.timer_interrupt.eq(0),
-            self.external_reset_vector.eq(cpu_reset_address)
-        ]
 
         # add Verilog sources
         vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog")

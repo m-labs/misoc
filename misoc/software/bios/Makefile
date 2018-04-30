@@ -9,7 +9,11 @@ all:: bios.bin
 
 %.bin: %.elf
 	$(objcopy) -O binary
+ifeq ($(CPU_ENDIANNESS),LITTLE)
+	$(MSCIMG) $@ --little
+else
 	$(MSCIMG) $@
+endif
 
 bios.elf: ../libbase/crt0-$(CPU).o isr.o sdram.o main.o boot-helper-$(CPU).o boot.o
 	$(link) -T $(BIOS_DIRECTORY)/bios.ld \

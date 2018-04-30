@@ -165,19 +165,13 @@ class Builder:
         if self.soc.integrated_rom_size:
             with open(bios_file, "rb") as boot_file:
                 boot_data = []
-                unpackEndian = ">I" if self.soc.cpu_type != "vexriscv" else "<I"
+                unpack_endian = ">I" if self.soc.cpu_type != "vexriscv" else "<I"
                 while True:
                     w = boot_file.read(4)
                     if not w:
                         break
-                    boot_data.append(struct.unpack(unpackEndian, w)[0])
+                    boot_data.append(struct.unpack(unpack_endian, w)[0])
 
-            if self.soc.cpu_type == "vexriscv":
-                # rom CRC endian reswap
-                buf = 0
-                for b in range(4):
-                    buf |= ((boot_data[-1] >> 8*b) & 0xFF) << (24-8*b)
-                boot_data[-1] = buf
             self.soc.initialize_rom(boot_data)
 
     def build(self):
