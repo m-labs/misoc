@@ -63,9 +63,6 @@ export CFLAGS_$(subst -,_,$(CARGO_TRIPLE)) = $(CFLAGS)
 
 # Linker options
 LDFLAGS = --gc-sections -nostdlib -nodefaultlibs -L$(BUILDINC_DIRECTORY)
-ifeq ($(CPU),vexriscv)
-	LDFLAGS += -nostartfiles
-endif
 
 ifeq ($(CPU),vexriscv)
 	CPU_ENDIANNESS = LITTLE
