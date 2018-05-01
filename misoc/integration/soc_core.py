@@ -2,7 +2,7 @@ from operator import itemgetter
 
 from migen import *
 
-from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart
+from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart, vexriscv
 from misoc.interconnect import wishbone, csr_bus, wishbone2csr
 from misoc.integration.wb_slaves import WishboneSlaveManager
 
@@ -72,6 +72,8 @@ class SoCCore(Module):
         elif cpu_type == "or1k":
             self.submodules.cpu = mor1kx.MOR1KX(platform,
                     OPTION_RESET_PC=self.cpu_reset_address)
+        elif cpu_type == "vexriscv":
+            self.submodules.cpu = vexriscv.VexRiscv(platform, self.cpu_reset_address)
         else:
             raise ValueError("Unsupported CPU type: {}".format(cpu_type))
         self.submodules.tmpu = tmpu.TMPU(self.cpu.dbus)
