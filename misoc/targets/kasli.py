@@ -38,7 +38,9 @@ class _CRG(Module):
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
-        mmcm_clk200 = Signal()
+        pll_locked = Signal()
+        pll_fb = Signal()
+        pll_clk200 = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16.0,
@@ -56,18 +58,28 @@ class _CRG(Module):
 
                 # ~500MHz. Must be more than 400MHz as per DDR3 specs.
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
+            ),
+            Instance("PLLE2_BASE",
+                p_CLKIN1_PERIOD=16.0,
+                i_CLKIN1=clk125_div2,
 
-                # ~200MHz for IDELAYCTRL. Datasheet specified tolerance +/- 10MHz.
-                p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_clk200,
+                i_CLKFBIN=pll_fb,
+                o_CLKFBOUT=pll_fb,
+                o_LOCKED=pll_locked,
 
-                p_CLKOUT3_DIVIDE=2, p_CLKOUT3_PHASE=90.0, o_CLKOUT3=mmcm_sys4x_dqs,
+                # VCO @ 1GHz
+                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+
+                # 200MHz for IDELAYCTRL
+                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
             ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=mmcm_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked),
-            AsyncResetSynchronizer(self.cd_clk200, ~mmcm_locked),
+            Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
 
         reset_counter = Signal(4, reset=15)
