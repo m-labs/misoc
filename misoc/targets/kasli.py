@@ -26,12 +26,12 @@ class _CRG(Module):
         clk125 = platform.request("clk125_gtp")
         platform.add_period_constraint(clk125, 8.)
         self.clk125_buf = Signal()
-        clk125_div2 = Signal()
+        self.clk125_div2 = Signal()
         self.specials += Instance("IBUFDS_GTE2",
             i_CEB=0,
             i_I=clk125.p, i_IB=clk125.n,
             o_O=self.clk125_buf,
-            o_ODIV2=clk125_div2)
+            o_ODIV2=self.clk125_div2)
 
         mmcm_locked = Signal()
         mmcm_fb = Signal()
@@ -44,7 +44,7 @@ class _CRG(Module):
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=clk125_div2,
+                i_CLKIN1=self.clk125_div2,
 
                 i_CLKFBIN=mmcm_fb,
                 o_CLKFBOUT=mmcm_fb,
@@ -62,7 +62,7 @@ class _CRG(Module):
             ),
             Instance("PLLE2_BASE",
                 p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=clk125_div2,
+                i_CLKIN1=self.clk125_div2,
 
                 i_CLKFBIN=pll_fb,
                 o_CLKFBOUT=pll_fb,
