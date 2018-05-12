@@ -32,7 +32,6 @@ class _CRG(Module):
         self.specials += [
             Instance("BUFG", i_I=clk50, o_O=clk50_buffered),
             Instance("PLLE2_BASE", name="crg_main_mmcm",
-                attr={("LOC", "MMCME3_ADV_X1Y0")},
                 p_STARTUP_WAIT="FALSE", o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz
@@ -47,11 +46,9 @@ class _CRG(Module):
                 p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk200,
             ),
             Instance("BUFGCE_DIV", name="main_bufgce_div",
-                attr={("LOC", "BUFGCE_DIV_X1Y0")},
                 p_BUFGCE_DIVIDE=4,
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys.clk),
             Instance("BUFGCE", name="main_bufgce",
-                attr={("LOC", "BUFGCE_X1Y14")},
                 i_CE=1, i_I=pll_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
@@ -62,10 +59,6 @@ class _CRG(Module):
             "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce_div/O]]")
         platform.add_platform_command(
             "set_property CLOCK_DELAY_GROUP ULTRASCALE_IS_AWFUL [get_nets -of [get_pins main_bufgce/O]]")
-        platform.add_platform_command(
-            "set_property USER_CLOCK_ROOT X2Y2 [get_nets -of [get_pins main_bufgce_div/O]]")
-        platform.add_platform_command(
-            "set_property USER_CLOCK_ROOT X2Y2 [get_nets -of [get_pins main_bufgce/O]]")
 
         ic_reset_counter = Signal(max=64, reset=63)
         ic_reset = Signal(reset=1)
@@ -143,7 +136,6 @@ class _EthernetCRG(Module):
         ethtx_pll_out_buffered = Signal()
         self.specials += [
             Instance("PLLE2_BASE", name="crg_ethtx_mmcm",
-                attr={("LOC", "MMCME3_ADV_X1Y4")},
                 p_STARTUP_WAIT="FALSE",
 
                 # VCO @ 1GHz
@@ -169,7 +161,6 @@ class _EthernetCRG(Module):
         self.specials += [
             Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
             Instance("PLLE2_BASE", name="crg_ethrx_mmcm",
-                attr={("LOC", "MMCME3_ADV_X1Y3")},
                 p_STARTUP_WAIT="FALSE", o_LOCKED=ethrx_pll_locked,
 
                 # VCO @ 1GHz
