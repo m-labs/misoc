@@ -265,6 +265,7 @@ def get_csr_rust(regions, groups, constants):
                         r += "      " + csr.name + "_write: " + member + "::"  + csr.name + "_write,\n"
                 r += "    },\n"
             r += "  ];\n\n"
+        r += "  pub const " + group_name.upper() + "_LEN: usize = " + str(len(group_members)) + ";\n\n"
 
     for name, value in constants:
         if value is None:
