@@ -5,6 +5,7 @@ import os
 import time
 import asyncio
 import asyncserial
+import serial
 import argparse
 
 
@@ -130,6 +131,10 @@ class Flterm:
         self.output_only = output_only
 
         self.port = asyncserial.AsyncSerial(port, baudrate=speed)
+        if serial.__version__[0] == "2":
+            self.port.ser.setRTS(False)
+        else:
+            self.port.ser.rts = False
 
     def init(self):
         if not (self.upload_only or self.output_only):
