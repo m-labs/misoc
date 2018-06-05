@@ -12,7 +12,7 @@ class GPIOIn(Module, AutoCSR):
 
 class GPIOOut(Module, AutoCSR):
     def __init__(self, signal, reset_out=0):
-        self._out = CSRStorage(len(signal), reset=reset_o)
+        self._out = CSRStorage(len(signal), reset=reset_out)
         self.comb += signal.eq(self._out.storage)
 
 
