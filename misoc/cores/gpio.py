@@ -11,17 +11,17 @@ class GPIOIn(Module, AutoCSR):
 
 
 class GPIOOut(Module, AutoCSR):
-    def __init__(self, signal):
-        self._out = CSRStorage(len(signal))
+    def __init__(self, signal, reset_out=0):
+        self._out = CSRStorage(len(signal), reset=reset_o)
         self.comb += signal.eq(self._out.storage)
 
 
 class GPIOTristate(Module, AutoCSR):
-    def __init__(self, signals):
+    def __init__(self, signals, reset_out=0, reset_oe=0):
         l = len(signals)
         self._in = CSRStatus(l)
-        self._out = CSRStorage(l)
-        self._oe = CSRStorage(l)
+        self._out = CSRStorage(l, reset=reset_out)
+        self._oe = CSRStorage(l, reset=reset_oe)
 
         for n, signal in enumerate(signals):
             ts = TSTriple(1)
