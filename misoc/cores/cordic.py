@@ -320,9 +320,15 @@ class TwoQuadrantCordic(Module):
         elif self.func_mode == "hyperbolic":
             dx = -dx
         stmt = [
-            xo.eq(xi + Mux(dir, dx, -dx)),
-            yo.eq(yi + Mux(dir, -dy, dy)),
-            zo.eq(zi + Mux(dir, dz, -dz))
+            If(dir,
+                xo.eq(xi + dx),
+                yo.eq(yi - dy),
+                zo.eq(zi + dz)
+            ).Else(
+                xo.eq(xi - dx),
+                yo.eq(yi + dy),
+                zo.eq(zi - dz)
+            )
         ]
         return stmt
 
