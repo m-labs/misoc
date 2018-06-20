@@ -185,7 +185,10 @@ class Builder:
         self._generate_software()
         self._initialize_rom()
         if self.gateware_toolchain_path is None:
-            kwargs = dict()
+            if "GATEWARE_TOOLCHAIN_PATH" in os.environ:
+                kwargs = {"toolchain_path": os.environ["GATEWARE_TOOLCHAIN_PATH"]}
+            else:
+                kwargs = dict()
         else:
             kwargs = {"toolchain_path": self.gateware_toolchain_path}
         self.soc.build(build_dir=os.path.join(self.output_dir, "gateware"),
