@@ -15,8 +15,8 @@
  * High performance memory controller capable of issuing several SDRAM commands
    per FPGA cycle.
  * Supports SDR, DDR, LPDDR, DDR2 and DDR3.
- * Provided peripherals: UART, GPIO, timer, GPIO, NOR flash controller, SPI
-   flash controller, Ethernet MAC, and more.
+ * Provided peripherals: UART, GPIO, timer, NOR flash controller, SPI flash
+   controller, Ethernet MAC, and more.
  * High performance:
    - on Spartan-6, 83MHz system clock frequencies, 10+Gbps DDR
    SDRAM bandwidth, 1080p 32bpp framebuffer, etc.
