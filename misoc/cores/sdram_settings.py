@@ -239,3 +239,18 @@ class MT41J256M16(SDRAMModule):
     tWTR  = 8
     tREFI = 64*1000*1000/8192
     tRFC  = 260
+
+
+class MT41J512M8(SDRAMModule):
+    memtype = "DDR3"
+    # geometry
+    nbanks = 8
+    nrows  = 65536
+    ncols  = 1024
+    # timings (-125 speedgrade)
+    tRP   = 13.75
+    tRCD  = 13.75
+    tWR   = 15
+    tWTR  = 7.5
+    tREFI = 7800
+    tRFC  = 260
