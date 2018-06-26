@@ -91,17 +91,16 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM, AutoCSR):
-
     mem_map = {
         "spiflash": 0x70000000
     }
     mem_map.update(SoCSDRAM.mem_map)
 
     def __init__(self, sdram_controller_type="minicon", with_spiflash=False, **kwargs):
-        
+
         platform = afc3v1.Platform()
-       
-        SoCSDRAM.__init__(self, platform, 
+
+        SoCSDRAM.__init__(self, platform,
                           clk_freq=125000000,
                           **kwargs)
 
@@ -137,14 +136,12 @@ class BaseSoC(SoCSDRAM, AutoCSR):
 
 
 class MiniSoC(BaseSoC):
-
     mem_map = {
         "ethmac": 0x30000000,  # (shadow @0xb0000000)
     }
     mem_map.update(BaseSoC.mem_map)
 
     def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
-        
         BaseSoC.__init__(self, *args, **kwargs)
 
         self.create_qpll()
@@ -152,7 +149,9 @@ class MiniSoC(BaseSoC):
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        self.submodules.ethphy = A7_1000BASEX(self.ethphy_qpll_channel, self.platform.request("mgt113", 3), self.clk_freq)
+        self.submodules.ethphy = A7_1000BASEX(self.ethphy_qpll_channel,
+                                              self.platform.request("mgt113", 3),
+                                              self.clk_freq)
         self.platform.add_period_constraint(self.ethphy.txoutclk, 16.)
         self.platform.add_period_constraint(self.ethphy.rxoutclk, 16.)
         self.platform.add_false_path_constraints(
@@ -177,26 +176,28 @@ class MiniSoC(BaseSoC):
         self.submodules += qpll
         self.ethphy_qpll_channel = qpll.channels[0]
 
+
 def soc_afc3v1_args(parser):
     soc_sdram_args(parser)
     parser.add_argument("--with-spi-flash", action="store_false",
                         help="enable SPI Flash support ")
-    
+
+
 def soc_afc3v1_argdict(args):
     r = soc_sdram_argdict(args)
     r["with_spiflash"] = args.with_spi_flash
     return r
 
-def main():
 
+def main():
     parser = argparse.ArgumentParser(description="MiSoC port to AFC 3v1")
     builder_args(parser)
     parser.add_argument("--with-ethernet", action="store_true",
                         help="enable Ethernet support")
     soc_afc3v1_args(parser)
-    
+
     args = parser.parse_args()
-    
+
     cls = MiniSoC if args.with_ethernet else BaseSoC
     soc = cls(**soc_afc3v1_argdict(args))
     builder = Builder(soc, **builder_argdict(args))
