@@ -225,7 +225,7 @@ def soc_core_args(parser):
 def soc_core_argdict(args):
     r = dict()
     for a in "cpu_type", "integrated_rom_size", "integrated_main_ram_size":
-        arg = getattr(args, a)
+        arg = getattr(args, a, None)
         if arg is not None:
             r[a] = arg
     return r
