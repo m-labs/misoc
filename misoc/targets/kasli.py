@@ -69,7 +69,7 @@ class _CRG(Module):
                 o_LOCKED=mmcm_locked,
 
                 # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=15.25, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT_F=15.0, p_DIVCLK_DIVIDE=1,
 
                 # ~125MHz
                 p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
