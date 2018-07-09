@@ -16,6 +16,24 @@ from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
 
 
+class AsyncResetSynchronizerBUFG(Module):
+    def __init__(self, cd, async_reset):
+        if not hasattr(async_reset, "attr"):
+            i, async_reset = async_reset, Signal()
+            self.comb += async_reset.eq(i)
+        rst_meta = Signal()
+        rst_unbuf = Signal()
+        self.specials += [
+            Instance("FDPE", p_INIT=1, i_D=0, i_PRE=async_reset,
+                i_CE=1, i_C=cd.clk, o_Q=rst_meta,
+                attr={"async_reg", "ars_ff1"}),
+            Instance("FDPE", p_INIT=1, i_D=rst_meta, i_PRE=async_reset,
+                i_CE=1, i_C=cd.clk, o_Q=rst_unbuf,
+                attr={"async_reg", "ars_ff2"}),
+            Instance("BUFG", i_I=rst_unbuf, o_O=cd.rst)
+        ]
+
+
 class _CRG(Module):
     def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
@@ -77,10 +95,10 @@ class _CRG(Module):
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
+        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked),
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
