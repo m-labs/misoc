@@ -22,15 +22,10 @@ from misoc.cores import gpio
 
 class _CRG(Module):
     def __init__(self, platform):
-
-        # Clock domains
-
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
-
-        # MGT113_CLK0
 
         clk125 = platform.request("mgt113_clk0")
         platform.add_period_constraint(clk125, 8.)
@@ -97,7 +92,6 @@ class BaseSoC(SoCSDRAM, AutoCSR):
     mem_map.update(SoCSDRAM.mem_map)
 
     def __init__(self, sdram_controller_type="minicon", with_spiflash=False, **kwargs):
-
         platform = afc3v1.Platform()
 
         SoCSDRAM.__init__(self, platform,
