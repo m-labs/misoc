@@ -119,7 +119,7 @@ class BaseSoC(SoCSDRAM):
         platform = kasli.Platform(hw_rev=hw_rev)
 
         SoCSDRAM.__init__(self, platform,
-                          clk_freq=125e6*15.25/16, cpu_reset_address=0x400000,
+                          clk_freq=125e6*15/16, cpu_reset_address=0x400000,
                           **kwargs)
 
         self.submodules.crg = _CRG(platform)
