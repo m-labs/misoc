@@ -315,34 +315,18 @@ class SPIInterfaceXC7Diff(Module):
 
         if hasattr(pads, "cs_n"):
             for i in range(len(pads.cs_n)):
-                self.specials += Instance("IOBUFDS_INTERMDISABLE",
-                    p_DIFF_TERM="FALSE", p_IBUF_LOW_PWR="TRUE",
-                    p_USE_IBUFDISABLE="TRUE",
-                    i_IBUFDISABLE=1,
-                    i_INTERMDISABLE=1,
+                self.specials += Instance("OBUFTDS",
                     i_I=cs[i], i_T=self.offline,
-                    io_IO=pads.cs_n[i], io_IOB=pads_n.cs_n[i])
-        self.specials += Instance("IOBUFDS_INTERMDISABLE",
-            p_DIFF_TERM="FALSE", p_IBUF_LOW_PWR="TRUE",
-            p_USE_IBUFDISABLE="TRUE",
-            i_IBUFDISABLE=1,
-            i_INTERMDISABLE=1,
+                    o_O=pads.cs_n[i], o_OB=pads_n.cs_n[i])
+        self.specials += Instance("OBUFTDS",
             i_I=clk, i_T=self.offline,
-            io_IO=pads.clk, io_IOB=pads_n.clk)
+            o_O=pads.clk, o_OB=pads_n.clk)
         if hasattr(pads, "mosi"):
-            self.specials += Instance("IOBUFDS_INTERMDISABLE",
-                p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="TRUE",
-                p_USE_IBUFDISABLE="TRUE",
-                i_IBUFDISABLE=self.offline | ~self.half_duplex,
-                i_INTERMDISABLE=self.offline | ~self.half_duplex,
+            self.specials += Instance("IOBUFDS",
                 o_O=mosi, i_I=self.sdo, i_T=self.offline | self.half_duplex,
                 io_IO=pads.mosi, io_IOB=pads_n.mosi)
         if hasattr(pads, "miso"):
-            self.specials += Instance("IOBUFDS_INTERMDISABLE",
-                p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="TRUE",
-                p_USE_IBUFDISABLE="TRUE",
-                i_IBUFDISABLE=self.offline,
-                i_INTERMDISABLE=self.offline,
+            self.specials += Instance("IOBUFDS",
                 o_O=miso, i_I=self.sdo, i_T=1,
                 io_IO=pads.miso, io_IOB=pads_n.miso)
 
