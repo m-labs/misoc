@@ -272,6 +272,7 @@ void flashboot(void)
 	flashbase = (unsigned int *)FLASH_BOOT_ADDRESS;
 	length = *flashbase++;
 	crc = *flashbase++;
+	printf("flashbase: 0x%08x, length: 0x%08x, crc: 0x%08x\n", (unsigned int *)FLASH_BOOT_ADDRESS, length, crc);
 	if((length < 32) || (length > 4*1024*1024)) {
 		printf("Error: Invalid flash boot image length 0x%08x\n", length);
 		return;
