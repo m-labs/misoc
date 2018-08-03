@@ -178,7 +178,7 @@ class _EthernetCRG(Module):
                 i_CLKIN1=rx_clock_buffered, i_CLKFBIN=ethrx_pll_fb, o_CLKFBOUT=ethrx_pll_fb,
 
                 # 125MHz
-                p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=157.5, o_CLKOUT0=ethrx_pll_out
+                p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=247.5, o_CLKOUT0=ethrx_pll_out
             ),
             Instance("BUFG", i_I=ethrx_pll_out, o_O=self.cd_eth_rx.clk),
             AsyncResetSynchronizer(self.cd_eth_rx, ~ethrx_pll_locked),
