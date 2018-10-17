@@ -333,8 +333,7 @@ class SPIMaster(Module, AutoCSR):
                 ~self._cs_polarity.storage)
         offset = 0
         for pads in pads_list:
-            cs_n_t = TSTriple(len(pads.cs_n))
-            self.specials += cs_n_t.get_tristate(pads.cs_n)
+            cs_n_t = wrap_ts(pads.cs_n, self)
             self.comb += [
                 cs_n_t.oe.eq(~self._offline.storage),
                 cs_n_t.o.eq(all_cs[offset:]),
@@ -345,8 +344,7 @@ class SPIMaster(Module, AutoCSR):
         miso_r = Signal(len(cs))
         mosi_t_i_r = Signal(len(cs))
         for pads in pads_list:
-            clk_t = TSTriple()
-            self.specials += clk_t.get_tristate(pads.clk)
+            clk_t = wrap_ts(pads.clk, self)
             self.comb += [
                 clk_t.oe.eq(~self._offline.storage),
             ]
@@ -357,8 +355,7 @@ class SPIMaster(Module, AutoCSR):
                 )
             ]
 
-            mosi_t = TSTriple()
-            self.specials += mosi_t.get_tristate(pads.mosi)
+            mosi_t = wrap_ts(pads.mosi, self)
             self.comb += [
                 mosi_t.oe.eq(~self._offline.storage & spi.cs &
                             (spi.oe | ~self._half_duplex.storage)),

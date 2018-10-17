@@ -236,22 +236,14 @@ class SPIInterface(Module):
 
         i = 0
         for p in pads:
-            n = len(p.cs_n)
-            cs = TSTriple(n)
+            cs = wrap_ts(p.cs_n, self)
+            n = len(cs.o)
             cs.o.reset = C((1 << n) - 1)
-            clk = TSTriple()
-            mosi = TSTriple()
-            miso = TSTriple()
+            clk = wrap_ts(p.clk, self)
+            mosi = wrap_ts(p.mosi, self) if hasattr(p, "mosi") else TSTriple()
+            miso = wrap_ts(p.miso, self) if hasattr(p, "miso") else TSTriple()
             miso_reg = Signal(reset_less=True)
             mosi_reg = Signal(reset_less=True)
-            self.specials += [
-                    cs.get_tristate(p.cs_n),
-                    clk.get_tristate(p.clk),
-            ]
-            if hasattr(p, "mosi"):
-                self.specials += mosi.get_tristate(p.mosi)
-            if hasattr(p, "miso"):
-                self.specials += miso.get_tristate(p.miso)
             self.comb += [
                     miso.oe.eq(0),
                     mosi.o.eq(self.sdo),

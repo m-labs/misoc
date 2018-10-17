@@ -10,10 +10,11 @@ class NorFlash16(Module):
 
         ###
 
-        data = TSTriple(16)
+        data = wrap_ts(pads.d, self)
+        if len(data.o) != 16:
+            raise ValueError("pads.d input not of width 16")
         lsb = Signal()
 
-        self.specials += data.get_tristate(pads.d)
         self.comb += [
             data.oe.eq(pads.oe_n),
             pads.ce_n.eq(0)

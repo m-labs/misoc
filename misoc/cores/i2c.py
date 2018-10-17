@@ -209,15 +209,13 @@ class I2CMaster(Module):
         ]
 
         # I/O
-        self.scl_t = TSTriple()
-        self.specials += self.scl_t.get_tristate(pads.scl)
+        self.scl_t = wrap_ts(pads.scl, self)
         self.comb += [
             self.scl_t.oe.eq(~i2c.scl_o),
             self.scl_t.o.eq(0),
         ]
 
-        self.sda_t = TSTriple()
-        self.specials += self.sda_t.get_tristate(pads.sda)
+        self.sda_t = wrap_ts(pads.sda, self)
         self.comb += [
             self.sda_t.oe.eq(~i2c.sda_o),
             self.sda_t.o.eq(0),

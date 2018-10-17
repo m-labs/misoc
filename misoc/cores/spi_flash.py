@@ -37,11 +37,18 @@ class SpiFlash(Module, AutoCSR):
         self.bus = bus = wishbone.Interface()
         spi_width = len(pads.dq)
         if with_bitbang:
-            self.bitbang = CSRStorage(4)
+            self.bitbang = CSRStorage(4, reset=0b0100) # cs_n=bitbang.storage[2]; reset to 1
             self.miso = CSRStatus()
             self.bitbang_en = CSRStorage()
 
         ###
+
+        cs_n_t = wrap_ts(pads.cs_n)
+        clk_t = wrap_ts(pads.clk)
+        self.comb += [
+            cs_n_t.oe.eq(1),
+            clk_t.oe.eq(1)
+        ]
 
         cs_n = Signal(reset=1)
         clk = Signal()
@@ -57,25 +64,23 @@ class SpiFlash(Module, AutoCSR):
         read_cmd, cmd_width = read_cmd_params[spi_width]
         addr_width = 24
 
-        pads.cs_n.reset = 1
 
-        dq = TSTriple(spi_width)
-        self.specials.dq = dq.get_tristate(pads.dq)
+        dq = wrap_ts(pads.dq, self)
 
         sr = Signal(max(cmd_width, addr_width, wbone_width))
         self.comb += bus.dat_r.eq(sr)
 
         hw_read_logic = [
-            pads.clk.eq(clk),
-            pads.cs_n.eq(cs_n),
+            clk_t.o.eq(clk),
+            cs_n_t.o.eq(cs_n),
             dq.o.eq(sr[-spi_width:]),
             dq.oe.eq(dq_oe)
         ]
 
         if with_bitbang:
             bitbang_logic = [
-                pads.clk.eq(self.bitbang.storage[1]),
-                pads.cs_n.eq(self.bitbang.storage[2]),
+                clk_t.o.eq(self.bitbang.storage[1]),
+                cs_n_t.o.eq(self.bitbang.storage[2]),
                 If(self.bitbang.storage[3],
                     dq.oe.eq(0)
                 ).Else(

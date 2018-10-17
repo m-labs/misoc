@@ -24,8 +24,7 @@ class GPIOTristate(Module, AutoCSR):
         self._oe = CSRStorage(l, reset=reset_oe)
 
         for n, signal in enumerate(signals):
-            ts = TSTriple(1)
-            self.specials += ts.get_tristate(signal)
+            ts = wrap_ts(signal, self)
 
             status = Signal()
             self.comb += self._in.status[n].eq(status)
