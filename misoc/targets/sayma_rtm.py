@@ -11,7 +11,7 @@ from misoc.integration.builder import *
 
 
 class CRG(Module):
-    def __init__(self,  platform):
+    def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
         pll_fb = Signal()
         pll_locked = Signal()
@@ -35,7 +35,8 @@ class CRG(Module):
 
 
 class BaseSoC(SoCCore):
-    def __init__(self, platform, **kwargs):
+    def __init__(self, **kwargs):
+        platform = sayma_rtm.Platform()
         SoCCore.__init__(self, platform,
             clk_freq=62.5e6,
             integrated_rom_size=32*1024,
@@ -50,7 +51,6 @@ def main():
     soc_core_args(parser)
     args = parser.parse_args()
 
-    platform = sayma_rtm.Platform()
     soc = BaseSoC(platform, **soc_core_argdict(args))
     builder = Builder(soc, **builder_argdict(args))
     builder.build()
