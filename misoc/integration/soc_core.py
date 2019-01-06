@@ -91,6 +91,7 @@ class SoCCore(Module):
         # Main Ram can be used when no external SDRAM is present, and use SDRAM mapping.
         if integrated_main_ram_size:
             self.submodules.main_ram = wishbone.SRAM(integrated_main_ram_size)
+            self.register_mem("main_ram", self.mem_map["main_ram"], integrated_main_ram_size, self.main_ram.bus)
 
         self.submodules.wishbone2csr = wishbone2csr.WB2CSR(
             bus_csr=csr_bus.Interface(csr_data_width, csr_address_width))
@@ -109,9 +110,6 @@ class SoCCore(Module):
         if with_timer:
             self.submodules.timer0 = timer.Timer()
             self.interrupt_devices.append("timer0")
-
-    def initialize_rom(self, data):
-        self.rom.mem.init = data
 
     def add_wb_master(self, wbm):
         if self.finalized:
@@ -182,9 +180,6 @@ class SoCCore(Module):
 
     def do_finalize(self):
         registered_mems = {regions[0] for regions in self._memory_regions}
-        for mem in "rom", "sram":
-            if mem not in registered_mems:
-                raise FinalizeError("CPU needs a {} to be registered with register_mem()".format(mem))
 
         # Wishbone
         self.submodules.wishbonecon = wishbone.InterconnectShared(self._wb_masters,

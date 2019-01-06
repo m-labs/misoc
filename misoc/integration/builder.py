@@ -85,7 +85,7 @@ class Builder:
             src_dir = os.path.join(misoc_directory, "software", name)
         self.software_packages.append((name, src_dir))
 
-    def _generate_includes(self):
+    def generate_includes(self):
         cpu_type = self.soc.cpu_type
         memory_regions = self.soc.get_memory_regions()
         memory_groups = self.soc.get_memory_groups()
@@ -140,7 +140,7 @@ class Builder:
             with open(self.csr_csv, "w") as f:
                 f.write(cpu_interface.get_csr_csv(csr_regions))
 
-    def _generate_software(self):
+    def generate_software(self):
         for name, src_dir in self.software_packages:
             dst_dir = os.path.join(self.output_dir, "software", name)
             os.makedirs(dst_dir, exist_ok=True)
@@ -159,10 +159,10 @@ class Builder:
                     cmd = ["make", "-C", dst_dir, "-f", src]
                 subprocess.check_call(cmd)
 
-    def _initialize_rom(self):
-        bios_file = os.path.join(self.output_dir, "software", "bios",
-                                 "bios.bin")
+    def initialize_memory(self):
         if self.soc.integrated_rom_size:
+            bios_file = os.path.join(self.output_dir, "software", "bios",
+                                     "bios.bin")
             with open(bios_file, "rb") as boot_file:
                 boot_data = []
                 unpack_endian = ">I" if self.soc.cpu_type != "vexriscv" else "<I"
@@ -172,7 +172,7 @@ class Builder:
                         break
                     boot_data.append(struct.unpack(unpack_endian, w)[0])
 
-            self.soc.initialize_rom(boot_data)
+            self.soc.rom.mem.init = boot_data
 
     def build(self):
         self.soc.finalize()
@@ -181,9 +181,9 @@ class Builder:
             raise ValueError("Software must be compiled in order to "
                              "intitialize integrated ROM")
 
-        self._generate_includes()
-        self._generate_software()
-        self._initialize_rom()
+        self.generate_includes()
+        self.generate_software()
+        self.initialize_memory()
         if self.gateware_toolchain_path is None:
             kwargs = dict()
         else:
