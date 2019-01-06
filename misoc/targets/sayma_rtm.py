@@ -34,13 +34,16 @@ class CRG(Module):
         ]
 
 
+# No SDRAM - execute everything from one large BRAM.
 class BaseSoC(SoCCore):
     def __init__(self, **kwargs):
         platform = sayma_rtm.Platform()
         SoCCore.__init__(self, platform,
             clk_freq=62.5e6,
-            integrated_rom_size=32*1024,
-            integrated_main_ram_size=16*1024,
+            integrated_rom_size=0,
+            integrated_sram_size=0,
+            integrated_main_ram_size=64*1024,
+            cpu_reset_address=self.mem_map["main_ram"],
             **kwargs)
         self.submodules.crg = CRG(platform)
 
@@ -48,10 +51,11 @@ class BaseSoC(SoCCore):
 def main():
     parser = argparse.ArgumentParser(description="MiSoC port to the Sayma RTM")
     builder_args(parser)
-    soc_core_args(parser)
     args = parser.parse_args()
 
-    soc = BaseSoC(platform, **soc_core_argdict(args))
+    # Enable BIOS for test/demo.
+    soc = BaseSoC(platform, integrated_rom_size=32*1024, integrated_sram_size=4096,
+        integrated_main_ram_size=16*1024)
     builder = Builder(soc, **builder_argdict(args))
     builder.build()
 
