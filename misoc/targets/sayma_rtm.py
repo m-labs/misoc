@@ -37,12 +37,12 @@ class CRG(Module):
 # No SDRAM - execute everything from one large BRAM.
 class BaseSoC(SoCCore):
     def __init__(self, **kwargs):
-        platform = sayma_rtm.Platform()
+        platform = sayma_rtm.Platform(larger=True)
         SoCCore.__init__(self, platform,
             clk_freq=62.5e6,
             integrated_rom_size=0,
             integrated_sram_size=0,
-            integrated_main_ram_size=64*1024,
+            integrated_main_ram_size=256*1024,
             cpu_reset_address=self.mem_map["main_ram"],
             **kwargs)
         self.submodules.crg = CRG(platform)
