@@ -796,25 +796,16 @@ class KU_1000BASEX(Module):
             # o_TXSYNCDONE=,
             # o_TXSYNCOUT=,
         )
-        # Vivado fails to automatically insert BUFG_GT_SYNC for some reason.
         tx_bufg_gt_ce = Signal()
         tx_bufg_gt_clr = Signal()
         rx_bufg_gt_ce = Signal()
         rx_bufg_gt_clr = Signal()
         self.specials += [
             Instance("GTHE3_CHANNEL", **xilinx_mess),
-            Instance("BUFG_GT", i_I=self.txoutclk, o_O=self.cd_eth_tx.clk, i_DIV=0),#,
-                     #i_CE=tx_bufg_gt_ce, i_CLR=tx_bufg_gt_clr),
-            Instance("BUFG_GT", i_I=self.txoutclk, o_O=self.cd_eth_tx_half.clk, i_DIV=1),#,
-                     #i_CE=tx_bufg_gt_ce, i_CLR=tx_bufg_gt_clr),
-            #Instance("BUFG_GT_SYNC", i_CLK=self.txoutclk, i_CE=1, i_CLR=0,
-            #         o_CESYNC=tx_bufg_gt_ce, o_CLRSYNC=tx_bufg_gt_clr),
+            Instance("BUFG_GT", i_I=self.txoutclk, o_O=self.cd_eth_tx.clk, i_DIV=0),
+            Instance("BUFG_GT", i_I=self.txoutclk, o_O=self.cd_eth_tx_half.clk, i_DIV=1),
             Instance("BUFG_GT", i_I=self.rxoutclk, o_O=self.cd_eth_rx.clk, i_DIV=0),
-                     #i_CE=rx_bufg_gt_ce, i_CLR=rx_bufg_gt_clr),
-            Instance("BUFG_GT", i_I=self.rxoutclk, o_O=self.cd_eth_rx_half.clk, i_DIV=1),#,
-                     #i_CE=rx_bufg_gt_ce, i_CLR=rx_bufg_gt_clr),
-            #Instance("BUFG_GT_SYNC", i_CLK=self.rxoutclk, i_CE=1, i_CLR=0,
-            #         o_CESYNC=rx_bufg_gt_ce, o_CLRSYNC=rx_bufg_gt_clr),
+            Instance("BUFG_GT", i_I=self.rxoutclk, o_O=self.cd_eth_rx_half.clk, i_DIV=1),
             AsyncResetSynchronizer(self.cd_eth_tx, ~tx_reset_done),
             AsyncResetSynchronizer(self.cd_eth_rx, ~rx_reset_done),
         ]
