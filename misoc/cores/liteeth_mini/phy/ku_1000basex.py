@@ -819,7 +819,7 @@ class KU_1000BASEX(Module):
         ]
 
         # Transceiver reset
-        pll_reset_cycles = round(2000*sys_clk_freq//1000000000)
+        pll_reset_cycles = round(300000*sys_clk_freq//1000000000)
         reset_counter = Signal(max=pll_reset_cycles+1)
         self.sync += [
             If(~gtpowergood,
