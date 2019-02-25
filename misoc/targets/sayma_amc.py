@@ -5,7 +5,7 @@ import argparse
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
 from migen.genlib.io import *
-from migen.build.platforms.sinara import sayma_amc
+from migen.build.platforms.sinara import sayma_amc, sayma_amc2
 
 from misoc.cores.sdram_settings import MT41J256M16
 from misoc.cores.sdram_phy import kusddrphy
@@ -97,8 +97,14 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram="ddram_32", sdram_controller_type="minicon", **kwargs):
-        platform = sayma_amc.Platform()
+    def __init__(self, hw_rev=None, sdram="ddram_32", sdram_controller_type="minicon", **kwargs):
+        if hw_rev is None:
+            hw_rev = "v1.0"
+        platform_module = {
+            "v1.0": sayma_amc,
+            "v2.0": sayma_amc2
+        }[hw_rev]
+        platform = platform_module.Platform()
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
                           **kwargs)
 
@@ -135,6 +141,8 @@ class _EthernetCRG(Module):
         self.clock_domains.cd_eth_rx = ClockDomain()
         self.clock_domains.cd_eth_tx = ClockDomain()
 
+        rev1 = isinstance(platform, sayma_amc.Platform)
+
         eth_clocks = platform.request("eth_clocks")
         # Note: Sharing the main MMCM is not advisable due to the
         # BUFGCE_DIV phase alignment problem.
@@ -143,7 +151,7 @@ class _EthernetCRG(Module):
         ethtx_pll_out_buffered = Signal()
         self.specials += [
             Instance("PLLE2_BASE", name="crg_ethtx_mmcm",
-                attr={("LOC", "MMCME3_ADV_X1Y4")},
+                attr={("LOC", "MMCME3_ADV_X1Y4")} if rev1 else {},
                 p_STARTUP_WAIT="FALSE",
 
                 # VCO @ 1GHz
@@ -169,7 +177,7 @@ class _EthernetCRG(Module):
         self.specials += [
             Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
             Instance("PLLE2_BASE", name="crg_ethrx_mmcm",
-                attr={("LOC", "MMCME3_ADV_X1Y3")},
+                attr={("LOC", "MMCME3_ADV_X1Y3")} if rev1 else {},
                 p_STARTUP_WAIT="FALSE", o_LOCKED=ethrx_pll_locked,
 
                 # VCO @ 1GHz
@@ -184,10 +192,11 @@ class _EthernetCRG(Module):
             AsyncResetSynchronizer(self.cd_eth_rx, ~ethrx_pll_locked),
         ]
 
-        platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {sysc}]",
-            sysc=cd_sys.clk)
-        platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {rxc}]",
-            rxc=rx_clock_buffered)
+        if rev1:
+            platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {sysc}]",
+                sysc=cd_sys.clk)
+            platform.add_platform_command("set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets {rxc}]",
+                rxc=rx_clock_buffered)
 
         self.cd_eth_rx.clk.attr.add("keep")
         platform.add_period_constraint(self.cd_eth_rx.clk, 8.0)
@@ -219,16 +228,29 @@ class MiniSoC(BaseSoC):
                                ethmac_len)
 
 
+def soc_sayma_amc_args(parser):
+    soc_sdram_args(parser)
+    parser.add_argument("--hw-rev", default=None,
+                        help="Sayma AMC hardware revision: v1.0/v2.0 "
+                             "(default: variant-dependent)")
+
+
+def soc_sayma_amc_argdict(args):
+    r = soc_sdram_argdict(args)
+    r["hw_rev"] = args.hw_rev
+    return r
+
+
 def main():
     parser = argparse.ArgumentParser(description="MiSoC port to the Sayma AMC")
     builder_args(parser)
-    soc_sdram_args(parser)
+    soc_sayma_amc_args(parser)
     parser.add_argument("--with-ethernet", action="store_true",
                         help="enable Ethernet support")
     args = parser.parse_args()
 
     cls = MiniSoC if args.with_ethernet else BaseSoC
-    soc = cls(**soc_sdram_argdict(args))
+    soc = cls(**soc_sayma_amc_argdict(args))
     builder = Builder(soc, **builder_argdict(args))
     builder.build()
 
