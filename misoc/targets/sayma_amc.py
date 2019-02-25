@@ -148,6 +148,11 @@ class _EthernetCRG(Module):
         eth_clocks = platform.request("eth_clocks")
         # Note: Sharing the main MMCM is not advisable due to the
         # BUFGCE_DIV phase alignment problem.
+        if rev1:
+            sysclk_buffered = cd_sys.clk
+        else:
+            sysclk_buffered = Signal()
+            self.specials += Instance("BUFG", i_I=cd_sys.clk, o_O=sysclk_buffered)
         ethtx_pll_fb = Signal()
         ethtx_pll_out = Signal()
         ethtx_pll_out_buffered = Signal()
@@ -159,7 +164,7 @@ class _EthernetCRG(Module):
                 # VCO @ 1GHz
                 p_REF_JITTER1=0.01, p_CLKIN1_PERIOD=8.0,
                 p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
-                i_CLKIN1=cd_sys.clk, i_CLKFBIN=ethtx_pll_fb, o_CLKFBOUT=ethtx_pll_fb,
+                i_CLKIN1=sysclk_buffered, i_CLKFBIN=ethtx_pll_fb, o_CLKFBOUT=ethtx_pll_fb,
 
                 # 125MHz
                 p_CLKOUT0_DIVIDE=8, p_CLKOUT0_PHASE=180.0, o_CLKOUT0=ethtx_pll_out
@@ -172,12 +177,15 @@ class _EthernetCRG(Module):
             self.cd_eth_tx.rst.eq(cd_sys.rst)
         ]
 
-        rx_clock_buffered = Signal()
+        if rev1:
+            rx_clock_buffered = Signal()
+            self.specials += Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered)
+        else:
+            rx_clock_buffered = eth_clocks.rx
         ethrx_pll_locked = Signal()
         ethrx_pll_fb = Signal()
         ethrx_pll_out = Signal()
         self.specials += [
-            Instance("BUFG", i_I=eth_clocks.rx, o_O=rx_clock_buffered),
             Instance("PLLE2_BASE", name="crg_ethrx_mmcm",
                 attr={("LOC", "MMCME3_ADV_X1Y3")} if rev1 else {},
                 p_STARTUP_WAIT="FALSE", o_LOCKED=ethrx_pll_locked,
