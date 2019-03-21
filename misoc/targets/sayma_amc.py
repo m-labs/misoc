@@ -17,13 +17,13 @@ from misoc.integration.builder import *
 
 
 class _CRG(Module):
-    def __init__(self, platform):
+    def __init__(self, platform, hw_rev):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
         self.clock_domains.cd_ic = ClockDomain()
 
-        rev1 = isinstance(platform, sayma_amc.Platform)
+        rev1 = hw_rev == "v1.0"
 
         clk50 = platform.request("clk50")
         clk50_buffered = Signal()
@@ -102,6 +102,8 @@ class BaseSoC(SoCSDRAM):
     def __init__(self, hw_rev=None, sdram="ddram_32", sdram_controller_type="minicon", **kwargs):
         if hw_rev is None:
             hw_rev = "v1.0"
+        self.hw_rev = hw_rev
+
         platform_module = {
             "v1.0": sayma_amc,
             "v2.0": sayma_amc2
@@ -110,7 +112,7 @@ class BaseSoC(SoCSDRAM):
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
                           **kwargs)
 
-        self.submodules.crg = _CRG(platform)
+        self.submodules.crg = _CRG(platform, hw_rev)
         self.crg.cd_sys.clk.attr.add("keep")
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
@@ -139,11 +141,11 @@ class BaseSoC(SoCSDRAM):
 
 
 class _EthernetCRG(Module):
-    def __init__(self, platform, cd_sys):
+    def __init__(self, platform, cd_sys, hw_rev):
         self.clock_domains.cd_eth_rx = ClockDomain()
         self.clock_domains.cd_eth_tx = ClockDomain()
 
-        rev1 = isinstance(platform, sayma_amc.Platform)
+        rev1 = hw_rev == "v1.0"
 
         eth_clocks = platform.request("eth_clocks")
         # Note: Sharing the main MMCM is not advisable due to the
@@ -222,7 +224,7 @@ class MiniSoC(BaseSoC):
     def __init__(self, *args, ethmac_nrxslots=2, ethmac_ntxslots=2, **kwargs):
         BaseSoC.__init__(self, *args, **kwargs)
 
-        self.submodules.ethcrg = _EthernetCRG(self.platform, self.crg.cd_sys)
+        self.submodules.ethcrg = _EthernetCRG(self.platform, self.crg.cd_sys, self.hw_rev)
 
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
