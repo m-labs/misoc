@@ -244,8 +244,7 @@ class MiniSoC(BaseSoC):
 def soc_sayma_amc_args(parser):
     soc_sdram_args(parser)
     parser.add_argument("--hw-rev", default=None,
-                        help="Sayma AMC hardware revision: v1.0/v2.0 "
-                             "(default: variant-dependent)")
+                        help="Sayma AMC hardware revision: v1.0/v2.0")
 
 
 def soc_sayma_amc_argdict(args):
