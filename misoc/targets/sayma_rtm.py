@@ -4,7 +4,7 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
-from migen.build.platforms.sinara import sayma_rtm
+from migen.build.platforms.sinara import sayma_rtm, sayma_rtm2
 
 from misoc.integration.soc_core import *
 from misoc.integration.builder import *
@@ -36,8 +36,16 @@ class CRG(Module):
 
 # No SDRAM - execute everything from one large BRAM.
 class BaseSoC(SoCCore):
-    def __init__(self, **kwargs):
-        platform = sayma_rtm.Platform(larger=True)
+    def __init__(self, hw_rev=None, **kwargs):
+        if hw_rev is None:
+            hw_rev = "v1.0"
+        self.hw_rev = hw_rev
+
+        platform_module = {
+            "v1.0": sayma_rtm,
+            "v2.0": sayma_rtm2
+        }[hw_rev]
+        platform = platform_module.Platform(larger=True)
         SoCCore.__init__(self, platform,
             clk_freq=62.5e6,
             integrated_rom_size=0,
@@ -48,13 +56,24 @@ class BaseSoC(SoCCore):
         self.submodules.crg = CRG(platform)
 
 
+def soc_sayma_rtm_args(parser):
+    parser.add_argument("--hw-rev", default=None,
+                        help="Sayma RTM hardware revision: v1.0/v2.0")
+
+
+def soc_sayma_rtm_argdict(args):
+    return {"hw_rev": args.hw_rev}
+
+
 def main():
     parser = argparse.ArgumentParser(description="MiSoC port to the Sayma RTM")
     builder_args(parser)
+    soc_sayma_rtm_args(parser)
     args = parser.parse_args()
 
     # Enable BIOS for test/demo.
-    soc = BaseSoC(platform, integrated_rom_size=32*1024, integrated_sram_size=4096,
+    soc = BaseSoC(platform, **soc_sayma_rtm_argdict(args),
+        integrated_rom_size=32*1024, integrated_sram_size=4096,
         integrated_main_ram_size=16*1024)
     builder = Builder(soc, **builder_argdict(args))
     builder.build()
