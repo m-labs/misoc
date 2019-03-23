@@ -111,6 +111,7 @@ class BaseSoC(SoCSDRAM):
         platform = platform_module.Platform()
         SoCSDRAM.__init__(self, platform, clk_freq=125*1000000,
                           **kwargs)
+        self.config["HW_REV"] = hw_rev
 
         self.submodules.crg = _CRG(platform, hw_rev)
         self.crg.cd_sys.clk.attr.add("keep")
