@@ -834,8 +834,8 @@ class KU_1000BASEX(Module):
             )
         ]
         self.comb += [
-            tx_reset.eq(~pll_locked),
-            rx_reset.eq(pcs.restart)
+            tx_reset.eq(pll_reset | ~pll_locked),
+            rx_reset.eq(pll_reset | ~pll_locked | pcs.restart)
         ]
 
         # Gearbox and PCS connection
