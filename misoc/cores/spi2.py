@@ -331,6 +331,100 @@ class SPIInterfaceXC7Diff(Module):
                 io_IO=pads.miso, io_IOB=pads_n.miso)
 
 
+class SPIInterfaceiCE40Diff(Module):
+    def __init__(self, pads, pads_n):
+        self.cs = Signal(len(getattr(pads, "cs_n", [0])))
+        self.cs_polarity = Signal.like(self.cs)
+        self.clk_next = Signal()
+        self.clk_polarity = Signal()
+        self.cs_next = Signal()
+        self.ce = Signal()
+        self.sample = Signal()
+        self.offline = Signal()
+        self.half_duplex = Signal()
+        self.sdi = Signal()
+        self.sdo = Signal()
+
+        cs = Signal.like(self.cs)
+        cs.reset = C((1 << len(self.cs)) - 1)
+        clk = Signal()
+        miso = Signal()
+        mosi = Signal()
+        miso_reg = Signal(reset_less=True)
+        mosi_reg = Signal(reset_less=True)
+        self.comb += [
+            self.sdi.eq(Mux(self.half_duplex, mosi_reg, miso_reg))
+        ]
+
+        self.sync += [If(self.ce,
+                         cs.eq((Replicate(self.cs_next, len(self.cs))
+                                & self.cs) ^ ~self.cs_polarity),
+                        clk.eq(self.clk_next ^ self.clk_polarity)),
+                      If(self.sample,
+                         miso_reg.eq(miso),
+                         mosi_reg.eq(mosi)),
+        ]
+
+        # CS_N
+        if hasattr(pads, "cs_n"):
+            for i in range(len(pads.cs_n)):
+                self.specials += Instance("SB_IO",
+                                          p_PIN_TYPE=C(0b101000, 6),
+                                          p_IO_STANDARD="SB_LVCMOS",
+                                          io_PACKAGE_PIN=pads.cs_n[i],
+                                          i_OUTPUT_ENABLE=~self.offline,
+                                          i_D_OUT_0=cs[i])
+                self.specials += Instance("SB_IO",
+                                          p_PIN_TYPE=C(0b101000, 6),
+                                          p_IO_STANDARD="SB_LVCMOS",
+                                          io_PACKAGE_PIN=pads_n.cs_n[i],
+                                          i_OUTPUT_ENABLE=~self.offline,
+                                          i_D_OUT_0=~cs[i])
+
+        # CLK
+        self.specials += Instance("SB_IO",
+                                  p_PIN_TYPE=C(0b101000, 6),
+                                  p_IO_STANDARD="SB_LVCMOS",
+                                  io_PACKAGE_PIN=pads.clk,
+                                  i_OUTPUT_ENABLE=~self.offline,
+                                  i_D_OUT_0=clk)
+        self.specials += Instance("SB_IO",
+                                  p_PIN_TYPE=C(0b101000, 6),
+                                  p_IO_STANDARD="SB_LVCMOS",
+                                  io_PACKAGE_PIN=pads_n.clk,
+                                  i_OUTPUT_ENABLE=~self.offline,
+                                  i_D_OUT_0=~clk)
+
+        # MOSI
+        if hasattr(pads, "mosi"):
+            self.specials += Instance("SB_IO",
+                                      p_PIN_TYPE=C(0b101001, 6),
+                                      p_IO_STANDARD="SB_LVCMOS",
+                                      io_PACKAGE_PIN=pads.mosi,
+                                      i_OUTPUT_ENABLE=
+                                      ~(self.offline | self.half_duplex),
+                                      i_D_OUT_0=self.sdo,
+                                      o_D_IN_0=mosi)
+            self.specials += Instance("SB_IO",
+                                      p_PIN_TYPE=C(0b101001, 6),
+                                      p_IO_STANDARD="SB_LVCMOS",
+                                      io_PACKAGE_PIN=pads_n.mosi,
+                                      i_OUTPUT_ENABLE=
+                                      ~(self.offline | self.half_duplex),
+                                      i_D_OUT_0=~self.sdo)
+
+        # MISO
+        if hasattr(pads_n, "miso"):
+            # make sure pads.miso is not requested to not confuse yosys/nextpnr
+            assert getattr(pads, "miso", None) is None
+            self.specials += Instance("SB_IO",
+                                      p_PIN_TYPE=C(0b000001, 6),
+                                      p_IO_STANDARD="SB_LVDS_INPUT",
+                                      io_PACKAGE_PIN=pads_n.miso,
+                                      i_D_OUT_0=self.sdo,
+                                      o_D_IN_0=miso)
+
+
 class SPIMaster(Module, AutoCSR):
     """SPI Master.
 
