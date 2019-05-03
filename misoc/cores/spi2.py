@@ -332,6 +332,15 @@ class SPIInterfaceXC7Diff(Module):
 
 
 class SPIInterfaceiCE40Diff(Module):
+    """
+    4-wire differential SPI interface for Lattice iCE40 platforms.
+
+    3-wire SPI (half-duplex) is not supported.
+
+    When using a `miso` signal, make sure to not request the `p` side
+    of the differential pair to not confuse yosys/nextpnr (pass `None`
+    or nothing for `pads.miso`).
+    """
     def __init__(self, pads, pads_n):
         self.cs = Signal(len(getattr(pads, "cs_n", [0])))
         self.cs_polarity = Signal.like(self.cs)
@@ -353,7 +362,7 @@ class SPIInterfaceiCE40Diff(Module):
         miso_reg = Signal(reset_less=True)
         mosi_reg = Signal(reset_less=True)
         self.comb += [
-            self.sdi.eq(Mux(self.half_duplex, mosi_reg, miso_reg))
+            self.sdi.eq(miso_reg)
         ]
 
         self.sync += [If(self.ce,
@@ -401,16 +410,14 @@ class SPIInterfaceiCE40Diff(Module):
                                       p_PIN_TYPE=C(0b101001, 6),
                                       p_IO_STANDARD="SB_LVCMOS",
                                       io_PACKAGE_PIN=pads.mosi,
-                                      i_OUTPUT_ENABLE=
-                                      ~(self.offline | self.half_duplex),
+                                      i_OUTPUT_ENABLE=~self.offline,
                                       i_D_OUT_0=self.sdo,
                                       o_D_IN_0=mosi)
             self.specials += Instance("SB_IO",
                                       p_PIN_TYPE=C(0b101001, 6),
                                       p_IO_STANDARD="SB_LVCMOS",
                                       io_PACKAGE_PIN=pads_n.mosi,
-                                      i_OUTPUT_ENABLE=
-                                      ~(self.offline | self.half_duplex),
+                                      i_OUTPUT_ENABLE=~self.offline,
                                       i_D_OUT_0=~self.sdo)
 
         # MISO
