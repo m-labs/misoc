@@ -337,9 +337,9 @@ class SPIInterfaceiCE40Diff(Module):
 
     3-wire SPI (half-duplex) is not supported.
 
-    When using a `miso` signal, make sure to not request the `p` side
-    of the differential pair to not confuse yosys/nextpnr (pass `None`
-    or nothing for `pads.miso`).
+    When using a `miso` signal, make sure to not request the complementary side
+    of the differential pair to not confuse yosys/nextpnr (pass `None` or
+    nothing for `pads_n.miso`).
     """
     def __init__(self, pads, pads_n):
         self.cs = Signal(len(getattr(pads, "cs_n", [0])))
@@ -421,13 +421,14 @@ class SPIInterfaceiCE40Diff(Module):
                                       i_D_OUT_0=~self.sdo)
 
         # MISO
-        if hasattr(pads_n, "miso"):
-            # make sure pads.miso is not requested to not confuse yosys/nextpnr
-            assert getattr(pads, "miso", None) is None
+        if hasattr(pads, "miso"):
+            # make sure pads_n.miso is not requested
+            # to not confuse yosys/nextpnr
+            assert getattr(pads_n, "miso", None) is None
             self.specials += Instance("SB_IO",
                                       p_PIN_TYPE=C(0b000001, 6),
                                       p_IO_STANDARD="SB_LVDS_INPUT",
-                                      io_PACKAGE_PIN=pads_n.miso,
+                                      io_PACKAGE_PIN=pads.miso,
                                       i_D_OUT_0=self.sdo,
                                       o_D_IN_0=miso)
 
