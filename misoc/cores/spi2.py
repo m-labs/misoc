@@ -370,7 +370,7 @@ class SPIInterfaceiCE40Diff(Module):
                                 & self.cs) ^ ~self.cs_polarity),
                         clk.eq(self.clk_next ^ self.clk_polarity)),
                       If(self.sample,
-                         miso_reg.eq(~miso),
+                         miso_reg.eq(miso),
                          mosi_reg.eq(mosi)),
         ]
 
