@@ -17,13 +17,11 @@ from misoc.integration.builder import *
 
 
 class _CRG(Module):
-    def __init__(self, platform, hw_rev):
+    def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
         self.clock_domains.cd_ic = ClockDomain()
-
-        rev1 = hw_rev == "v1.0"
 
         clk50 = platform.request("clk50")
         clk50_buffered = Signal()
@@ -110,7 +108,7 @@ class BaseSoC(SoCSDRAM):
                           **kwargs)
         self.config["HW_REV"] = hw_rev
 
-        self.submodules.crg = _CRG(platform, hw_rev)
+        self.submodules.crg = _CRG(platform)
         self.crg.cd_sys.clk.attr.add("keep")
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
