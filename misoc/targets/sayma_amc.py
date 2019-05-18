@@ -16,7 +16,7 @@ from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
 
 
-class _CRG(Module):
+class CRG(Module):
     def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
@@ -108,7 +108,7 @@ class BaseSoC(SoCSDRAM):
                           **kwargs)
         self.config["HW_REV"] = hw_rev
 
-        self.submodules.crg = _CRG(platform)
+        self.submodules.crg = CRG(platform)
         self.crg.cd_sys.clk.attr.add("keep")
 
         self.submodules.ddrphy = kusddrphy.KUSDDRPHY(platform.request(sdram))
