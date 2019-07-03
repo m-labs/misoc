@@ -57,7 +57,6 @@ class WriteGenerated(io.StringIO):
 class Builder:
     def __init__(self, soc, output_dir=None,
                  compile_software=True, compile_gateware=True,
-                 gateware_toolchain_path=None,
                  csr_csv=None):
         self.soc = soc
         if output_dir is None:
@@ -69,7 +68,6 @@ class Builder:
         self.output_dir = os.path.abspath(output_dir)
         self.compile_software = compile_software
         self.compile_gateware = compile_gateware
-        self.gateware_toolchain_path = gateware_toolchain_path
         self.csr_csv = csr_csv
 
         self.software_packages = []
@@ -184,12 +182,8 @@ class Builder:
         self.generate_includes()
         self.generate_software()
         self.initialize_memory()
-        if self.gateware_toolchain_path is None:
-            kwargs = dict()
-        else:
-            kwargs = {"toolchain_path": self.gateware_toolchain_path}
         self.soc.build(build_dir=os.path.join(self.output_dir, "gateware"),
-                       run=self.compile_gateware, **kwargs)
+                       run=self.compile_gateware)
 
 
 def builder_args(parser):
@@ -202,9 +196,6 @@ def builder_args(parser):
     parser.add_argument("--no-compile-gateware", action="store_true",
                         help="do not compile the gateware, only generate "
                              "HDL source files and build scripts")
-    parser.add_argument("--gateware-toolchain-path", default=None,
-                        help="set gateware toolchain (ISE, Quartus, etc.) "
-                             "installation path")
     parser.add_argument("--csr-csv", default=None,
                         help="store CSR map in CSV format into the "
                              "specified file")
@@ -218,6 +209,5 @@ def builder_argdict(args):
         "output_dir": args.output_dir,
         "compile_software": not args.no_compile_software,
         "compile_gateware": not args.no_compile_gateware,
-        "gateware_toolchain_path": args.gateware_toolchain_path,
         "csr_csv": args.csr_csv
     }
