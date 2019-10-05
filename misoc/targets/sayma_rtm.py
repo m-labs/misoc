@@ -38,7 +38,7 @@ class CRG(Module):
 class BaseSoC(SoCCore):
     def __init__(self, hw_rev=None, **kwargs):
         if hw_rev is None:
-            hw_rev = "v1.0"
+            hw_rev = "v2.0"
         self.hw_rev = hw_rev
 
         platform_module = {

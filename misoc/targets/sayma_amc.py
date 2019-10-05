@@ -96,7 +96,7 @@ class CRG(Module):
 class BaseSoC(SoCSDRAM):
     def __init__(self, hw_rev=None, sdram="ddram_32", sdram_controller_type="minicon", **kwargs):
         if hw_rev is None:
-            hw_rev = "v1.0"
+            hw_rev = "v2.0"
         self.hw_rev = hw_rev
 
         platform_module = {
