@@ -11,22 +11,37 @@ from misoc.integration.builder import *
 
 
 class CRG(Module):
-    def __init__(self, platform):
+    def __init__(self, platform, hw_rev):
         self.clock_domains.cd_sys = ClockDomain()
         pll_fb = Signal()
         pll_locked = Signal()
         pll_clk625 = Signal()
+        if hw_rev == "v1.0":
+            clkin1_period = 20.0
+            clkin1 = platform.request("clk50")
+            clkfbout_mult = 20
+        elif hw_rev == "v2.0":
+            clkin1_period = 16.0
+            clkin1 = Signal()
+            clkfbout_mult = 16
+            clk125 = platform.request("clk125_gtp")
+            platform.add_period_constraint(clk125, 8.)
+            self.specials += Instance("IBUFDS_GTE2",
+                i_CEB=0,
+                i_I=clk125.p, i_IB=clk125.n,
+                o_ODIV2=clkin1)
+        else:
+            raise ValueError
         self.specials += [
             Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=20.0,
-                i_CLKIN1=platform.request("clk50"),
+                p_CLKIN1_PERIOD=clkin1_period,
+                i_CLKIN1=clkin1,
 
                 i_CLKFBIN=pll_fb,
                 o_CLKFBOUT=pll_fb,
                 o_LOCKED=pll_locked,
 
-                # VCO @ 1GHz
-                p_CLKFBOUT_MULT=20, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT=clkfbout_mult, p_DIVCLK_DIVIDE=1,
                 p_CLKOUT0_DIVIDE=16, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk625,
             ),
             Instance("BUFG", i_I=pll_clk625, o_O=self.cd_sys.clk),
@@ -54,7 +69,7 @@ class BaseSoC(SoCCore):
             integrated_main_ram_size=256*1024,
             cpu_reset_address=self.mem_map["main_ram"],
             **kwargs)
-        self.submodules.crg = CRG(platform)
+        self.submodules.crg = CRG(platform, hw_rev)
 
 
 def soc_sayma_rtm_args(parser):
