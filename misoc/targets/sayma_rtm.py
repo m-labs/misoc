@@ -41,11 +41,12 @@ class BaseSoC(SoCCore):
             hw_rev = "v2.0"
         self.hw_rev = hw_rev
 
-        platform_module = {
-            "v1.0": sayma_rtm,
-            "v2.0": sayma_rtm2
-        }[hw_rev]
-        platform = platform_module.Platform(larger=True)
+        if hw_rev == "v1.0":
+            platform = sayma_rtm.Platform(larger=True)
+        elif hw_rev == "v2.0":
+            platform = sayma_rtm2.Platform()
+        else:
+            raise ValueError
         SoCCore.__init__(self, platform,
             clk_freq=62.5e6,
             integrated_rom_size=0,
