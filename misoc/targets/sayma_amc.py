@@ -148,10 +148,11 @@ class MiniSoC(BaseSoC):
         self.csr_devices += ["ethphy", "ethmac"]
         self.interrupt_devices.append("ethmac")
 
-        self.comb += self.platform.request("sfp_tx_disable", 0).eq(0)
+        # SFP1 is connected to MicroTCA in-crate Ethernet by default
+        self.comb += self.platform.request("sfp_tx_disable", 1).eq(0)
         self.submodules.ethphy = KU_1000BASEX(
            self.platform.request("gth_clk200"),
-           self.platform.request("sfp", 0),
+           self.platform.request("sfp", 1),
            self.clk_freq)
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
                                             nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
