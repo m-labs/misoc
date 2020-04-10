@@ -16,6 +16,10 @@ def get_cpu_mak(cpu):
         triple = "riscv64-unknown-elf"
         cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32"
         clang = ""
+    elif cpu == "zynq7000":
+        triple = "armv7-unknown-linux-gnueabihf"
+        cpuflags = "-mfloat-abi=hard"
+        clang = "1"
     else:
         raise ValueError("Unsupported CPU type: "+cpu)
     return [
