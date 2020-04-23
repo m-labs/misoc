@@ -166,17 +166,18 @@ class MiniSoC(BaseSoC):
             self.crg.cd_sys.clk,
             self.ethphy.txoutclk, self.ethphy.rxoutclk)
 
-        sfp_ctl = self.platform.request("sfp_ctl", 0)
-        if hasattr(sfp_ctl, "mod_present"):
-            mod_present = sfp_ctl.mod_present
-        else:
-            mod_present = ~sfp_ctl.mod_present_n
-        self.comb += [
-            sfp_ctl.rate_select.eq(0),
-            sfp_ctl.tx_disable.eq(0),
-            sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & mod_present &
-                self.ethphy.link_up),
-        ]
+        if self.platform.hw_rev in ("v1.0", "v1.1"):
+            sfp_ctl = self.platform.request("sfp_ctl", 0)
+            if hasattr(sfp_ctl, "mod_present"):
+                mod_present = sfp_ctl.mod_present
+            else:
+                mod_present = ~sfp_ctl.mod_present_n
+            self.comb += [
+                sfp_ctl.rate_select.eq(0),
+                sfp_ctl.tx_disable.eq(0),
+                sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & mod_present &
+                    self.ethphy.link_up),
+            ]
 
         self.submodules.ethmac = LiteEthMAC(
                 phy=self.ethphy, dw=32, interface="wishbone",
@@ -200,7 +201,7 @@ class MiniSoC(BaseSoC):
 def soc_kasli_args(parser):
     soc_sdram_args(parser)
     parser.add_argument("--hw-rev", default=None,
-                        help="Kasli hardware revision: v1.0/v1.1 "
+                        help="Kasli hardware revision: v1.0/v1.1/v2.0 "
                              "(default: variant-dependent)")
 
 
