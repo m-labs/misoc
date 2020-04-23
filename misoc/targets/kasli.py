@@ -122,6 +122,8 @@ class BaseSoC(SoCSDRAM):
                           clk_freq=125e6*14.5/16, cpu_reset_address=0x400000,
                           **kwargs)
 
+        self.config["HW_REV"] = hw_rev
+
         self.submodules.crg = _CRG(platform)
         self.platform.add_period_constraint(self.crg.cd_sys.clk, 1e9/self.clk_freq)
 
