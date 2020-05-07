@@ -8,7 +8,7 @@ from migen.build.platforms.sinara import kasli
 
 from misoc.cores.sdram_settings import MT41K256M16
 from misoc.cores.sdram_phy import a7ddrphy
-from misoc.cores import spi_flash
+from misoc.cores import virtual_leds, spi_flash
 from misoc.cores.a7_gtp import *
 from misoc.cores.liteeth_mini.phy.a7_1000basex import A7_1000BASEX
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
@@ -133,6 +133,10 @@ class BaseSoC(SoCSDRAM):
                             sdram_module.geom_settings, sdram_module.timing_settings)
         self.csr_devices.append("ddrphy")
 
+        if hw_rev == "v2.0":
+            self.submodules.virtual_leds = virtual_leds.VirtualLeds()
+            self.csr_devices.append("virtual_leds")
+
         if not self.integrated_rom_size:
             spiflash_pads = platform.request("spiflash2x")
             spiflash_pads.clk = Signal()
@@ -180,6 +184,8 @@ class MiniSoC(BaseSoC):
                 sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & mod_present &
                     self.ethphy.link_up),
             ]
+        if self.platform.hw_rev == "v2.0":
+            self.comb += self.virtual_leds.get(0).eq(self.ethphy.link_up)
 
         self.submodules.ethmac = LiteEthMAC(
                 phy=self.ethphy, dw=32, interface="wishbone",
