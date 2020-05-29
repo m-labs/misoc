@@ -2,7 +2,7 @@ from operator import itemgetter
 
 from migen import *
 
-from misoc.cores import lm32, mor1kx, tmpu, identifier, timer, uart, vexriscv
+from misoc.cores import lm32, mor1kx, identifier, timer, uart, vexriscv
 from misoc.interconnect import wishbone, csr_bus, wishbone2csr
 from misoc.integration.wb_slaves import WishboneSlaveManager
 
@@ -61,7 +61,6 @@ class SoCCore(Module):
             "uart",
             "identifier",
             "timer0",
-            "tmpu"
         ]
         self._memory_groups = []  # list of (group_name, (group_member0, group_member1, ...))
         self._csr_groups = []  # list of (group_name, (group_member0, group_member1, ...))
@@ -76,9 +75,8 @@ class SoCCore(Module):
             self.submodules.cpu = vexriscv.VexRiscv(platform, self.cpu_reset_address)
         else:
             raise ValueError("Unsupported CPU type: {}".format(cpu_type))
-        self.submodules.tmpu = tmpu.TMPU(self.cpu.dbus)
         self.add_wb_master(self.cpu.ibus)
-        self.add_wb_master(self.tmpu.output_bus)
+        self.add_wb_master(self.cpu.dbus)
 
         if integrated_rom_size:
             self.submodules.rom = wishbone.SRAM(integrated_rom_size, read_only=True)
