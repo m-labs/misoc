@@ -32,7 +32,6 @@ class TransmitPath(Module):
         self.submodules.encoder = code_8b10b.Encoder(lsb_first=lsb_first)
 
         # SGMII Speed Adaptation
-        timer = Signal(max=1000)
         self.sgmii_speed = Signal(2)
 
         # # #
@@ -46,6 +45,7 @@ class TransmitPath(Module):
         self.sync += If(load_config_reg_buffer, config_reg_buffer.eq(self.config_reg))
 
         # Timer for SGMII data rates
+        timer = Signal(max=1000)
         timer_en = Signal()
         self.sync += [
             If(~timer_en | (timer == 0),
@@ -87,10 +87,6 @@ class TransmitPath(Module):
                 )
             )
         )
-        # /K28.5/ == /C/
-        # It is the first code-group in an ordered_set that provides 
-        # synchronisation of bits & code-groups as well as establishes 
-        # alignment of ordered_sets.
         fsm.act("CONFIG_D",
             If(c_type,
                 self.encoder.d[0].eq(D(2, 2))
@@ -163,7 +159,6 @@ class ReceivePath(Module):
         self.submodules.decoder = code_8b10b.Decoder(lsb_first=lsb_first)
 
         # SGMII Speed Adaptation
-        timer = Signal(max=1000)
         self.sgmii_speed = Signal(2)
         self.sample_en = Signal()
 
@@ -171,7 +166,7 @@ class ReceivePath(Module):
 
         config_reg_lsb = Signal(8)
         load_config_reg_lsb = Signal()
-        self.load_config_reg_msb = load_config_reg_msb = Signal()
+        load_config_reg_msb = Signal()
         self.sync += [
             self.seen_config_reg.eq(0),
             If(load_config_reg_lsb, 
@@ -187,6 +182,7 @@ class ReceivePath(Module):
         self.comb += self.rx_data.eq(Mux(first_preamble_byte, 0x55, self.decoder.d))
 
         # Timer for SGMII data rates
+        timer = Signal(max=1000)
         timer_en = Signal()
         self.sync += [
             If(~timer_en | (timer == 0),
@@ -205,7 +201,6 @@ class ReceivePath(Module):
         # Speed adaptation
         self.comb += self.sample_en.eq(self.rx_en & (timer == 0))
 
-        # PCS receive state diagram, Figure 36-7a/b
         fsm = FSM()
         self.submodules += fsm
 
@@ -222,11 +217,6 @@ class ReceivePath(Module):
                 )
             )
         )
-        # /K28.5/ == /C/
-        # It is the first code-group in an ordered_set that provides 
-        # synchronisation of bits & code-groups as well as establishes 
-        # alignment of ordered_sets.
-        # RX_CB
         fsm.act("K28_5",
             NextState("START"),
             If(~self.decoder.k,
@@ -241,7 +231,6 @@ class ReceivePath(Module):
                 ),
             )
         )
-        # RX_CC
         fsm.act("CONFIG_REG_LSB",
             If(self.decoder.k,
                 If(self.decoder.d == K(27, 7),
@@ -257,7 +246,6 @@ class ReceivePath(Module):
                 NextState("CONFIG_REG_MSB")
             )
         )
-        # RX_CD
         fsm.act("CONFIG_REG_MSB",
             If(~self.decoder.k,
                 load_config_reg_msb.eq(1)
@@ -333,8 +321,8 @@ class PCS(Module):
 
         autoneg_ack = Signal()
         self.comb += self.tx.config_reg.eq(
-            (is_sgmii) |       # SGMII-specific
-            (~is_sgmii << 5) | # Full-duplex
+            (is_sgmii) |            # SGMII-specific
+            (~is_sgmii << 5) |      # Full-duplex
             (autoneg_ack << 14)     # ACK
         )
 
@@ -354,7 +342,6 @@ class PCS(Module):
         fsm = ClockDomainsRenamer("eth_tx")(FSM())
         self.submodules += fsm
 
-        # Only use checker for ability advertisement in non-SGMII mode
         fsm.act("AUTONEG_WAIT_ABI",
             self.tx.config_stb.eq(fsm_inited),
             If(rx_config_reg_abi.o,
