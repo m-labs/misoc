@@ -12,13 +12,6 @@ class TRXPaths(Module):
         self.comb += self.rx.decoder.input.eq(self.tx.encoder.output[0])
 
 
-class PCSLoopback(Module):
-    def __init__(self):
-        self.submodules.pcs = ClockDomainsRenamer({"eth_tx": "sys", "eth_rx": "sys"})(
-            PCS(check_period=16/125e6, more_ack_time=16/125e6))
-        self.comb += self.pcs.tbi_rx.eq(self.pcs.tbi_tx)
-
-
 class TestPCS(unittest.TestCase):
     def test_trxpaths_config(self):
         config_reg_values = [0x2341, 0x814e, 0x1ea8]
@@ -85,18 +78,3 @@ class TestPCS(unittest.TestCase):
 
                 run_simulation(dut, [transmit(), receive()])
                 self.assertEqual(received_packets, packets)
-
-    def test_pcs(self):
-        dut = PCSLoopback()
-
-        def test():
-            for i in range(8):
-                yield
-            link_up = yield dut.pcs.link_up
-            self.assertEqual(link_up, 0)
-            for i in range(50):
-                yield
-            link_up = yield dut.pcs.link_up
-            self.assertEqual(link_up, 1)
-
-        run_simulation(dut, test())
