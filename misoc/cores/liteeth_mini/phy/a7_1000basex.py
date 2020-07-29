@@ -811,3 +811,13 @@ class A7_1000BASEX(Module):
             gearbox.tx_data.eq(pcs.tbi_tx),
             pcs.tbi_rx.eq(gearbox.rx_data)
         ]
+
+        # Exposed pins for microscope probing
+        self.pll_lock = tx_init.qpll_lock
+        self.tx_reset_done = tx_reset_done
+        self.rx_reset_done = tx_reset_done
+        self.txdata = tx_data
+        self.rxdata = rx_data
+        self.tbi_tx = pcs.tbi_tx
+        self.tbi_rx = pcs.tbi_rx
+        self.link_partner_adv_ability = pcs.link_partner_adv_ability
