@@ -46,39 +46,45 @@ class TestPCS(unittest.TestCase):
         self.assertEqual(received_config_regs, config_reg_values)
 
     def test_trxpaths_data(self):
-        ps = [0x55]*7 + [0xd5]
-        packets = [ps+[i for i in range(10)],
-                   ps+[100+i for i in range(13)],
-                   ps+[200+i for i in range(8)]]
+        for speed_mbps, sgmii_speed in ((10,0b00), (100,0b01), (1000,0b10)):
+            with self.subTest(speed_mbps=speed_mbps):
+                ps = [0x55]*7 + [0xd5]
+                packets = [ps+[i for i in range(10)],
+                           ps+[100+i for i in range(13)],
+                           ps+[200+i for i in range(8)]]
 
-        dut = TRXPaths()
+                dut = TRXPaths()
 
-        def transmit():
-            for packet in packets:
-                yield dut.tx.tx_stb.eq(1)
-                for byte in packet:
-                    yield dut.tx.tx_data.eq(byte)
-                    yield
-                    while not (yield dut.tx.tx_ack):
-                        yield
-                yield dut.tx.tx_stb.eq(0)
-                for _ in range(12):
-                    yield
+                def transmit():
+                    yield dut.tx.sgmii_speed.eq(sgmii_speed)
+                    for packet in packets:
+                        yield dut.tx.tx_stb.eq(1)
+                        for byte in packet:
+                            yield dut.tx.tx_data.eq(byte)
+                            yield
+                            while not (yield dut.tx.tx_ack):
+                                yield
+                        yield dut.tx.tx_stb.eq(0)
+                        for _ in range(12 * (1000//speed_mbps)):
+                            yield
 
-        received_packets = []
-        @passive
-        def receive():
-            while True:
-                while not (yield dut.rx.rx_en):
-                    yield
-                packet = []
-                while (yield dut.rx.rx_en):
-                    packet.append((yield dut.rx.rx_data))
-                    yield
-                received_packets.append(packet)
+                received_packets = []
+                @passive
+                def receive():
+                    yield dut.rx.sgmii_speed.eq(sgmii_speed)
+                    while True:
+                        while not (yield dut.rx.rx_en):
+                            yield
+                        packet = []
+                        while (yield dut.rx.rx_en):
+                            while not (yield dut.rx.sample_en):
+                                yield
+                            packet.append((yield dut.rx.rx_data))
+                            yield
+                        received_packets.append(packet)
 
-        run_simulation(dut, [transmit(), receive()])
-        self.assertEqual(received_packets, packets)
+                run_simulation(dut, [transmit(), receive()])
+                self.assertEqual(received_packets, packets)
 
     def test_pcs(self):
         dut = PCSLoopback()
