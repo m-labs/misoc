@@ -224,10 +224,10 @@ class MultiDDS(Accu):
     """Time division multiplexed oscillator.
 
     Uses one CosSinGen and one (complex-real) multiplier.
-    DDS parameter latencies are unmatched between parameters
+    Latencies are unmatched between parameters
     and channels. Overflowing summation.
     """
-    def __init__(self, n, fwidth, xwidth):
+    def __init__(self, n, fwidth, xwidth, **kwargs):
         self.i = [Record([
             ("f", fwidth), ("p", xwidth), ("a", xwidth - 1), ("clr", 1)])
                   for i in range(n)]
@@ -235,7 +235,7 @@ class MultiDDS(Accu):
         self.stb = Signal()
         self.valid = Signal()
 
-        self.submodules.mod = PhaseModulator()
+        self.submodules.mod = PhaseModulator(x=xwidth - 1, **kwargs)
         # accu
         accu = [Signal(fwidth) for _ in range(n)]
         run = Signal()
