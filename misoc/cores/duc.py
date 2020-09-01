@@ -22,14 +22,14 @@ def eqh(lhs, rhs):
         return lhs.eq(rhs)
 
 
-def pipe(lhs, rhs, n):
+def pipe(lhs, rhs, n, reset_less=True):
     """Assign rhs to lhs through n reset_less pipeline registers.
     Returns list of statements to be added to sync context."""
     assert n > 0
     stmts = []
     w = min(len(lhs), len(rhs))
     for i in range(n - 1):
-        pip, rhs = rhs, Signal(n, reset_less=True)
+        pip, rhs = rhs, Signal.like(lhs, reset_less=reset_less)
         stmts.append(rhs.eq(pip))
     stmts.append(lhs.eq(rhs))
     return stmts
