@@ -48,37 +48,37 @@ class TestSRStorage(unittest.TestCase):
         self.assertEqual(len(self.dut.load.data), 8)
         self.assertEqual(len(self.dut.out.data), 8)
 
+    def load(self, d):
+        yield self.dut.load.eop.eq(1)
+        for i in d:
+            for _ in range(random.randint(0, 15)):
+                yield
+            yield self.dut.load.data.eq(i)
+            yield self.dut.load.stb.eq(1)
+            yield
+            while not (yield self.dut.load.ack):
+                yield
+            yield self.dut.load.stb.eq(0)
+
+    @passive
+    def retrieve(self, o):
+        o.append([])
+        while True:
+            for _ in range(random.randint(0, 4)):
+                yield
+            yield self.dut.out.ack.eq(1)
+            yield
+            while not (yield self.dut.out.stb):
+                yield
+            o[-1].append((yield self.dut.out.data))
+            if (yield self.dut.out.eop):
+                o.append([])
+            yield self.dut.out.ack.eq(0)
+
     def test_seq(self):
-        def load():
-            yield self.dut.load.eop.eq(0)
-            for i in range(10):
-                for _ in range(random.randint(0, 15)):
-                    yield
-                yield self.dut.load.data.eq(i)
-                yield self.dut.load.stb.eq(1)
-                yield
-                while not (yield self.dut.load.ack):
-                    yield
-                yield self.dut.load.stb.eq(0)
-
-        @passive
-        def retrieve(o):
-            o.append([])
-            while True:
-                for _ in range(random.randint(0, 4)):
-                    yield
-                yield self.dut.out.ack.eq(1)
-                yield
-                while not (yield self.dut.out.stb):
-                    yield
-                o[-1].append((yield self.dut.out.data))
-                if (yield self.dut.out.eop):
-                    o.append([])
-                yield self.dut.out.ack.eq(0)
-
         o = []
         random.seed(42)
-        run_simulation(self.dut, [load(), retrieve(o)])
+        run_simulation(self.dut, [self.load(range(10)), self.retrieve(o)])
         for i, oi in enumerate(o[2:-1]):
             with self.subTest(i=i):
                 if not oi:
@@ -86,48 +86,60 @@ class TestSRStorage(unittest.TestCase):
                 self.assertEqual(oi, list(range(i, i + 3)))
 
 
-class TestMAC(unittest.TestCase):
-    def setUp(self):
-        self.dut = fir.MAC(10)
-
+class TestMACFIR(unittest.TestCase):
     def test_init(self):
-        self.assertEqual(len(self.dut.sample.load.data), 25)
-        self.assertEqual(len(self.dut.coeff.load.data), 18)
-        self.assertEqual(len(self.dut.out.data), 48)
+        dut = fir.MACFIR(n=10)
+        self.assertEqual(len(dut.sample.load.data), 25)
+        self.assertEqual(len(dut.coeff.load.data), 18)
+        self.assertEqual(len(dut.out.data), 48)
+
+    def load(self, dut, h, x):
+        for i, bi in enumerate(h):
+            yield dut.coeff.sr[i].eq(int(bi))
+        yield dut.bias.eq(0)
+        yield
+        for i in x:
+            for _ in range(random.randint(0, 20)):
+                yield
+            yield dut.sample.load.data.eq(int(i))
+            yield dut.sample.load.stb.eq(1)
+            yield
+            while not (yield dut.sample.load.ack):
+                yield
+            yield dut.sample.load.stb.eq(0)
+
+    @passive
+    def retrieve(self, dut, o):
+        yield
+        while True:
+            for _ in range(random.randint(0, 20)):
+                yield
+            yield dut.out.ack.eq(1)
+            yield
+            while not (yield dut.out.stb):
+                yield
+            o.append((yield dut.out.data))
+            yield dut.out.ack.eq(0)
 
     def test_run(self):
-        def load():
-            for i, bi in enumerate(range(10)):
-                yield self.dut.coeff.sr[i].eq(bi)
-            yield self.dut.bias.eq(0)
-            yield
-            for i in range(20):
-                for _ in range(random.randint(0, 30)):
-                    yield
-                yield self.dut.sample.load.data.eq(i)
-                yield self.dut.sample.load.stb.eq(1)
-                yield
-                while not (yield self.dut.sample.load.ack):
-                    yield
-                yield self.dut.sample.load.stb.eq(0)
-
-        @passive
-        def retrieve(o):
-            yield
-            while True:
-                for _ in range(random.randint(0, 30)):
-                    yield
-                yield self.dut.out.ack.eq(1)
-                yield
-                while not (yield self.dut.out.stb):
-                    yield
-                o.append((yield self.dut.out.data))
-                yield self.dut.out.ack.eq(0)
-
+        x = np.arange(20) + 1
+        h = np.arange(10) + 1
+        dut = fir.MACFIR(n=len(h))
         o = []
         random.seed(42)
-        run_simulation(self.dut, [load(), retrieve(o)], vcd_name="mac.vcd")
-        h = np.arange(10)
-        x = np.arange(20)
-        p = np.convolve(h[::-1], x)
+        run_simulation(
+            dut, [self.load(dut, h[::-1], x), self.retrieve(dut, o)])
+        p = np.convolve(h, x)
+        self.assertEqual(o, list(p[:len(o)]))
+
+    def test_sym(self):
+        x = np.arange(20) + 1
+        h = np.arange(5) + 1
+        dut = fir.SymMACFIR(n=len(h))
+        o = []
+        random.seed(42)
+        run_simulation(
+            dut, [self.load(dut, h[::-1], x), self.retrieve(dut, o)])
+        hh = np.r_[h, h[::-1]]
+        p = np.convolve(hh, x)
         self.assertEqual(o, list(p[:len(o)]))
