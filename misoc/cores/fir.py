@@ -179,13 +179,17 @@ class SymMACFIR(MACFIR):
 
     Load the short delay side coefficients (with +1 delay tap first) into
     `coeff`.
+
     The center tap sample is available at `sample.out` during the
     `sample.load` phase.
 
-    There is no coefficient for the center tap. This is designed primarily for
-    half band filters interpolation filters in polyphase style where this
-    is the heavy computation polyphase bank and the center tap coefficient
+    There is no coefficient for the center tap here. This allows efficient
+    implementation of half band interpolation filters in polyphase style
+    where this is the heavy computation bank and the center tap coefficient
     is the identity.
+
+    To support an array of multiple systolic symmetric MAC FIR blocks (to
+    increase throughput), the `sample`->`sym` connection should be overridden.
     """
     def __init__(self, n, **kwargs):
         super().__init__(n, **kwargs)
