@@ -119,12 +119,15 @@ class MemStorage(Module):
 class MACFIR(Module):
     """Multiply-accumulate FIR filter.
 
-    Sample and coefficient storage is implemented using `SRStorage`.
-    Load coefficients either into `coeff.sr[:]` statically or load one new
-    coefficient per input sample to reconfigure the filter (see `SRStorage for details
-    on the protocol).
+    Sample and coefficient storage is implemented using `SRStorage`. Load
+    coefficients either into `coeff.sr[:]` statically or load one new
+    coefficient per input sample to reconfigure the filter (see `SRStorage for
+    details on the protocol).
 
     The DSP module uses full pipelining.
+
+    Multiple `MACFIR` can be cascaded in a systolic arrangement for higher
+    throughput.
     """
     def __init__(self, n, **kwargs):
         pipe = dict(a=1, b=2, c=0, d=1, ad=1, m=1, p=1)
@@ -202,4 +205,57 @@ class SymMACFIR(MACFIR):
             self.sym.out.ack.eq(self.sample.out.ack),  # ignore stb
             self.dsp.d.eq(self.sym.out.data),
             self.dsp.presub.eq(0),
+        ]
+
+
+class HBFMACUpsampler(SymMACFIR):
+    def __init__(self, coeff, width=None, **kwargs):
+
+        n = (len(coeff) + 1)//4
+        assert len(coeff) == n*4 - 1
+        for i, c in enumerate(coeff):
+            if i != n*2 - 1:
+                if i % 1:
+                    assert c == 0, (i, c)
+                else:
+                    assert c == coeff[-1 - i]
+        super().__init__(n, **kwargs)
+
+        assert coeff[2*n - 1] > 0
+        logh0 = log2_int(coeff[2*n - 1])
+        logh = len(self.coeff.load.data) - logh0
+        for i, c in enumerate(coeff[n*2::2]):
+            self.coeff.sr[i].reset = c << logh
+
+        if width is None:
+            width = len(self.dsp.a)
+        logx = len(self.dsp.a) - width
+        logp = logx + logh + logh0
+
+        self.input = Endpoint([("data", (width, True))])
+        self.output = Endpoint([("data", (width, True))])
+
+        even = Signal()
+        buf = Signal((width, True), reset_less=True)
+        self.comb += [
+            self.sample.load.data[logx:].eq(self.input.data),
+            self.sample.load.stb.eq(self.input.stb & ~even),
+            self.input.ack.eq(self.sample.load.ack & ~even),
+
+            self.bias.eq(0),  # TODO
+
+            # marks the end of an interpolation pair
+            self.output.eop.eq(~even),
+            self.output.data.eq(Mux(even, self.out.data[logp:], buf)),
+            self.output.stb.eq(self.out.stb | ~even),
+            self.out.ack.eq(even & self.output.ack),
+        ]
+        self.sync += [
+            If(self.output.stb & self.output.ack,
+                even.eq(0),
+            ),
+            If(self.input.stb & self.input.ack,
+                buf.eq(self.sample.out.data[logp:]),  # tap the center sample
+                even.eq(1),
+            ),
         ]

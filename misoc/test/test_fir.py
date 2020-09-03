@@ -143,3 +143,47 @@ class TestMACFIR(unittest.TestCase):
         hh = np.r_[h, h[::-1]]
         p = np.convolve(hh, x)
         self.assertEqual(o, list(p[:len(o)]))
+
+
+class TestHBFMACUp(unittest.TestCase):
+    def test_init(self):
+        coeff = [1, 0, -3, 0, 6, 8, 6, 0, -3, 0, 1]
+        dut = fir.HBFMACUpsampler(coeff)
+        self.assertEqual(len(dut.coeff.sr), 3)
+
+    def feed(self, dut, x):
+        for i in x:
+            for _ in range(random.randint(0, 20)):
+                yield
+            yield dut.input.data.eq(int(i))
+            yield dut.input.stb.eq(1)
+            yield
+            while not (yield dut.input.ack):
+                yield
+            yield dut.input.stb.eq(0)
+
+    @passive
+    def retrieve(self, dut, o):
+        yield
+        while True:
+            for _ in range(random.randint(0, 20)):
+                yield
+            yield dut.output.ack.eq(1)
+            yield
+            while not (yield dut.output.stb):
+                yield
+            o.append((yield dut.output.data))
+            yield dut.output.ack.eq(0)
+
+    def test_run(self):
+        x = np.arange(20) + 1
+        coeff = [1, 0, -3, 0, 6, 0, -16, 32, -16, 0, 6, 0, -3, 0, 1]
+        dut = fir.HBFMACUpsampler(coeff)
+        o = []
+        random.seed(42)
+        run_simulation(
+            dut, [self.feed(dut, x), self.retrieve(dut, o)], vcd_name="hbf.vcd")
+        p = np.convolve(coeff, x)
+        self.assertEqual(o, list(p[:len(o)]))
+
+
