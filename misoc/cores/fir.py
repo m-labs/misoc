@@ -59,50 +59,38 @@ class SRStorage(Module):
     """Shift-register style coefficient/sample storage.
 
     Loads a new word, discards the oldest, and emits the entire storage in
-    time order"""
-    def __init__(self, depth, width):
-        assert depth > 1
-        self.load = Endpoint([("data", width), ("push", 1)])
-        self.out = Endpoint([("data", width)])
-        self.out.data.reset_less = True
-        self.drop = Endpoint([("data", width)])
-        self.drop.ack.reset = 1
+    time order.
 
-        self.sr = [Signal(width, reset_less=True) for _ in range(depth)]
-        q = Signal(depth + 1, reset=1)  # one-hot output pointer
+    `load.eop` used to indicate no new data to be shifted in but storage to be
+    emitted. `out.data` is dropped from storage on load with `load.eop` set."""
+    def __init__(self, depth, width, drop=True, old_first=True):
+        self.load = Endpoint([("data", width)])
+        self.out = Endpoint([("data", width)])
+
+        # old first
+        self.sr = [Signal(width, reset_less=True)
+                   for _ in range(depth - 1 if drop else depth)]
+        q = Signal(depth, reset=1)  # one-hot state
+
         self.comb += [
-            self.out.stb.eq(~q[0]),
-            self.out.eop.eq(q[1]),
-            self.load.ack.eq((q[0] | (q[1] & self.out.ack)) & self.drop.ack),
-            self.drop.stb.eq(self.load.stb),
-            self.drop.data.eq(self.sr[-1]),
+            self.load.ack.eq(self.out.ack & q[0]),
+            self.out.data.eq(self.sr[0]),
+            self.out.stb.eq(self.load.stb | ~q[0]),
+            self.out.eop.eq(q[-1]),
         ]
         self.sync += [
             If(self.out.stb & self.out.ack,
-                # output next
-                [
-                    If(qi,
-                        self.out.data.eq(sri)
-                    )
-                    for qi, sri in zip(q[2:], self.sr)
-                ],
-                q.eq(q[1:]),
+                Cat(self.sr).eq(Cat(self.sr[1:], self.sr[0])),
+                q.eq(Cat(q[-1], q)),
             ),
-            If(self.load.stb & self.load.ack,
-                # load new low, drop/output old high
-                If(self.load.push,
-                    Cat(self.sr).eq(Cat(self.load.data, self.sr)),
-                    self.out.data.eq(self.sr[-2]),
-                ).Else(
-                    self.out.data.eq(self.sr[-1]),
-                ),
-                q.eq(1 << depth),
+            If(self.load.stb & self.load.ack & ~self.load.eop,
+                self.sr[-1].eq(self.load.data),
             ),
         ]
 
 
 class MemStorage(Module):
-    """Shift-register style coefficient/sample storage.
+    """Memory style coefficient/sample storage.
 
     Loads a new word, discards the oldest, and emits the entire storage in
     time order"""
@@ -116,47 +104,45 @@ class MAC(Module):
             pipe = dict(a=0, b=1, c=0, d=0, ad=1, m=1, p=1)
         self.submodules.dsp = DSP(pipe=pipe, **kwargs)
         width = len(self.dsp.a), True
-        self.submodules.coeff = SRStorage(n, (len(self.dsp.b), True))
-        self.submodules.data = SRStorage(n, width)
-        self.load = self.data.load
-        self.drop = self.data.drop
+        self.submodules.coeff = SRStorage(
+            n, (len(self.dsp.b), True), drop=False)
+        self.submodules.sample = SRStorage(n, width)
         self.out = Endpoint([("data", (len(self.dsp.pr), True))])
         self.add = Endpoint([("data", width)])
         self.bias = Signal.like(self.dsp.c)
 
         p_dsp = 3
-        q = Signal(p_dsp + 1, reset=1)
-        e = Signal(p_dsp)
+        q = Signal(p_dsp)
         ack_dsp = Signal()
         self.sync += [
-            ack_dsp.eq(~self.out.stb | self.out.ack),
             If(ack_dsp,
-                q.eq(Cat(self.data.out.stb, q)),
-                e.eq(Cat(self.data.out.eop, e)),
+                q.eq(Cat(self.sample.out.eop, q)),
             ),
         ]
         self.comb += [
-            self.load.push.eq(1),
-            self.dsp.a.eq(self.data.out.data),
-            self.data.out.ack.eq(ack_dsp),
-            self.data.drop.ack.eq(1),  # default
-            self.coeff.drop.ack.eq(1),  # default
-            self.coeff.load.stb.eq(self.data.load.stb),
-            self.coeff.load.push.eq(0),
-            self.dsp.b.eq(self.coeff.out.data),
-            self.dsp.ceb0.eq(self.coeff.out.stb),
-            self.coeff.out.ack.eq(1),
-            self.dsp.d.eq(self.add.data),
+            self.coeff.load.eop.eq(1),
+            self.coeff.load.stb.eq(self.sample.load.stb),  # ignore ack
+
+            ack_dsp.eq(self.sample.out.stb & (~self.out.stb | self.out.ack)),
+
+            self.sample.out.ack.eq(ack_dsp),
             self.add.ack.eq(ack_dsp),  # ignore stb
+            self.coeff.out.ack.eq(ack_dsp),  # ignore stb
+
+            self.dsp.a.eq(self.sample.out.data),
+            self.dsp.d.eq(self.add.data),
             self.dsp.presub.eq(0),
-            self.dsp.cead0.eq(self.data.out.stb),
-            self.dsp.cem0.eq(q[0]),
-            self.dsp.cep0.eq(q[1] & ack_dsp),
-            self.out.data.eq(self.dsp.pr),
-            self.out.stb.eq(q[2] & e[2]),  # ignore ack
-            If(self.out.stb & self.out.ack,
+            self.dsp.cead0.eq(ack_dsp),
+            self.dsp.b.eq(self.coeff.out.data),
+            self.dsp.ceb0.eq(ack_dsp),
+            If(q[2],
                 self.dsp.c.eq(self.bias),
             ).Else(
                 self.dsp.c.eq(self.dsp.pr),
             ),
+            self.dsp.cem0.eq(ack_dsp),
+            self.dsp.cep0.eq(ack_dsp),
+
+            self.out.data.eq(self.dsp.pr),
+            self.out.stb.eq(q[2]),
         ]
