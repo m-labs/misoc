@@ -14,7 +14,7 @@ class SuperCIC(Module):
     * There is no handshaking between the input and output domains and no
       backward or forward pressure. R is only used to compute bit growth
       guard width.
-    * The output has gain R**N.
+    * The output has gain R**(N - 1).
     """
     def __init__(self, n, r, width):
         if n < 1:
