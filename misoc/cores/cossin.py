@@ -49,9 +49,9 @@ class CosSinGen(mg.Module):
     is to be implemented elsewhere.
 
     Using a second port of an existing LUT is supported by passing the
-    existing `Memory` as `use_lut`.
+    existing `Memory` as `share_lut`.
     """
-    def __init__(self, z=18, x=15, zl=9, xd=4, backoff=None, use_lut=None):
+    def __init__(self, z=18, x=15, zl=9, xd=4, backoff=None, share_lut=None):
         self.latency = 0  # computed later
         self.z = mg.Signal(z)  # input phase
         self.x = mg.Signal((x + 1, True), reset_less=True)  # output cos(z)
@@ -99,9 +99,9 @@ class CosSinGen(mg.Module):
         assert all(0 <= _ < 1 << len(lut_data) for _ in lut_init)
         logger.info("CosSin LUT {} bit deep, {} bit wide".format(
             zl, len(lut_data)))
-        if use_lut is not None:
-            assert all(a == b for a, b in zip(use_lut.init, lut_init))
-            self.lut = use_lut
+        if share_lut is not None:
+            assert all(a == b for a, b in zip(share_lut.init, lut_init))
+            self.lut = share_lut
         else:
             self.lut = mg.Memory(len(lut_data), 1 << zl, init=lut_init)
             self.specials += self.lut

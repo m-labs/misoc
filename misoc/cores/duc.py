@@ -303,11 +303,11 @@ class PhasedDUC(Module):
         self.mods = []
         for i in range(len(self.accu.z)):
             if i & 1:
-                use_lut = self.mods[i - 1].cs.lut
+                share_lut = self.mods[i - 1].cs.lut
             else:
-                use_lut = None
+                share_lut = None
             mod = PhaseModulator(z=len(self.accu.z[0]), zl=zl,
-                    x=15, use_lut=use_lut)
+                    x=15, share_lut=share_lut)
             self.mods.append(mod)
             self.comb += mod.z.eq(self.accu.z[i])
             self.i.append(mod.i)
