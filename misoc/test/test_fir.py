@@ -165,7 +165,8 @@ class TestHBFMACUp(unittest.TestCase):
         dut = fir.HBFMACUpsampler(coeff)
         o = []
         random.seed(42)
-        run_simulation(dut, [
-            feed(dut.input, x, maxwait=0), retrieve(dut.output, o, maxwait=1)], vcd_name="hbf.vcd")
+        run_simulation(dut, [feed(dut.input, x, maxwait=0),
+                             retrieve(dut.output, o, maxwait=0)],
+                       vcd_name="hbf.vcd")
         p = np.convolve(coeff, np.c_[x, np.zeros_like(x)].ravel())
         self.assertEqual(o, list(p[:len(o)]))
