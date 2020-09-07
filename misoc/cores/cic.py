@@ -40,57 +40,57 @@ class SuperCIC(Module):
         w = len(sig)
         # comb stages
         for _ in range(n):
-            sig0 = Signal((w, True), reset_less=True)
+            old = Signal((w, True), reset_less=True)
             w += 1
             diff = Signal((w, True), reset_less=True)
             self.sync += [
                 If(comb_ce,
-                    sig0.eq(sig),
-                    diff.eq(sig - sig0)
+                    old.eq(sig),
+                    diff.eq(sig - old)
                 ),
             ]
             sig = diff
 
         # zero stuffer, gearbox, and first integrator
         w -= 1
-        sig0 = Signal((w, True), reset_less=True)
-        sig1 = Signal((w, True))
+        sig_a = Signal((w, True), reset_less=True)
+        sig_b = Signal((w, True))
+        sig_i = Signal((w, True))
         even = Signal()
-        sig11 = Signal((w, True))
         self.comb += [
-            sig11.eq(sig1 + sig),
+            sig_i.eq(sig_b + sig),
         ]
         self.sync += [
-            sig0.eq(sig1),
+            sig_a.eq(sig_b),
             If(comb_ce,
                 even.eq(~even),
                 If(even,
-                    sig0.eq(sig11),
+                    sig_a.eq(sig_i),
                 ),
-                sig1.eq(sig11),
+                sig_b.eq(sig_i),
             )
         ]
 
         # integrator stages
         for _ in range(n - 1):
-            sig00 = Signal((ceil(w), True), reset_less=True)
-            sum01 = Signal((ceil(w) + 1, True), reset_less=True)
+            sig_a0 = Signal((ceil(w), True), reset_less=True)
+            sum_ab = Signal((ceil(w) + 1, True), reset_less=True)
             w += b - 1
-            sum0 = Signal((ceil(w), True), reset_less=True)
-            sum1 = Signal((ceil(w), True))
+            sum_a = Signal((ceil(w), True), reset_less=True)
+            sum_b = Signal((ceil(w), True))
             self.sync += [
                 If(int_ce,
-                    sig00.eq(sig0),
-                    sum01.eq(sig0 + sig1),
-                    sum0.eq(sum1 + sig00),
-                    sum1.eq(sum1 + sum01),
+                    sig_a0.eq(sig_a),
+                    sum_ab.eq(sig_a + sig_b),
+                    sum_a.eq(sum_b + sig_a0),
+                    sum_b.eq(sum_b + sum_ab),
                 )
             ]
-            sig0, sig1 = sum0, sum1
+            sig_a, sig_b = sum_a, sum_b
 
-        assert ceil(w) == len(self.output.data0), (w, len(self.output.data0))
+        assert ceil(w) == len(self.output.data0)
 
         self.comb += [
-            self.output.data0.eq(sig0),
-            self.output.data1.eq(sig1),
+            self.output.data0.eq(sig_a),
+            self.output.data1.eq(sig_b),
         ]
