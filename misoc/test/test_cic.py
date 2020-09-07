@@ -51,10 +51,10 @@ class TestCIC(unittest.TestCase):
         self.assertEqual(len(self.dut.output.data1), 28)
 
     def test_seq(self):
-        x = [1, 7, -8, 7, 1, 0, 0]
+        x = [1, 7, -8, 7, 1, 0, 0, 0, 0, 0]
         y = []
         run_simulation(self.dut, [feed(self.dut.input, x, (2, 5)),
                                   retrieve(self.dut.output, y)])
-        y = np.ravel(y)[4 + 2 + 1:]
+        y = np.ravel(y)[27:]
         y0 = cic_up(x, n=4, r=5)[:len(y)]
         np.testing.assert_equal(y, y0)

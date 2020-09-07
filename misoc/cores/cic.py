@@ -37,42 +37,46 @@ class SuperCIC(Module):
 
         # comb stages
         for _ in range(n):
-            sig0 = Signal.like(self.input.data)
+            sig0 = Signal((len(sig), True), reset_less=True)
+            diff = Signal((len(sig) + 1, True), reset_less=True)
             self.sync += [
                 If(comb_ce,
-                    sig0.eq(sig)
-                )
+                    sig0.eq(sig),
+                    diff.eq(sig - sig0)
+                ),
             ]
-            c = Signal((len(sig) + 1, True), reset_less=True)
-            self.comb += c.eq(sig - sig0)
-            sig = c
+            sig = diff
 
-        # zero stuffing gearbox and first integrator
+        # zero stuffer, gearbox, and first integrator
         sig0 = Signal((len(sig) - 1, True), reset_less=True)
         sig1 = Signal((len(sig) - 1, True))
         even = Signal()
+        sum = Signal((len(sig) - 1, True))
+        self.comb += [
+            sum.eq(sig1 + sig),
+        ]
         self.sync += [
             sig0.eq(sig1),
             If(comb_ce,
                 even.eq(~even),
                 If(even,
-                    sig0.eq(sig1 + sig),
+                    sig0.eq(sum),
                 ),
-                sig1.eq(sig1 + sig),
+                sig1.eq(sum),
             )
         ]
 
         # integrator stages
         for _ in range(n - 1):
-            i0 = Signal((len(sig0) + b - 1, True), reset_less=True)
-            i1 = Signal((len(sig0) + b - 1, True))
+            sum0 = Signal((len(sig0) + b - 1, True), reset_less=True)
+            sum1 = Signal((len(sig0) + b - 1, True))
             self.sync += [
                 If(int_ce,
-                    i0.eq(i1 + sig0),
-                    i1.eq(i1 + sig0 + sig1),
+                    sum0.eq(sum1 + sig0),
+                    sum1.eq(sum1 + sig0 + sig1),
                 )
             ]
-            sig0, sig1 = i0, i1
+            sig0, sig1 = sum0, sum1
 
         self.comb += [
             self.output.data0.eq(sig0),
