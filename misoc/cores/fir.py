@@ -19,7 +19,7 @@ class DSP(Module):
         if pipe is None:
             pipe = dict(a=0, b=0, c=0, d=0, ad=1, m=1, p=1)
         if width is None:
-            width = dict(a=25, b=18, c=48, d=25, ad=25, m=48, p=48)
+            width = dict(a=24, b=18, c=48, d=24, ad=25, m=48, p=48)
 
         for reg, width in width.items():
             self._make_pipe_reg(reg, width, pipe.get(reg, 0))

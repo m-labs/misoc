@@ -11,10 +11,10 @@ class TestDSP(unittest.TestCase):
         self.dut = fir.DSP()
 
     def test_init(self):
-        self.assertEqual(len(self.dut.a), 25)
+        self.assertEqual(len(self.dut.a), 24)
         self.assertEqual(len(self.dut.b), 18)
         self.assertEqual(len(self.dut.c), 48)
-        self.assertEqual(len(self.dut.d), 25)
+        self.assertEqual(len(self.dut.d), 24)
         self.assertEqual(len(self.dut.p), 48)
         self.assertEqual(len(self.dut.m), 48)
 
@@ -115,7 +115,7 @@ def retrieve(endpoint, o, maxwait=10):
 class TestMACFIR(unittest.TestCase):
     def test_init(self):
         dut = fir.MACFIR(n=10)
-        self.assertEqual(len(dut.sample.load.data), 25)
+        self.assertEqual(len(dut.sample.load.data), 24)
         self.assertEqual(len(dut.coeff.load.data), 18)
         self.assertEqual(len(dut.out.data), 48)
 
