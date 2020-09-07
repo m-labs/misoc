@@ -43,18 +43,18 @@ def cic_up(x, n, r):
 
 class TestCIC(unittest.TestCase):
     def setUp(self):
-        self.dut = cic.SuperCIC(n=4, r=5, width=8)
+        self.dut = cic.SuperCIC(n=4, r=5, width=4)
 
     def test_init(self):
-        self.assertEqual(len(self.dut.input.data), 8)
-        self.assertEqual(len(self.dut.output.data0), 28)
-        self.assertEqual(len(self.dut.output.data1), 28)
+        self.assertEqual(len(self.dut.input.data), 4)
+        self.assertEqual(len(self.dut.output.data0), 11)
+        self.assertEqual(len(self.dut.output.data1), 11)
 
     def test_seq(self):
-        x = [1, 7, -8, 7, 1, 0, 0, 0, 0, 0]
+        x = [1, 7, -8, 7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         y = []
         run_simulation(self.dut, [feed(self.dut.input, x, (2, 5)),
                                   retrieve(self.dut.output, y)])
-        y = np.ravel(y)[27:]
+        y = np.ravel(y)[33:]
         y0 = cic_up(x, n=4, r=5)[:len(y)]
         np.testing.assert_equal(y, y0)
