@@ -60,16 +60,43 @@ class SRStorage(Module):
 
     Loads a new word, discards the oldest, and emits the entire storage in
     time order.
-
-    `load.eop` used to indicate no new data to be shifted in but storage to be
-    emitted. `out.data` is dropped storage on load with `load.eop` set."""
-    def __init__(self, depth, width, drop=True, old_first=True):
+    """
+    def __init__(self, depth, width, mode="old-first"):
         self.load = Endpoint([("data", width)])
         self.out = Endpoint([("data", width)])
 
-        self.sr = [Signal(width, reset_less=True)
-                   for _ in range(depth - 1 if drop and old_first else depth)]
+        self.sr = [Signal(width, reset_less=True) for _ in range(
+            depth - 1 if mode == "old-first" else depth)]
         q = Signal(depth, reset=1)  # one-hot state
+
+        # SR Storage time sequences for depth=4, different modes:
+        #
+        # old-first
+        # load sr   out
+        # -------------
+        # d    abc a   stb+ack, eop
+        #      bcd b
+        #      cdb c
+        #      dbc d
+        #      bcd b   wait
+        #
+        # circular
+        # sr   out
+        # --------
+        # abcd a  stb+ack, !eop
+        # bcda b
+        # cdab c
+        # dabc d
+        # abcd a  wait
+        #
+        # new-first
+        # load buf sr   out
+        # -----------------
+        # e        dcba d  stb+ack, eop
+        #      e   cbad c
+        #      e   badc b
+        #      e   adcb a
+        # f        edcb e  wait
 
         self.comb += [
             self.load.ack.eq(self.out.ack & q[0]),
@@ -82,7 +109,7 @@ class SRStorage(Module):
                 q.eq(Cat(q[-1], q)),
             ),
         ]
-        if old_first:
+        if mode in ("old-first", "circular"):
             self.sync += [
                 If(self.out.stb & self.out.ack,
                     Cat(self.sr).eq(Cat(self.sr[1:], self.sr[0])),
@@ -91,7 +118,7 @@ class SRStorage(Module):
                     self.sr[-1].eq(self.load.data),
                 ),
             ]
-        else:
+        elif mode == "new-first":
             buf = Signal.like(self.sr[0])
             self.sync += [
                 If(self.out.stb & self.out.ack,
@@ -105,6 +132,8 @@ class SRStorage(Module):
                     buf.eq(self.load.data),
                 )
             ]
+        else:
+            raise ValueError()
 
 
 class MemStorage(Module):
@@ -112,8 +141,36 @@ class MemStorage(Module):
 
     Loads a new word, discards the oldest, and emits the entire storage in
     time order"""
-    def __init__(self, n, width):
-        pass
+    def __init__(self, depth, width, mode="old-first"):
+        raise NotImplementedError
+        # Mem Storage time sequences for depth=4, different modes:
+        #
+        # old-first
+        # load mem addr out
+        # -----------------
+        # d    abc 0    a   stb+ack, eop
+        #      dbc 1    b
+        #      dbc 2    c
+        #      dbc 0    d
+        #      dbc 1    b   wait
+        #
+        # circular
+        # mem  addr out
+        # -------------
+        # abcd 0    a  stb+ack, !eop
+        # abcd 1    b
+        # abcd 2    c
+        # abcd 3    d
+        # abcd 0    a  wait
+        #
+        # new-first
+        # load buf mem  addr out
+        # -----------------------
+        # e        dcba 0    d  stb+ack, eop
+        #      e   dcba 1    c
+        #      e   dcba 2    b
+        #      e   dcba 3    a
+        # f        dcbe 3    e  wait
 
 
 class MACFIR(Module):
@@ -134,8 +191,8 @@ class MACFIR(Module):
         self.submodules.dsp = DSP(pipe=pipe, **kwargs)
         width = len(self.dsp.a), True
         self.submodules.coeff = SRStorage(
-            n, (len(self.dsp.b), True), drop=False)
-        self.submodules.sample = SRStorage(n, width)
+            n, (len(self.dsp.b), True), mode="circular")
+        self.submodules.sample = SRStorage(n, width, mode="old-first")
         self.out = Endpoint([("data", (len(self.dsp.pr), True))])
         self.bias = Signal.like(self.dsp.c)
 
@@ -197,7 +254,7 @@ class SymMACFIR(MACFIR):
     def __init__(self, n, **kwargs):
         super().__init__(n, **kwargs)
         self.submodules.sym = SRStorage(
-            n, (len(self.dsp.d), True), old_first=False)
+            n, (len(self.dsp.d), True), mode="new-first")
         self.comb += [
             self.sym.load.eop.eq(1),
             self.sym.load.data.eq(self.sample.out.data),
@@ -210,20 +267,27 @@ class SymMACFIR(MACFIR):
 
 class HBFMACUpsampler(SymMACFIR):
     def __init__(self, coeff, width=None, **kwargs):
-
         n = (len(coeff) + 1)//4
-        assert len(coeff) == n*4 - 1
+        if len(coeff) != n*4 - 1:
+            raise ValueError("HBF length must be 4*n-1", coeff)
+        if n < 2:
+            raise ValueError("Need at least two taps")
         for i, c in enumerate(coeff):
             if i != n*2 - 1:
                 if i % 1:
-                    assert c == 0, (i, c)
-                else:
-                    assert c == coeff[-1 - i]
+                    if c:
+                        raise ValueError(
+                                "HBF even taps must be zero", (i, c))
+                elif c != coeff[-1 - i]:
+                        raise ValueError(
+                                "HBF even taps must be symmetric", (i, c))
         super().__init__(n, **kwargs)
 
-        assert coeff[2*n - 1] > 0
+        if not coeff[2*n - 1]:
+            raise ValueError("HBF center tap must not be zero")
         logh0 = log2_int(coeff[2*n - 1])
         logh = len(self.coeff.load.data) - logh0
+        logh = 0  # TODO
         for i, c in enumerate(coeff[n*2::2]):
             self.coeff.sr[i].reset = c << logh
 
@@ -232,30 +296,38 @@ class HBFMACUpsampler(SymMACFIR):
         logx = len(self.dsp.a) - width
         logp = logx + logh + logh0
 
+        logp, logh, logx = 0, 0, 0  # TODO
+
         self.input = Endpoint([("data", (width, True))])
         self.output = Endpoint([("data", (width, True))])
 
-        even = Signal()
-        buf = Signal((width, True), reset_less=True)
+        even = Signal(reset=1)
+        p_dsp = 4
+        buf = [Signal.like(self.sample.sr[0])
+                for i in range(max(1 + p_dsp//n, 1))]
         self.comb += [
             self.sample.load.data[logx:].eq(self.input.data),
-            self.sample.load.stb.eq(self.input.stb & ~even),
-            self.input.ack.eq(self.sample.load.ack & ~even),
+            self.sample.load.stb.eq(self.input.stb),
+            self.input.ack.eq(self.sample.load.ack),
 
             self.bias.eq(0),  # TODO
 
             # marks the end of an interpolation pair
             self.output.eop.eq(~even),
-            self.output.data.eq(Mux(even, self.out.data[logp:], buf)),
+            self.output.data.eq(Mux(
+                even, self.out.data[logp:], buf[-1] << logh0)),
             self.output.stb.eq(self.out.stb | ~even),
             self.out.ack.eq(even & self.output.ack),
         ]
         self.sync += [
             If(self.output.stb & self.output.ack,
-                even.eq(0),
+                even.eq(~even),
+                If(~even,
+                    Cat(buf[1:]).eq(Cat(buf))
+                ),
             ),
             If(self.input.stb & self.input.ack,
-                buf.eq(self.sample.out.data[logp:]),  # tap the center sample
-                even.eq(1),
+                # tap the center sample
+                buf[0].eq(self.sample.out.data)
             ),
         ]

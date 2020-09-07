@@ -86,6 +86,32 @@ class TestSRStorage(unittest.TestCase):
                 self.assertEqual(oi, list(range(i, i + 3)))
 
 
+def feed(endpoint, x, maxwait=20):
+    for i in x:
+        for _ in range(random.randint(0, maxwait)):
+            yield
+        yield endpoint.data.eq(int(i))
+        yield endpoint.stb.eq(1)
+        yield
+        while not (yield endpoint.ack):
+            yield
+        yield endpoint.stb.eq(0)
+
+
+@passive
+def retrieve(endpoint, o, maxwait=10):
+    yield
+    while True:
+        for _ in range(random.randint(0, maxwait)):
+            yield
+        yield endpoint.ack.eq(1)
+        yield
+        while not (yield endpoint.stb):
+            yield
+        o.append((yield endpoint.data))
+        yield endpoint.ack.eq(0)
+
+
 class TestMACFIR(unittest.TestCase):
     def test_init(self):
         dut = fir.MACFIR(n=10)
@@ -93,33 +119,9 @@ class TestMACFIR(unittest.TestCase):
         self.assertEqual(len(dut.coeff.load.data), 18)
         self.assertEqual(len(dut.out.data), 48)
 
-    def load(self, dut, h, x):
+    def setcoeff(self, c, h):
         for i, bi in enumerate(h):
-            yield dut.coeff.sr[i].eq(int(bi))
-        yield dut.bias.eq(0)
-        yield
-        for i in x:
-            for _ in range(random.randint(0, 20)):
-                yield
-            yield dut.sample.load.data.eq(int(i))
-            yield dut.sample.load.stb.eq(1)
-            yield
-            while not (yield dut.sample.load.ack):
-                yield
-            yield dut.sample.load.stb.eq(0)
-
-    @passive
-    def retrieve(self, dut, o):
-        yield
-        while True:
-            for _ in range(random.randint(0, 20)):
-                yield
-            yield dut.out.ack.eq(1)
-            yield
-            while not (yield dut.out.stb):
-                yield
-            o.append((yield dut.out.data))
-            yield dut.out.ack.eq(0)
+            yield c[i].eq(int(bi))
 
     def test_run(self):
         x = np.arange(20) + 1
@@ -127,8 +129,8 @@ class TestMACFIR(unittest.TestCase):
         dut = fir.MACFIR(n=len(h))
         o = []
         random.seed(42)
-        run_simulation(
-            dut, [self.load(dut, h[::-1], x), self.retrieve(dut, o)])
+        run_simulation(dut, [self.setcoeff(dut.coeff.sr, h[::-1]),
+            feed(dut.sample.load, x), retrieve(dut.out, o)])
         p = np.convolve(h, x)
         self.assertEqual(o, list(p[:len(o)]))
 
@@ -138,8 +140,8 @@ class TestMACFIR(unittest.TestCase):
         dut = fir.SymMACFIR(n=len(h))
         o = []
         random.seed(42)
-        run_simulation(
-            dut, [self.load(dut, h[::-1], x), self.retrieve(dut, o)])
+        run_simulation(dut, [self.setcoeff(dut.coeff.sr, h[::-1]),
+            feed(dut.sample.load, x), retrieve(dut.out, o)])
         hh = np.r_[h, h[::-1]]
         p = np.convolve(hh, x)
         self.assertEqual(o, list(p[:len(o)]))
@@ -147,43 +149,23 @@ class TestMACFIR(unittest.TestCase):
 
 class TestHBFMACUp(unittest.TestCase):
     def test_init(self):
-        coeff = [1, 0, -3, 0, 6, 8, 6, 0, -3, 0, 1]
+        coeff = [-3, 0, 6, 8, 6, 0, -3]
         dut = fir.HBFMACUpsampler(coeff)
-        self.assertEqual(len(dut.coeff.sr), 3)
+        self.assertEqual(len(dut.coeff.sr), 2)
 
-    def feed(self, dut, x):
-        for i in x:
-            for _ in range(random.randint(0, 20)):
-                yield
-            yield dut.input.data.eq(int(i))
-            yield dut.input.stb.eq(1)
-            yield
-            while not (yield dut.input.ack):
-                yield
-            yield dut.input.stb.eq(0)
-
-    @passive
-    def retrieve(self, dut, o):
-        yield
-        while True:
-            for _ in range(random.randint(0, 20)):
-                yield
-            yield dut.output.ack.eq(1)
-            yield
-            while not (yield dut.output.stb):
-                yield
-            o.append((yield dut.output.data))
-            yield dut.output.ack.eq(0)
+    def test_coeff(self):
+        for c in [0], [-1, 3, -1], [-1, 0, 1, 0, 1, 0, 1, -2]:
+            with self.subTest(coeff=c):
+                with self.assertRaises(ValueError):
+                    fir.HBFMACUpsampler(c)
 
     def test_run(self):
         x = np.arange(20) + 1
-        coeff = [1, 0, -3, 0, 6, 0, -16, 32, -16, 0, 6, 0, -3, 0, 1]
+        coeff = [1, 0, -3, 0, 6, 0, -20, 32, -20, 0, 6, 0, -3, 0, 1]
         dut = fir.HBFMACUpsampler(coeff)
         o = []
         random.seed(42)
-        run_simulation(
-            dut, [self.feed(dut, x), self.retrieve(dut, o)], vcd_name="hbf.vcd")
-        p = np.convolve(coeff, x)
+        run_simulation(dut, [
+            feed(dut.input, x, maxwait=0), retrieve(dut.output, o, maxwait=1)], vcd_name="hbf.vcd")
+        p = np.convolve(coeff, np.c_[x, np.zeros_like(x)].ravel())
         self.assertEqual(o, list(p[:len(o)]))
-
-
