@@ -113,11 +113,14 @@ class SRStorage(Module):
             self.sync += [
                 If(self.out.stb & self.out.ack,
                     Cat(self.sr).eq(Cat(self.sr[1:], self.sr[0])),
-                ),
-                If(self.load.stb & self.load.ack & self.load.eop,
-                    self.sr[-1].eq(self.load.data),
-                ),
+                )
             ]
+            if mode == "old-first":
+                self.sync += [
+                    If(self.load.stb & self.load.ack & self.load.eop,
+                        self.sr[-1].eq(self.load.data),
+                    ),
+                ]
         elif mode == "new-first":
             buf = Signal.like(self.sr[0])
             self.sync += [
@@ -142,7 +145,6 @@ class MemStorage(Module):
     Loads a new word, discards the oldest, and emits the entire storage in
     time order"""
     def __init__(self, depth, width, mode="old-first"):
-        raise NotImplementedError
         # Mem Storage time sequences for depth=4, different modes:
         #
         # old-first
@@ -171,6 +173,7 @@ class MemStorage(Module):
         #      e   dcba 2    b
         #      e   dcba 3    a
         # f        dcbe 3    e  wait
+        raise NotImplementedError
 
 
 class MACFIR(Module):
@@ -271,7 +274,7 @@ class HBFMACUpsampler(SymMACFIR):
         if len(coeff) != n*4 - 1:
             raise ValueError("HBF length must be 4*n-1", coeff)
         if n < 2:
-            raise ValueError("Need at least two taps")
+            raise ValueError("Need n >= 2")
         for i, c in enumerate(coeff):
             if i != n*2 - 1:
                 if i % 1:
