@@ -323,7 +323,7 @@ class HBFMACUpsampler(SymMACFIR):
             If(self.output.stb & self.output.ack,
                 even.eq(~even),
                 If(~even,
-                    Cat(buf[1:]).eq(Cat(buf))
+                    Cat(buf[1:]).eq(Cat(buf)) if len(buf) > 1 else []
                 ),
             ),
             If(self.input.stb & self.input.ack,
