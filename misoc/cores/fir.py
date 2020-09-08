@@ -24,6 +24,7 @@ class DSP(Module):
         for reg, width in width.items():
             self._make_pipe_reg(reg, width, pipe.get(reg, 0))
         self.presub = Signal()
+        self.postsub = Signal()
 
         self.comb += [
             If(self.presub,
@@ -32,7 +33,11 @@ class DSP(Module):
                 self.ad.eq(self.ar + self.dr),
             ),
             self.m.eq(self.adr*self.br),
-            self.p.eq(self.mr + self.cr),
+            If(self.postsub,
+                self.p.eq(self.cr - self.mr),
+            ).Else(
+                self.p.eq(self.cr + self.mr),
+            ),
         ]
 
     def _make_pipe_reg(self, reg, width, pipe, reset=0):
@@ -189,7 +194,7 @@ class MACFIR(Module):
     Multiple `MACFIR` can be cascaded in a systolic arrangement for higher
     throughput.
     """
-    def __init__(self, n, **kwargs):
+    def __init__(self, n, scale, **kwargs):
         pipe = dict(a=1, b=2, c=0, d=1, ad=1, m=1, p=1)
         self.submodules.dsp = DSP(pipe=pipe, **kwargs)
         width = len(self.dsp.a), True
@@ -197,7 +202,7 @@ class MACFIR(Module):
             n, (len(self.dsp.b), True), mode="circular")
         self.submodules.sample = SRStorage(n, width, mode="old-first")
         self.out = Endpoint([("data", (len(self.dsp.pr), True))])
-        self.bias = Signal.like(self.dsp.c)
+        self.bias = Signal.like(self.dsp.c, reset=(1 << max(0, scale - 1)) - 1)
 
         p_dsp = 4  # a/d/b0, ad/b1, m, p
         q = Signal(p_dsp)
@@ -232,7 +237,7 @@ class MACFIR(Module):
             self.dsp.cem0.eq(ack_dsp),
             self.dsp.cep0.eq(ack_dsp),
 
-            self.out.data.eq(self.dsp.pr),
+            self.out.data.eq(self.dsp.pr >> scale),
             self.out.stb.eq(q[-1]),
         ]
 
@@ -254,8 +259,8 @@ class SymMACFIR(MACFIR):
     To support an array of multiple systolic symmetric MAC FIR blocks (to
     increase throughput), the `sample`->`sym` connection should be overridden.
     """
-    def __init__(self, n, **kwargs):
-        super().__init__(n, **kwargs)
+    def __init__(self, n, scale, **kwargs):
+        super().__init__(n, scale, **kwargs)
         self.submodules.sym = SRStorage(
             n, (len(self.dsp.d), True), mode="new-first")
         self.comb += [
@@ -269,38 +274,32 @@ class SymMACFIR(MACFIR):
 
 
 class HBFMACUpsampler(SymMACFIR):
-    def __init__(self, coeff, width=None, **kwargs):
+    def __init__(self, coeff, **kwargs):
         n = (len(coeff) + 1)//4
         if len(coeff) != n*4 - 1:
             raise ValueError("HBF length must be 4*n-1", coeff)
-        if n < 2:
-            raise ValueError("Need n >= 2")
+        elif n < 2:
+            raise ValueError("Need order n >= 2")
         for i, c in enumerate(coeff):
-            if i != n*2 - 1:
-                if i % 1:
-                    if c:
-                        raise ValueError(
-                                "HBF even taps must be zero", (i, c))
-                elif c != coeff[-1 - i]:
-                        raise ValueError(
-                                "HBF even taps must be symmetric", (i, c))
-        super().__init__(n, **kwargs)
+            if i == n*2 - 1:
+                if not c:
+                    raise ValueError("HBF center tap must not be zero")
+                scale = log2_int(c)
+            elif i & 1:
+                if c:
+                    raise ValueError("HBF even taps must be zero", (i, c))
+            elif not c:
+                raise ValueError("HBF needs odd taps", (i, c))
+            elif c != coeff[-1 - i]:
+                raise ValueError("HBF must be symmetric", (i, c))
 
-        if not coeff[2*n - 1]:
-            raise ValueError("HBF center tap must not be zero")
-        logh0 = log2_int(coeff[2*n - 1])
-        logh = len(self.coeff.load.data) - logh0
-        logh = 0  # TODO
+        super().__init__(n=n, scale=scale, **kwargs)
+        # TODO maybe MSB align and increase scale
+        logh = 0
         for i, c in enumerate(coeff[n*2::2]):
             self.coeff.sr[i].reset = c << logh
 
-        if width is None:
-            width = len(self.dsp.a)
-        logx = len(self.dsp.a) - width
-        logp = logx + logh + logh0
-
-        logp, logh, logx = 0, 0, 0  # TODO
-
+        width = len(self.dsp.a)
         self.input = Endpoint([("data", (width, True))])
         self.output = Endpoint([("data", (width, True))])
 
@@ -309,7 +308,7 @@ class HBFMACUpsampler(SymMACFIR):
         buf = [Signal.like(self.sample.sr[0])
                 for i in range(max(1 + p_dsp//n, 1))]
         self.comb += [
-            self.sample.load.data[logx:].eq(self.input.data),
+            self.sample.load.data.eq(self.input.data),
             self.sample.load.stb.eq(self.input.stb),
             self.input.ack.eq(self.sample.load.ack),
 
@@ -318,7 +317,7 @@ class HBFMACUpsampler(SymMACFIR):
             # marks the end of an interpolation pair
             self.output.eop.eq(~even),
             self.output.data.eq(Mux(
-                even, self.out.data[logp:], buf[-1] << logh0)),
+                even, self.out.data, buf[-1])),
             self.output.stb.eq(self.out.stb | ~even),
             self.out.ack.eq(even & self.output.ack),
         ]

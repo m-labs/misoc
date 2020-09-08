@@ -114,7 +114,7 @@ def retrieve(endpoint, o, maxwait=10):
 
 class TestMACFIR(unittest.TestCase):
     def test_init(self):
-        dut = fir.MACFIR(n=10)
+        dut = fir.MACFIR(n=10, scale=0)
         self.assertEqual(len(dut.sample.load.data), 24)
         self.assertEqual(len(dut.coeff.load.data), 18)
         self.assertEqual(len(dut.out.data), 48)
@@ -126,7 +126,7 @@ class TestMACFIR(unittest.TestCase):
     def test_run(self):
         x = np.arange(20) + 1
         h = np.arange(10) + 1
-        dut = fir.MACFIR(n=len(h))
+        dut = fir.MACFIR(n=len(h), scale=0)
         o = []
         random.seed(42)
         run_simulation(dut, [self.setcoeff(dut.coeff.sr, h[::-1]),
@@ -137,7 +137,7 @@ class TestMACFIR(unittest.TestCase):
     def test_sym(self):
         x = np.arange(20) + 1
         h = np.arange(5) + 1
-        dut = fir.SymMACFIR(n=len(h))
+        dut = fir.SymMACFIR(n=len(h), scale=0)
         o = []
         random.seed(42)
         run_simulation(dut, [self.setcoeff(dut.coeff.sr, h[::-1]),
@@ -163,10 +163,13 @@ class TestHBFMACUp(unittest.TestCase):
         x = np.arange(20) + 1
         coeff = [1, 0, -3, 0, 6, 0, -20, 32, -20, 0, 6, 0, -3, 0, 1]
         dut = fir.HBFMACUpsampler(coeff)
+        self.assertEqual(dut.bias.reset.value, 15)
         o = []
         random.seed(42)
         run_simulation(dut, [feed(dut.input, x, maxwait=0),
                              retrieve(dut.output, o, maxwait=0)],
                        vcd_name="hbf.vcd")
         p = np.convolve(coeff, np.c_[x, np.zeros_like(x)].ravel())
+        # bias and rounding
+        p = (p + 15) >> 5
         self.assertEqual(o, list(p[:len(o)]))
