@@ -312,8 +312,6 @@ class HBFMACUpsampler(SymMACFIR):
             self.sample.load.stb.eq(self.input.stb),
             self.input.ack.eq(self.sample.load.ack),
 
-            self.bias.eq(0),  # TODO
-
             # marks the end of an interpolation pair
             self.output.eop.eq(~even),
             self.output.data.eq(Mux(
