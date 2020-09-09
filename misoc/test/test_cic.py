@@ -55,6 +55,6 @@ class TestCIC(unittest.TestCase):
         y = []
         run_simulation(self.dut, [feed(self.dut.input, x, (2, 5)),
                                   retrieve(self.dut.output, y)])
-        y = np.ravel(y)[33:]
+        y = np.ravel(y)[35:]
         y0 = cic_up(x, n=4, r=5)[:len(y)]
         np.testing.assert_equal(y, y0)

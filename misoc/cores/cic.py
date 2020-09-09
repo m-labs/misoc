@@ -12,26 +12,39 @@ class SuperCIC(Module):
     in the usual notation.
 
     * R can be odd.
-    * It can be generalized to any S.
-    * There is no handshaking between the input and output domains and no
-      backward or forward pressure. R is only used to compute bit growth
-      guard width.
+    * It can be generalized to any S and to S/T output rate
     * The output has gain R**(N - 1).
     """
     def __init__(self, n, r, width):
         if n < 1:
             raise ValueError()
+        s = 2
+        # m = 1
         b = log2(r)  # bit growth
         self.input = Endpoint([("data", (width, True))])
         self.output = Endpoint([("data0", (width + ceil((n - 1)*b), True)),
                                 ("data1", (width + ceil((n - 1)*b), True))])
         comb_ce = Signal()
         int_ce = Signal()
+        i = Signal(max=r)
+
         self.comb += [
-            self.input.ack.eq(1),
+            self.input.ack.eq((i == 0) | (i == 1)),
             comb_ce.eq(self.input.stb & self.input.ack),
             self.output.stb.eq(1),
             int_ce.eq(self.output.stb & self.output.ack)
+        ]
+
+        self.sync += [
+            If(int_ce,
+                i.eq(i + s),
+                If(i == r - 1,
+                    i.eq(1),
+                ),
+                If(i == r - 2,
+                    i.eq(0),
+                ),
+            )
         ]
 
         sig = self.input.data
@@ -56,15 +69,13 @@ class SuperCIC(Module):
         sig_a = Signal((w, True), reset_less=True)
         sig_b = Signal((w, True))
         sig_i = Signal((w, True))
-        even = Signal()
         self.comb += [
             sig_i.eq(sig_b + sig),
         ]
         self.sync += [
             sig_a.eq(sig_b),
             If(comb_ce,
-                even.eq(~even),
-                If(even,
+                If(i == 1,
                     sig_a.eq(sig_i),
                 ),
                 sig_b.eq(sig_i),
