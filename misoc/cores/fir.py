@@ -306,7 +306,7 @@ class HBFMACUpsampler(SymMACFIR):
         even = Signal(reset=1)
         p_dsp = 4
         buf = [Signal.like(self.sample.sr[0])
-                for i in range(max(1 + p_dsp//n, 1))]
+                for i in range(max(2 + p_dsp//n, 1))]
         self.comb += [
             self.sample.load.data.eq(self.input.data),
             self.sample.load.stb.eq(self.input.stb),
