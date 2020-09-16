@@ -29,7 +29,7 @@ class SuperCIC(Module):
         i = Signal(max=r)
 
         self.comb += [
-            self.input.ack.eq((i == 0) | (i == 1)),
+            self.input.ack.eq((i == 0) | (i == r//s)),
             comb_ce.eq(self.input.stb & self.input.ack),
             self.output.stb.eq(1),
             int_ce.eq(self.output.stb & self.output.ack)
@@ -37,11 +37,8 @@ class SuperCIC(Module):
 
         self.sync += [
             If(int_ce,
-                i.eq(i + s),
+                i.eq(i + 1),
                 If(i == r - 1,
-                    i.eq(1),
-                ),
-                If(i == r - 2,
                     i.eq(0),
                 ),
             )
@@ -50,12 +47,12 @@ class SuperCIC(Module):
         sig = self.input.data
         sig.reset_less = True
 
-        w = len(sig)
-        # comb stages
+        width = len(sig)
+        # comb stages, one pipeline stage each
         for _ in range(n):
-            old = Signal((w, True), reset_less=True)
-            w += 1
-            diff = Signal((w, True), reset_less=True)
+            old = Signal((width, True), reset_less=True)
+            width += 1
+            diff = Signal((width, True), reset_less=True)
             self.sync += [
                 If(comb_ce,
                     old.eq(sig),
@@ -64,31 +61,31 @@ class SuperCIC(Module):
             ]
             sig = diff
 
-        # zero stuffer, gearbox, and first integrator
-        w -= 1
-        sig_a = Signal((w, True), reset_less=True)
-        sig_b = Signal((w, True))
-        sig_i = Signal((w, True))
+        # zero stuffer, gearbox, and first integrator, one pipeline stage
+        width -= 1
+        sig_a = Signal((width, True), reset_less=True)
+        sig_b = Signal((width, True))
+        sig_i = Signal((width, True))
         self.comb += [
             sig_i.eq(sig_b + sig),
         ]
         self.sync += [
             sig_a.eq(sig_b),
             If(comb_ce,
-                If(i == 1,
+                If(i == 0,
                     sig_a.eq(sig_i),
                 ),
                 sig_b.eq(sig_i),
             )
         ]
 
-        # integrator stages
+        # integrator stages, two pipeline stages each
         for _ in range(n - 1):
-            sig_a0 = Signal((ceil(w), True), reset_less=True)
-            sum_ab = Signal((ceil(w) + 1, True), reset_less=True)
-            w += b - 1
-            sum_a = Signal((ceil(w), True), reset_less=True)
-            sum_b = Signal((ceil(w), True))
+            sig_a0 = Signal((ceil(width), True), reset_less=True)
+            sum_ab = Signal((ceil(width) + 1, True), reset_less=True)
+            width += b - 1
+            sum_a = Signal((ceil(width), True), reset_less=True)
+            sum_b = Signal((ceil(width), True))
             self.sync += [
                 If(int_ce,
                     sig_a0.eq(sig_a),
@@ -99,7 +96,7 @@ class SuperCIC(Module):
             ]
             sig_a, sig_b = sum_a, sum_b
 
-        assert ceil(w) == len(self.output.data0)
+        assert ceil(width) == len(self.output.data0)
 
         self.comb += [
             self.output.data0.eq(sig_a),

@@ -277,6 +277,7 @@ class MultiDDS(Accu):
             If(self.stb,
                 run.eq(1),
             ),
+            # TODO: saturating summation
             If(run,
                 self.o.i.eq(Mux(cycle(latency), 0, self.o.i) +
                             self.mod.o.i),
