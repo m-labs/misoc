@@ -293,7 +293,7 @@ class TestMultiDDS(unittest.TestCase):
                     self.assertLessEqual(abs(ai - aii), 2)
                     self.assertLessEqual(abs(aq - aiq), 2)
                 # test scaler and summation output
-                lat = 2 + self.dut.cs.latency + self.dut.mul.latency + 1
+                lat = 2 + self.dut.cs.latency + self.dut.mul.latency + 2
                 if i >= lat and (yield self.dut.valid):
                     cyc = (i - lat) // n
                     oii, oiq = 0, 0

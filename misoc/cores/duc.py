@@ -35,6 +35,25 @@ def pipe(lhs, rhs, n, reset_less=True):
     return stmts
 
 
+def saturate(lhs, rhs, headroom=None):
+    """Assign the `rhs` to `lhs` saturating to the signed minimum/maximum
+    using `headroom` bits to prevent overflow."""
+    if headroom is None:
+        headroom = len(rhs) - len(lhs)
+    if headroom == 0:
+        return lhs.eq(rhs)
+    return (
+        If(rhs[-headroom - 1:-1] == Replicate(rhs[-1], headroom),
+            # all headroom bits match sign bit, in range
+            lhs.eq(rhs),
+        ).Else(  # out of range
+            # return min or max depending on sign bit
+            lhs.eq(Cat(Replicate(~rhs[-1], len(rhs) - headroom - 1),
+                       Replicate(rhs[-1], headroom + 1))),
+        )
+    )
+
+
 class ComplexMultiplier(Module):
     def __init__(self, awidth=16, bwidth=None, pwidth=None):
         """
@@ -280,18 +299,20 @@ class MultiDDS(Accu):
         self.i = [Record([
             ("f", fwidth), ("p", xwidth), ("a", xwidth - 1), ("clr", 1)])
                   for i in range(n)]
+        self.o = Record(complex(xwidth), reset_less=True)
         self.stb = Signal()
         self.valid = Signal()
 
+        headroom = log2_int(n, need_pow2=False)
         self.submodules.cs = CosSinGen(x=xwidth - 1, **kwargs)
         self.submodules.mul = RealComplexMultiplier(
-            awidth=len(self.cs.x), pwidth=len(self.cs.x))
+            awidth=len(self.cs.x) + headroom, bwidth=len(self.cs.x),
+            pwidth=len(self.cs.x) + headroom)
 
         self.sync += [
             self.mul.b.i.eq(self.cs.x),
             self.mul.b.q.eq(self.cs.y),
         ]
-        self.o = self.mul.p
 
         # accu
         accu = [Signal(fwidth) for _ in range(n)]
@@ -335,11 +356,12 @@ class MultiDDS(Accu):
             If(self.stb,
                 run.eq(1),
             ),
-            # TODO: saturating summation
+            self.valid.eq(run & cycle(latency)),
+            saturate(self.o.i, self.mul.p.i),
+            saturate(self.o.q, self.mul.p.q),
         ]
         self.comb += [
             self.mul.accu.eq(run & ~cycle(latency)),
-            self.valid.eq(run & cycle(latency)),
         ]
 
 
