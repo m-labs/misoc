@@ -107,6 +107,55 @@ class ComplexMultiplier(Module):
         self.latency = 5
 
 
+class RealComplexMultiplier(Module):
+    def __init__(self, awidth=16, bwidth=None, pwidth=None):
+        """
+        Real-Complex multiplier, with full pipelining, using 2 DSP, rounding
+
+        `p.i + 1j*p.q = a*b.i + 1j*a*b.q`
+
+        Output scaling and rounding for `pwidth < awidth + bwidth + 1`:
+        * Rounding is "round half down".
+        """
+        if bwidth is None:
+            bwidth = awidth
+        if pwidth is None:
+            # worst case min*min
+            pwidth = awidth + bwidth
+        self.a = Signal((awidth, True), reset_less=True)  # 5
+        self.b = Record(complex(bwidth), reset_less=True)  # 5
+        self.p = Record(complex(pwidth), reset_less=True)
+        self.accu = Signal()  # accumulate instead of bias
+
+        # with rounding the worst case is assumed (!) to be max*max
+        # 1 bit smaller than full width worst case above
+        bias_bits = max(0, (awidth + bwidth - 1) - pwidth)
+        # rounding bias constant
+        # we don't implement more complicated rounding (even/odd) because
+        # doing so looks like it might not fit into the DSPs and
+        # due to the typically large shift the remaining bias is small.
+        bias = (1 << bias_bits - 1) - 1 if bias_bits > 0 else 0
+
+        m = [Signal((awidth + bwidth, True), reset_less=True)
+             for _ in range(4)]
+        self.sync += [
+            m[0].eq(self.a*self.b.i),  # 1
+            m[1].eq(self.a*self.b.q),  # 1
+            If(self.accu,
+                m[2].eq(m[0] + m[2]),  # 2
+                m[3].eq(m[1] + m[3]),  # 2
+            ).Else(
+                m[2].eq(m[0] + bias),  # 2
+                m[3].eq(m[1] + bias),  # 2
+            )
+        ]
+        self.comb += [
+            self.p.i.eq(m[2][bias_bits:]),
+            self.p.q.eq(m[3][bias_bits:]),
+        ]
+        self.latency = 2
+
+
 class Accu(Module):
     """Phase accumulator, with frequency, phase offset and clear"""
     def __init__(self, fwidth, pwidth):
@@ -231,62 +280,67 @@ class MultiDDS(Accu):
         self.i = [Record([
             ("f", fwidth), ("p", xwidth), ("a", xwidth - 1), ("clr", 1)])
                   for i in range(n)]
-        self.o = Record(complex(xwidth), reset_less=True)
         self.stb = Signal()
         self.valid = Signal()
 
-        self.submodules.mod = PhaseModulator(x=xwidth - 1, **kwargs)
+        self.submodules.cs = CosSinGen(x=xwidth - 1, **kwargs)
+        self.submodules.mul = RealComplexMultiplier(
+            awidth=len(self.cs.x), pwidth=len(self.cs.x))
+
+        self.sync += [
+            self.mul.b.i.eq(self.cs.x),
+            self.mul.b.q.eq(self.cs.y),
+        ]
+        self.o = self.mul.p
+
         # accu
         accu = [Signal(fwidth) for _ in range(n)]
         run = Signal()
 
-        i = Signal(max=n)
+        i = Signal(n, reset=1)
         self._i = i
         def cycle(offset):
-            return i == offset % n
+            return i[offset % n]
 
         for ii, ctrl in enumerate(self.i):
             self.sync += [
-                If(run & cycle(ii),
-                    accu[ii].eq(accu[ii] + ctrl.f),
+                If(cycle(ii),
+                    If(run,
+                        accu[ii].eq(accu[ii] + ctrl.f),
+                    ),
                     If(ctrl.clr,
                         accu[ii].eq(0)
                     ),
                 ),
                 If(cycle(ii + 1),
-                    self.mod.z.eq(
+                    self.cs.z.eq(
                         (accu[ii] + (ctrl.p << fwidth - len(ctrl.p))
-                         )[fwidth - len(self.mod.z):]),
+                         )[fwidth - len(self.cs.z):]),
                 ),
-                If(cycle(ii + 2 + self.mod.cs.latency),
-                    self.mod.i.i.eq(ctrl.a),
+                If(cycle(ii + 2 + self.cs.latency),
+                    self.mul.a.eq(ctrl.a),
                 ),
             ]
 
         # 2: q, z
-        latency = self.mod.latency + 2
+        latency = 2 + self.cs.latency + self.mul.latency
 
         self.sync += [
             If(run,
-                i.eq(i + 1),
+                i.eq(Cat(i[-1], i)),
             ),
             If(cycle(n - 1),
-                i.eq(0),
                 run.eq(0),
             ),
             If(self.stb,
                 run.eq(1),
             ),
             # TODO: saturating summation
-            If(run,
-                self.o.i.eq(Mux(cycle(latency), 0, self.o.i) +
-                            self.mod.o.i),
-                self.o.q.eq(Mux(cycle(latency), 0, self.o.q) +
-                            self.mod.o.q),
-            ),
-            self.valid.eq(run & cycle(latency - 1)),
         ]
-
+        self.comb += [
+            self.mul.accu.eq(run & ~cycle(latency)),
+            self.valid.eq(run & cycle(latency)),
+        ]
 
 
 class PhasedDUC(Module):

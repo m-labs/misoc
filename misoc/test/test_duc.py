@@ -255,10 +255,10 @@ class TestMultiDDS(unittest.TestCase):
         n = len(self.dut.i)
 
         def phase(cyc, ch):
-            return ((ch << 10) | (ch << 14)*(cyc + 1)) & 0x3ffff
+            return (((ch + 1) << 10) | ((ch + 1) << 14)*(cyc + 1)) & 0x3ffff
 
         def amp(ch):
-            return ch << 10
+            return (ch + 1) << 10
 
         def cossin(z):
             i = 0x7ffd*np.cos(z*2.*np.pi/(1 << 18))
@@ -267,9 +267,9 @@ class TestMultiDDS(unittest.TestCase):
 
         def gen():
             for i, ctrl in enumerate(self.dut.i):
-                yield ctrl.f.eq(i << 28)
-                yield ctrl.p.eq(i << 8)
-                yield ctrl.a.eq(i << 10)
+                yield ctrl.f.eq((i + 1) << 28)
+                yield ctrl.p.eq((i + 1) << 8)
+                yield ctrl.a.eq((i + 1) << 10)
                 yield ctrl.clr.eq(0)
             yield self.dut.stb.eq(1)
             yield  # run
@@ -279,21 +279,21 @@ class TestMultiDDS(unittest.TestCase):
                 lat = 2
                 if i >= lat:
                     zi = phase(*divmod(i - lat, n))
-                    z = yield self.dut.mod.z
+                    z = yield self.dut.cs.z
                     self.assertEqual(z, zi)
                 # test scaler input
-                lat = 2 + self.dut.mod.cs.latency + 1
+                lat = 2 + self.dut.cs.latency + 1
                 if i >= lat:
                     ch = (i - lat) % n
-                    bi = yield self.dut.mod.i.i
+                    bi = yield self.dut.mul.a
                     self.assertEqual(bi, amp(ch))
                     aii, aiq = cossin(phase(*divmod(i - lat, n)))
-                    ai = yield self.dut.mod.mul.a.i
-                    aq = yield self.dut.mod.mul.a.q
+                    ai = yield self.dut.mul.b.i
+                    aq = yield self.dut.mul.b.q
                     self.assertLessEqual(abs(ai - aii), 2)
                     self.assertLessEqual(abs(aq - aiq), 2)
                 # test scaler and summation output
-                lat = 2 + self.dut.mod.latency + 1
+                lat = 2 + self.dut.cs.latency + self.dut.mul.latency + 1
                 if i >= lat and (yield self.dut.valid):
                     cyc = (i - lat) // n
                     oii, oiq = 0, 0
