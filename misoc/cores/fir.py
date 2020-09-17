@@ -5,7 +5,7 @@ from misoc.interconnect.stream import Endpoint
 class DSP(Module):
     """DSP multiplier abstraction
 
-    `p = (a +- d)*b + c`
+    `p = c +- (a +- d)*b`
 
     Includes configurable number of pipeline stages each with a (common)
     reset and individual clock enables. This models the typical DSP block
@@ -304,9 +304,9 @@ class HBFMACUpsampler(SymMACFIR):
         self.output = Endpoint([("data", (width, True))])
 
         inter = Signal(reset=1)  # interpolated sample pending
-        p_dsp = 4
+        p_dsp = 4  # dsp pipeline depth
         buf = [Signal.like(self.sample.sr[0])
-                for i in range(2 + p_dsp//n)]
+                for i in range(1 + p_dsp//n)]
         self.comb += [
             self.sample.load.data.eq(self.input.data),
             self.sample.load.stb.eq(self.input.stb),
@@ -328,6 +328,6 @@ class HBFMACUpsampler(SymMACFIR):
             ),
             If(self.input.stb & self.input.ack,
                 # tap the center sample
-                buf[0].eq(self.sample.out.data)
+                buf[0].eq(self.sym.out.data)
             ),
         ]

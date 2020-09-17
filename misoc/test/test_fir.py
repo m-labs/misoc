@@ -170,6 +170,11 @@ class TestHBFMACUp(unittest.TestCase):
         self.filter(coeff, x)
 
     def test_run2(self):
+        coeff = [-5, 0, 10, 0, -15, 2, -15, 0, 10, 0, -5]
+        x = np.arange(30) + 1
+        self.filter(coeff, x)
+
+    def test_run3(self):
         x = np.arange(30) + 1
         n = 10
         coeff = []
@@ -183,14 +188,13 @@ class TestHBFMACUp(unittest.TestCase):
 
     def filter(self, coeff, x):
         dut = fir.HBFMACUpsampler(coeff)
-        n = (len(coeff) + 1)//4
-        b = log2_int(coeff[2*n - 1])
+        b = log2_int(coeff[(len(coeff) + 1)//2 - 1])
         bias = (1 << max(0, b - 1)) - 1
         self.assertEqual(dut.bias.reset.value, bias)
         o = []
         random.seed(42)
         run_simulation(dut, [feed(dut.input, x, maxwait=0),
-                             retrieve(dut.output, o, maxwait=0)],
+                             retrieve(dut.output, o, maxwait=5)],
                        vcd_name="hbf.vcd")
         p = np.convolve(coeff, np.c_[x, np.zeros_like(x)].ravel())
         # bias and rounding
