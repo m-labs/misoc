@@ -160,10 +160,33 @@ class TestHBFMACUp(unittest.TestCase):
                     fir.HBFMACUpsampler(c)
 
     def test_run(self):
-        x = np.arange(20) + 1
         coeff = [1, 0, -3, 0, 6, 0, -20, 32, -20, 0, 6, 0, -3, 0, 1]
+        x = np.arange(30) + 1
+        self.filter(coeff, x)
+
+    def test_run1(self):
+        coeff = [10, 0, -15, 2, -15, 0, 10]
+        x = np.arange(30) + 1
+        self.filter(coeff, x)
+
+    def test_run2(self):
+        x = np.arange(30) + 1
+        n = 10
+        coeff = []
+        for i in range(n):
+            if not i & 1:
+                i *= -1
+            coeff[2*i:2*i] = [i << 4, 0, i << 4, 0]
+        coeff[2*n - 1] = 1 << 8
+        coeff = coeff[2:-3]
+        self.filter(coeff, x)
+
+    def filter(self, coeff, x):
         dut = fir.HBFMACUpsampler(coeff)
-        self.assertEqual(dut.bias.reset.value, 15)
+        n = (len(coeff) + 1)//4
+        b = log2_int(coeff[2*n - 1])
+        bias = (1 << max(0, b - 1)) - 1
+        self.assertEqual(dut.bias.reset.value, bias)
         o = []
         random.seed(42)
         run_simulation(dut, [feed(dut.input, x, maxwait=0),
@@ -171,5 +194,5 @@ class TestHBFMACUp(unittest.TestCase):
                        vcd_name="hbf.vcd")
         p = np.convolve(coeff, np.c_[x, np.zeros_like(x)].ravel())
         # bias and rounding
-        p = (p + 15) >> 5
+        p = (p + bias) >> b
         self.assertEqual(o, list(p[:len(o)]))

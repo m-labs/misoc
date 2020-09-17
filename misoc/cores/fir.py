@@ -289,7 +289,7 @@ class HBFMACUpsampler(SymMACFIR):
                 if c:
                     raise ValueError("HBF even taps must be zero", (i, c))
             elif not c:
-                raise ValueError("HBF needs odd taps", (i, c))
+                raise ValueError("HBF needs non-zero odd taps", (i, c))
             elif c != coeff[-1 - i]:
                 raise ValueError("HBF must be symmetric", (i, c))
 
@@ -303,28 +303,28 @@ class HBFMACUpsampler(SymMACFIR):
         self.input = Endpoint([("data", (width, True))])
         self.output = Endpoint([("data", (width, True))])
 
-        even = Signal(reset=1)
+        inter = Signal(reset=1)  # interpolated sample pending
         p_dsp = 4
         buf = [Signal.like(self.sample.sr[0])
-                for i in range(max(2 + p_dsp//n, 1))]
+                for i in range(2 + p_dsp//n)]
         self.comb += [
             self.sample.load.data.eq(self.input.data),
             self.sample.load.stb.eq(self.input.stb),
             self.input.ack.eq(self.sample.load.ack),
 
             # marks the end of an interpolation pair
-            self.output.eop.eq(~even),
+            self.output.eop.eq(~inter),
             self.output.data.eq(Mux(
-                even, self.out.data, buf[-1])),
-            self.output.stb.eq(self.out.stb | ~even),
-            self.out.ack.eq(even & self.output.ack),
+                inter, self.out.data, buf[-1])),
+            self.output.stb.eq(self.out.stb | ~inter),
+            self.out.ack.eq(self.output.ack & inter),
         ]
         self.sync += [
             If(self.output.stb & self.output.ack,
-                even.eq(~even),
-                If(~even,
-                    Cat(buf[1:]).eq(Cat(buf)) if len(buf) > 1 else []
-                ),
+                inter.eq(~inter),
+                If(inter,
+                    Cat(buf[1:]).eq(Cat(buf))
+                ) if len(buf) > 1 else []
             ),
             If(self.input.stb & self.input.ack,
                 # tap the center sample
