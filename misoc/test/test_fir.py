@@ -117,7 +117,7 @@ class TestMACFIR(unittest.TestCase):
         dut = fir.MACFIR(n=10, scale=0)
         self.assertEqual(len(dut.sample.load.data), 24)
         self.assertEqual(len(dut.coeff.load.data), 18)
-        self.assertEqual(len(dut.out.data), 48)
+        self.assertEqual(len(dut.output.data), 48)
 
     def setcoeff(self, c, h):
         for i, bi in enumerate(h):
@@ -130,7 +130,7 @@ class TestMACFIR(unittest.TestCase):
         o = []
         random.seed(42)
         run_simulation(dut, [self.setcoeff(dut.coeff.sr, h[::-1]),
-            feed(dut.sample.load, x), retrieve(dut.out, o)])
+            feed(dut.sample.load, x), retrieve(dut.output, o)])
         p = np.convolve(h, x)
         self.assertEqual(o, list(p[:len(o)]))
 
@@ -141,7 +141,7 @@ class TestMACFIR(unittest.TestCase):
         o = []
         random.seed(42)
         run_simulation(dut, [self.setcoeff(dut.coeff.sr, h[::-1]),
-            feed(dut.sample.load, x), retrieve(dut.out, o)])
+            feed(dut.sample.load, x), retrieve(dut.output, o)])
         hh = np.r_[h, h[::-1]]
         p = np.convolve(hh, x)
         self.assertEqual(o, list(p[:len(o)]))
@@ -164,8 +164,9 @@ class TestHBFMACUp(unittest.TestCase):
             coeff, x = self.coeff(n)
             with self.subTest(coeff=coeff):
                 self.filter(coeff, x)
+            print(n)
             #with self.subTest(coeff=coeff, maxwait=True):
-            #    self.filter(coeff, x, maxwait=3)
+            #    self.filter(coeff, x, maxwait=1)
 
     def coeff(self, n):
         x = np.arange(3*n) + 1

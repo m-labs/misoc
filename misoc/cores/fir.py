@@ -201,15 +201,15 @@ class MACFIR(Module):
         self.submodules.coeff = SRStorage(
             n, (len(self.dsp.b), True), mode="circular")
         self.submodules.sample = SRStorage(n, width, mode="old-first")
-        self.out = Endpoint([("data", (len(self.dsp.pr), True))])
+        self.output = Endpoint([("data", (len(self.dsp.pr), True))])
         self.bias = Signal.like(self.dsp.c, reset=(1 << max(0, scale - 1)) - 1)
 
         p_dsp = 4  # a/d/b0, ad/b1, m, p
-        q = Signal(p_dsp)
+        eop_pipe = Signal(p_dsp)
         ack_dsp = Signal()
         self.sync += [
             If(ack_dsp,
-                q.eq(Cat(self.sample.out.eop, q)),
+                eop_pipe.eq(Cat(self.sample.out.eop, eop_pipe)),
             ),
         ]
         self.comb += [
@@ -217,7 +217,8 @@ class MACFIR(Module):
 
             self.coeff.load.stb.eq(self.sample.load.stb),  # ignore ack
 
-            ack_dsp.eq(self.sample.out.stb & (~self.out.stb | self.out.ack)),
+            ack_dsp.eq(self.sample.out.stb &
+                       (~self.output.stb | self.output.ack)),
 
             self.sample.out.ack.eq(ack_dsp),
             self.coeff.out.ack.eq(ack_dsp),  # ignore stb
@@ -229,7 +230,7 @@ class MACFIR(Module):
             self.dsp.b.eq(self.coeff.out.data),
             self.dsp.ceb0.eq(ack_dsp),
             self.dsp.ceb1.eq(ack_dsp),
-            If(q[-1],
+            If(eop_pipe[-1],
                 self.dsp.c.eq(self.bias),
             ).Else(
                 self.dsp.c.eq(self.dsp.pr),
@@ -237,8 +238,8 @@ class MACFIR(Module):
             self.dsp.cem0.eq(ack_dsp),
             self.dsp.cep0.eq(ack_dsp),
 
-            self.out.data.eq(self.dsp.pr >> scale),
-            self.out.stb.eq(q[-1]),
+            self.output.data.eq(self.dsp.pr >> scale),
+            self.output.stb.eq(eop_pipe[-1]),
         ]
 
 
@@ -300,34 +301,70 @@ class HBFMACUpsampler(SymMACFIR):
             self.coeff.sr[i].reset = c << logh
 
         width = len(self.dsp.a)
+        inter_output = self.output
         self.input = Endpoint([("data", (width, True))])
         self.output = Endpoint([("data", (width, True))])
 
-        inter = Signal(reset=1)  # interpolated sample pending
-        p_dsp = 4  # dsp pipeline depth
-        buf = [Signal.like(self.sample.sr[0])
-                for i in range(1 + p_dsp//n)]
-        self.comb += [
-            self.sample.load.data.eq(self.input.data),
-            self.sample.load.stb.eq(self.input.stb),
-            self.input.ack.eq(self.sample.load.ack),
+        # sequence (i: input, b: identity sample buffer `buf`, p: dsp p output,
+        # - buf_stb[-1], o: output, first column: cycle)
 
-            # marks the end of an interpolation pair
-            self.output.eop.eq(~inter),
-            self.output.data.eq(Mux(
-                inter, self.out.data, buf[-1])),
-            self.output.stb.eq(self.out.stb | ~inter),
-            self.out.ack.eq(self.output.ack & inter),
+        # n=2 p=4
+        #  ib po
+        # 0a
+        # 1 a
+        # 2b
+        # 3 ba
+        # 4c   -
+        # 5 cbai
+
+        # n=3 p=4
+        #  ib po
+        # 0a
+        # 1 a
+        # 2
+        # 3b
+        # 4 ba
+        # 5    -
+        # 6c  ai
+
+        # n=4 p=4
+        #  ib po
+        # 0a
+        # 1 a
+        # 2
+        # 3
+        # 4b
+        # 5 ba
+        # 6    -
+        # 7   ai
+
+        inter = Signal()  # interpolated sample pending
+        buf = [Signal.like(self.sample.sr[0]) for i in range(2)]
+        buf_stb = Signal(3)
+        self.comb += [
+            self.input.ack.eq(self.sample.load.ack),
+            self.sample.load.stb.eq(self.input.stb),
+            self.sample.load.data.eq(self.input.data),
+            If(inter,  # interpolated from DSP
+                inter_output.connect(self.output),
+                self.output.eop.eq(1),
+            ).Else(  # identity from buffer
+                self.output.stb.eq(buf_stb[-1]),
+                self.output.data.eq(buf[1]),
+            )
         ]
         self.sync += [
             If(self.output.stb & self.output.ack,
                 inter.eq(~inter),
-                If(inter,
-                    Cat(buf[1:]).eq(Cat(buf))
-                ) if len(buf) > 1 else []
+                If(~inter,
+                    buf_stb[-1].eq(0),
+                ),
             ),
-            If(self.input.stb & self.input.ack,
-                # tap the center sample
-                buf[0].eq(self.sym.out.data)
+            If(buf_stb[0] & ~buf_stb[-1],
+                buf_stb.eq(Cat(0, buf_stb)),
+            ),
+            If(self.sample.load.stb & self.sample.load.ack,
+                Cat(buf).eq(Cat(self.sym.out.data, buf)),
+                buf_stb[0].eq(1),
             ),
         ]
