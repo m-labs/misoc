@@ -154,49 +154,43 @@ class TestHBFMACUp(unittest.TestCase):
         self.assertEqual(len(dut.coeff.sr), 2)
 
     def test_coeff(self):
-        for c in [0], [-1, 3, -1], [-1, 0, 1, 0, 1, 0, 1, -2]:
-            with self.subTest(coeff=c):
+        for coeff in [0], [-1, 3, -1], [-1, 0, 1, 0, 1, 0, 1, -2]:
+            with self.subTest(coeff=coeff):
                 with self.assertRaises(ValueError):
-                    fir.HBFMACUpsampler(c)
+                    fir.HBFMACUpsampler(coeff)
 
     def test_run(self):
-        coeff = [1, 0, -3, 0, 6, 0, -20, 32, -20, 0, 6, 0, -3, 0, 1]
-        x = np.arange(30) + 1
-        self.filter(coeff, x)
+        for n in 2, 3, 4, 10:
+            coeff, x = self.coeff(n)
+            with self.subTest(coeff=coeff):
+                self.filter(coeff, x)
+            #with self.subTest(coeff=coeff, maxwait=True):
+            #    self.filter(coeff, x, maxwait=3)
 
-    def test_run1(self):
-        coeff = [10, 0, -15, 2, -15, 0, 10]
-        x = np.arange(30) + 1
-        self.filter(coeff, x)
-
-    def test_run2(self):
-        coeff = [-5, 0, 10, 0, -15, 2, -15, 0, 10, 0, -5]
-        x = np.arange(30) + 1
-        self.filter(coeff, x)
-
-    def test_run3(self):
-        x = np.arange(30) + 1
-        n = 10
+    def coeff(self, n):
+        x = np.arange(3*n) + 1
         coeff = []
         for i in range(n):
-            if not i & 1:
-                i *= -1
-            coeff[2*i:2*i] = [i << 4, 0, i << 4, 0]
-        coeff[2*n - 1] = 1 << 8
-        coeff = coeff[2:-3]
-        self.filter(coeff, x)
+            j = i + 2
+            j = (-j if j & 1 else j) << 2
+            coeff[2*i:2*i] = [j, 0, j, 0]
+        coeff[2*n - 1] = 1
+        coeff = coeff[:-1]
+        return coeff, x
 
-    def filter(self, coeff, x):
+    def filter(self, coeff, x, maxwait=0):
         dut = fir.HBFMACUpsampler(coeff)
-        b = log2_int(coeff[(len(coeff) + 1)//2 - 1])
+        n = (len(coeff) + 1)//4
+        b = log2_int(coeff[2*n - 1])
         bias = (1 << max(0, b - 1)) - 1
         self.assertEqual(dut.bias.reset.value, bias)
         o = []
         random.seed(42)
-        run_simulation(dut, [feed(dut.input, x, maxwait=0),
-                             retrieve(dut.output, o, maxwait=5)],
+        run_simulation(dut, [feed(dut.input, x, maxwait=n*maxwait),
+                             retrieve(dut.output, o, maxwait=n*maxwait//2)],
                        vcd_name="hbf.vcd")
-        p = np.convolve(coeff, np.c_[x, np.zeros_like(x)].ravel())
+        # first sample out is a zero sample from the center tap
+        p = np.convolve(coeff, np.c_[np.zeros_like(x), x].ravel())
         # bias and rounding
         p = (p + bias) >> b
         self.assertEqual(o, list(p[:len(o)]))
