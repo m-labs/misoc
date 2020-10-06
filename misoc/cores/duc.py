@@ -35,21 +35,21 @@ def pipe(lhs, rhs, n, reset_less=True):
     return stmts
 
 
-def saturate(lhs, rhs, headroom=None):
+def saturate(lhs, rhs, sign_bits=None):
     """Assign the `rhs` to `lhs` saturating to the signed minimum/maximum
-    using `headroom` bits to prevent overflow."""
-    if headroom is None:
-        headroom = len(rhs) - len(lhs)
-    if headroom == 0:
-        return lhs.eq(rhs)
+    using `sign_bits` bits to prevent and detect overflow."""
+    if sign_bits is None:
+        sign_bits = len(rhs) - len(lhs) + 1
+    if sign_bits < 1:
+        raise ValueError("no sign bits", sign_bits)
     return (
-        If(rhs[-headroom - 1:-1] == Replicate(rhs[-1], headroom),
+        If(rhs[-sign_bits:] == Replicate(rhs[-1], sign_bits),
             # all headroom bits match sign bit, in range
             lhs.eq(rhs),
         ).Else(  # out of range
             # return min or max depending on sign bit
-            lhs.eq(Cat(Replicate(~rhs[-1], len(rhs) - headroom - 1),
-                       Replicate(rhs[-1], headroom + 1))),
+            lhs.eq(Cat(Replicate(~rhs[-1], len(rhs) - sign_bits),
+                       Replicate(rhs[-1], sign_bits))),
         )
     )
 
