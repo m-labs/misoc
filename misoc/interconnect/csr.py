@@ -300,7 +300,21 @@ def memprefix(prefix, memories, done):
             done.add(memory.duid)
 
 
-def _make_gatherer(method, cls, prefix_cb):
+def csrrename(rename, csrs, done):
+    for csr in csrs:
+        if csr.duid not in done:
+            csr.name = rename
+            done.add(csr.duid)
+
+
+def memrename(rename, memories, done):
+    for memory in memories:
+        if memory.duid not in done:
+            memory.name_override = rename
+            done.add(memory.duid)
+
+
+def _make_gatherer(method, cls, prefix_cb, rename_cb):
     def gatherer(self):
         try:
             exclude = self.autocsr_exclude
@@ -314,6 +328,12 @@ def _make_gatherer(method, cls, prefix_cb):
         for k, v in xdir(self, True):
             if k not in exclude:
                 if isinstance(v, cls):
+                    # Recursively check if the variable was defined in a submodule
+                    owners = _find_variable_owners(self, v)
+                    # If the variable was owned by any submodule, then there might exist multiple instances of this object sharing the same "v" name (e.g. both self.a and self.b are _CSRBase instances, and self.a.name == self.b.name)
+                    # To avoid duplicate names for the gatherer, simply rename the object by as the key (e.g. self.a.name become "a", self.b.name becomes "b")
+                    if len(owners) > 1:
+                        rename_cb(k, [v], prefixed)
                     r.append(v)
                 elif hasattr(v, method) and callable(getattr(v, method)):
                     items = getattr(v, method)()
@@ -321,6 +341,21 @@ def _make_gatherer(method, cls, prefix_cb):
                     r += items
         return sorted(r, key=lambda x: x.duid)
     return gatherer
+
+
+def _find_variable_owners(module, target):
+    """Returns a tree of modules that own the target (e.g. a CSR object), from top parent node to outer node.
+    """
+    for k, v in xdir(module, True):
+        if k == "_submodules":
+            for _, m in v:
+                owners = _find_variable_owners(m, target)
+                if owners:
+                    return [module] + owners
+        else:
+            if target is v:
+                return [module]
+    return False
 
 
 class AutoCSR:
@@ -335,9 +370,9 @@ class AutoCSR:
     ``AutoCSR`` methods and their CSR and memories added to the lists returned,
     with the child objects' names as prefixes.
     """
-    get_memories = _make_gatherer("get_memories", Memory, memprefix)
-    get_csrs = _make_gatherer("get_csrs", _CSRBase, csrprefix)
-    get_constants = _make_gatherer("get_constants", CSRConstant, csrprefix)
+    get_memories = _make_gatherer("get_memories", Memory, memprefix, memrename)
+    get_csrs = _make_gatherer("get_csrs", _CSRBase, csrprefix, csrrename)
+    get_constants = _make_gatherer("get_constants", CSRConstant, csrprefix, csrrename)
 
 
 class GenericBank(Module):
