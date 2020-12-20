@@ -139,23 +139,28 @@ class Builder:
                 f.write(cpu_interface.get_csr_csv(csr_regions))
 
     def generate_software(self):
-        for name, src_dir in self.software_packages:
-            dst_dir = os.path.join(self.output_dir, "software", name)
-            os.makedirs(dst_dir, exist_ok=True)
-            src = os.path.join(src_dir, "Makefile")
-            if os.name != "nt":
-                dst = os.path.join(dst_dir, "Makefile")
-                try:
-                    os.remove(dst)
-                except FileNotFoundError:
-                    pass
-                os.symlink(src, dst)
-            if self.compile_software:
+        software_dir = os.path.join(self.output_dir, "software")
+        with open(os.path.join(software_dir, "Makefile"), "w") as top_makefile:
+            top_makefile.write("software:\n")
+
+            for name, src_dir in self.software_packages:
+                dst_dir = os.path.join(software_dir, name)
+                os.makedirs(dst_dir, exist_ok=True)
+                src = os.path.join(src_dir, "Makefile")
                 if os.name != "nt":
-                    cmd = ["make", "-C", dst_dir]
+                    dst = os.path.join(dst_dir, "Makefile")
+                    try:
+                        os.remove(dst)
+                    except FileNotFoundError:
+                        pass
+                    os.symlink(src, dst)
+                    top_makefile.write("\tmake -C {}\n".format(dst_dir))
                 else:
-                    cmd = ["make", "-C", dst_dir, "-f", src]
-                subprocess.check_call(cmd)
+                    top_makefile.write("\tmake -C {} -f {}\n".format(dst_dir, src))
+
+        if self.compile_software:
+            cmd = ["make", "-C", software_dir]
+            subprocess.check_call(cmd)
 
     def initialize_memory(self):
         if self.soc.integrated_rom_size:
