@@ -3,7 +3,7 @@ from math import ceil
 from migen import *
 from migen.genlib.fsm import *
 from migen.genlib.misc import WaitTimer
-from migen.genlib.cdc import PulseSynchronizer
+from migen.genlib.cdc import PulseSynchronizer, BusSynchronizer
 
 from misoc.interconnect import stream
 from misoc.cores import code_8b10b
@@ -277,9 +277,8 @@ class PCS(Module):
         self.link_up = Signal()
         self.restart = Signal()
 
-        # SGMII Speed Adaptation
-        is_sgmii = Signal()
-        self.link_partner_adv_ability = Signal(16)
+        self.lp_abi = BusSynchronizer(16, "eth_rx", "eth_tx")
+        self.submodules += self.lp_abi
 
         # # #
         
@@ -319,12 +318,34 @@ class PCS(Module):
             If(checker_tick, checker_ok.eq(0))
         ]
 
+        # Control if tx_config_reg should be empty
+        tx_config_empty = Signal()
+        # Detections in SGMII mode
+        is_sgmii = Signal()
+        linkdown = Signal()
+        self.comb += [
+            is_sgmii.eq(self.lp_abi.o[0]),
+            # Detect that link is down:
+            # - 1000BASE-X: linkup can be inferred by non-empty reg
+            # - SGMII: linkup is indicated with bit 15
+            linkdown.eq((self.lp_abi.o[0] & ~self.lp_abi.o[15]) | (self.lp_abi.o == 0)),
+            self.tx.sgmii_speed.eq(Mux(self.lp_abi.o[0],
+                self.lp_abi.o[10:12], 0b10)),
+            self.rx.sgmii_speed.eq(Mux(self.lp_abi.i[0],
+                self.lp_abi.i[10:12], 0b10))
+        ]
         autoneg_ack = Signal()
-        self.comb += self.tx.config_reg.eq(
-            (is_sgmii) |            # SGMII-specific
-            (~is_sgmii << 5) |      # Full-duplex
-            (autoneg_ack << 14)     # ACK
-        )
+        self.comb += [
+            self.tx.config_reg.eq(Mux(tx_config_empty, 0,
+                (is_sgmii) |                            # SGMII: SGMII in-use
+                (~is_sgmii << 5) |                      # 1000BASE-X: Full-duplex
+                (Mux(self.lp_abi.o[0],                  # SGMII: Speed
+                    self.lp_abi.o[10:12], 0) << 10) |
+                (is_sgmii << 12) |                      # SGMII: Full-duplex
+                (autoneg_ack << 14) |                   # SGMII/1000BASE-X: Acknowledge Bit
+                (is_sgmii & self.link_up)               # SGMII: Link-up
+            ))
+        ]
 
         rx_config_reg_abi = PulseSynchronizer("eth_rx", "eth_tx")
         rx_config_reg_ack = PulseSynchronizer("eth_rx", "eth_tx")
@@ -334,25 +355,35 @@ class PCS(Module):
 
         more_ack_timer = ClockDomainsRenamer("eth_tx")(
             WaitTimer(ceil(more_ack_time*125e6)))
-        self.submodules += more_ack_timer
-
-        fsm_inited = Signal()
-        config_reg_empty = Signal()
+        # SGMII: use 1.6ms link_timer
+        sgmii_ack_timer = ClockDomainsRenamer("eth_tx")(
+            WaitTimer(ceil(1.6e-3*125e6)))
+        self.submodules += more_ack_timer, sgmii_ack_timer
 
         fsm = ClockDomainsRenamer("eth_tx")(FSM())
         self.submodules += fsm
 
+        # AN_ENABLE
+        fsm.act("AUTONEG_BREAKLINK",
+            self.tx.config_stb.eq(1),
+            tx_config_empty.eq(1),
+            more_ack_timer.wait.eq(1),
+            If(more_ack_timer.done,
+                NextState("AUTONEG_WAIT_ABI")
+            )
+        )
+        # ABILITY_DETECT
         fsm.act("AUTONEG_WAIT_ABI",
-            self.tx.config_stb.eq(fsm_inited),
+            self.tx.config_stb.eq(1),
             If(rx_config_reg_abi.o,
-                NextValue(fsm_inited, 1),
                 NextState("AUTONEG_WAIT_ACK")
             ),
             If(checker_tick & ~checker_ok,
                 self.restart.eq(1),
-                NextState("AUTONEG_WAIT_ABI")
+                NextState("AUTONEG_BREAKLINK")
             )
         )
+        # ACKNOWLEDGE_DETECT
         fsm.act("AUTONEG_WAIT_ACK",
             self.tx.config_stb.eq(1),
             autoneg_ack.eq(1),
@@ -361,34 +392,35 @@ class PCS(Module):
             ),
             If(checker_tick & ~checker_ok,
                 self.restart.eq(1),
-                NextState("AUTONEG_WAIT_ABI")
+                NextState("AUTONEG_BREAKLINK")
             )
         )
         # COMPLETE_ACKNOWLEDGE
         fsm.act("AUTONEG_SEND_MORE_ACK",
             self.tx.config_stb.eq(1),
             autoneg_ack.eq(1),
-            more_ack_timer.wait.eq(1),
-            If(more_ack_timer.done,
+            more_ack_timer.wait.eq(~is_sgmii),
+            sgmii_ack_timer.wait.eq(is_sgmii),
+            If((is_sgmii & sgmii_ack_timer.done) |
+                (~is_sgmii & more_ack_timer.done),
                 NextState("RUNNING")
             ),
             If(checker_tick & ~checker_ok,
                 self.restart.eq(1),
-                NextState("AUTONEG_WAIT_ABI")
+                NextState("AUTONEG_BREAKLINK")
             )
         )
         # LINK_OK
         fsm.act("RUNNING",
             self.link_up.eq(1),
-            If((checker_tick & ~checker_ok) | config_reg_empty,
+            If((checker_tick & ~checker_ok) | linkdown,
                 self.restart.eq(1),
-                NextState("AUTONEG_WAIT_ABI")
+                NextState("AUTONEG_BREAKLINK")
             )
         )
 
         c_counter = Signal(max=5)
-        previous_config_reg = Signal(16)
-        preack_config_reg = Signal(16)
+        prev_config_reg = Signal(16)
         self.sync.eth_rx += [
             # Restart consistency counter
             If(self.rx.seen_config_reg,
@@ -400,34 +432,20 @@ class PCS(Module):
             rx_config_reg_abi.i.eq(0),
             rx_config_reg_ack.i.eq(0),
             If(self.rx.seen_config_reg,
-                previous_config_reg.eq(self.rx.config_reg),
-                If((c_counter == 1) & 
-                    ((previous_config_reg|0x4000) == (self.rx.config_reg|0x4000)) &
-                    ((self.rx.config_reg | 1) != 1),
-                    # Ability match
-                    rx_config_reg_abi.i.eq(1),
-                    preack_config_reg.eq(previous_config_reg),
+                # Record current config_reg for comparison in the next clock cycle
+                prev_config_reg.eq(self.rx.config_reg),
+                # Compare consecutive values of config_reg
+                If((c_counter == 1) & (prev_config_reg&0xbfff == self.rx.config_reg&0xbfff),
                     # Acknowledgement/Consistency match
-                    If((previous_config_reg[14] & self.rx.config_reg[14]) &
-                        ((preack_config_reg|0x4000) == (self.rx.config_reg|0x4000)),
-                        rx_config_reg_ack.i.eq(1)
+                    If(prev_config_reg[14] & self.rx.config_reg[14],
+                        rx_config_reg_ack.i.eq(1),
+                    )
+                    # Ability match
+                    .Else(
+                        rx_config_reg_abi.i.eq(1),
                     )
                 ),
                 # Record advertised ability of link partner
-                self.link_partner_adv_ability.eq(self.rx.config_reg)
+                self.lp_abi.i.eq(self.rx.config_reg)
             )
-        ]
-
-        # Speed detection via SGMII
-        sgmii_speed = Mux(is_sgmii,
-            self.link_partner_adv_ability[10:12], 0b10)
-        self.comb += [
-            is_sgmii.eq(self.link_partner_adv_ability[0]),
-            self.tx.sgmii_speed.eq(sgmii_speed),
-            self.rx.sgmii_speed.eq(sgmii_speed)
-        ]
-
-        # Detect that config_reg is empty
-        self.comb += [
-            config_reg_empty.eq((self.link_partner_adv_ability | 1) == 1)
         ]
