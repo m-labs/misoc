@@ -5,11 +5,11 @@
 	path = misoc/cores/mor1kx/verilog
 	url = https://github.com/m-labs/mor1kx.git
 [submodule "misoc/software/compiler_rt"]
-	path = misoc/software/compiler_rt
-	url = http://llvm.org/git/compiler-rt.git
+    path = misoc/software/compiler_rt
+    url = https://github.com/llvm-mirror/compiler-rt.git
 [submodule "misoc/software/unwinder"]
 	path = misoc/software/unwinder
-	url = http://llvm.org/git/libunwind.git
+	url = https://github.com/llvm-mirror/libunwind.git
 [submodule "misoc/cores/vexriscv/verilog"]
 	path = misoc/cores/vexriscv/verilog
 	url = https://github.com/m-labs/VexRiscv-verilog.git
