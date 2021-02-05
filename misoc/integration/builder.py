@@ -179,6 +179,8 @@ class Builder:
 
     def build(self):
         self.soc.finalize()
+        self.check_groups_regions("csr")
+        self.check_groups_regions("memory")
 
         if self.soc.integrated_rom_size and not self.compile_software:
             raise ValueError("Software must be compiled in order to "
@@ -189,6 +191,34 @@ class Builder:
         self.initialize_memory()
         self.soc.build(build_dir=os.path.join(self.output_dir, "gateware"),
                        run=self.compile_gateware)
+
+    def check_groups_regions(self, type):
+        type_dict = {
+            # type: get_regions(), get_groups()
+            "csr": (self.soc.get_csr_regions, self.soc.get_csr_groups),
+            "memory": (self.soc.get_memory_regions, self.soc.get_memory_groups),
+        }
+        regions = type_dict[type][0]()
+        groups = type_dict[type][1]()
+        # Ensure that all regions are named uniquely (case-insensitive).
+        regions_names = [r[0] for r in regions]
+        regions_names_upper = [n.upper() for n in regions_names]
+        if len(regions_names_upper) > len(set(regions_names_upper)):
+            raise ValueError("{} group '{}' contains regions with duplicate names"
+                .format(type.upper(), group_name))
+        # Ensure that all groups are named uniquely (case-insensitive).
+        groups_names_upper = [g[0].upper() for g in groups]
+        if len(groups_names_upper) > len(set(groups_names_upper)):
+            raise ValueError("SoC contains {} groups with duplicate names"
+                .format(type.upper()))
+        # Ensure that all groups contain names that match existing names
+        # in the list of regions.
+        for group_name, members in groups:
+            for member in members:
+                if member not in regions_names:
+                    raise KeyError("{} group '{}' has a member region '{}' that "
+                        "does not exist in the SoC"
+                        .format(type.upper(), group_name, member))
 
 
 def builder_args(parser):
