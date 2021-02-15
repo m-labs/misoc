@@ -248,8 +248,7 @@ def get_csr_rust(regions, groups, constants):
             csrs = _region_by_name(regions, group_members[0])[2]
             r += "  pub struct " + struct_name + " {\n"
             for csr in csrs:
-                nwords = (csr.size + busword - 1)//busword
-                rstype = _get_rstype(nwords*busword)
+                rstype = _get_rstype(csr.size)
                 r += "    pub " + csr.name + "_read: unsafe fn() -> " + rstype + ",\n"
                 if not is_readonly(csr):
                     r += "    pub " + csr.name + "_write: unsafe fn(" + rstype + "),\n";
