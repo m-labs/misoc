@@ -65,10 +65,12 @@ class KU_1000BASEX(Module):
         tx_reset = Signal()
         tx_data = Signal(20)
         tx_reset_done = Signal()
+        tx_progdiv_reset = Signal()
 
         rx_reset = Signal()
         rx_data = Signal(20)
         rx_reset_done = Signal()
+        rx_progdiv_reset = Signal()
 
         xilinx_mess = dict(
             p_ACJTAG_DEBUG_MODE=0b0,
@@ -610,7 +612,7 @@ class KU_1000BASEX(Module):
             i_RXPOLARITY=0b0,
             i_RXPRBSCNTRESET=0b0,
             i_RXPRBSSEL=0b0000,
-            i_RXPROGDIVRESET=0b0,
+            i_RXPROGDIVRESET=rx_progdiv_reset,
             i_RXQPIEN=0b0,
             i_RXRATEMODE=0b0,
             i_RXRATE=0b000,
@@ -681,7 +683,7 @@ class KU_1000BASEX(Module):
             i_TXPRBSSEL=0b0000,
             i_TXPRECURSORINV=0b0,
             i_TXPRECURSOR=0b00000,
-            i_TXPROGDIVRESET=0b0,
+            i_TXPROGDIVRESET=tx_progdiv_reset,
             i_TXQPIBIASEN=0b0,
             i_TXQPISTRONGPDOWN=0b0,
             i_TXQPIWEAKPUP=0b0,
@@ -836,6 +838,11 @@ class KU_1000BASEX(Module):
         self.comb += [
             tx_reset.eq(pll_reset | ~pll_locked),
             rx_reset.eq(pll_reset | ~pll_locked | pcs.restart)
+        ]
+        # https://www.xilinx.com/support/answers/64103.html
+        self.comb += [
+            tx_progdiv_reset.eq(tx_reset),
+            rx_progdiv_reset.eq(rx_reset)
         ]
 
         # Gearbox and PCS connection
