@@ -293,7 +293,7 @@ class MultiDDS(Accu):
 
     Uses one CosSinGen and one (complex-real) multiplier.
     Latencies are unmatched between parameters
-    and channels. Overflowing summation.
+    and channels. Saturating summation.
     """
     def __init__(self, n, fwidth, xwidth, **kwargs):
         self.i = [Record([
