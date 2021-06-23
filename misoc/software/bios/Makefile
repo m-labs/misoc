@@ -11,6 +11,7 @@ all:: bios.bin
 	$(objcopy) -O binary
 ifeq ($(CPU_ENDIANNESS),LITTLE)
 	$(MSCIMG) $@ --little
+	objcopy -I binary -O binary --reverse-bytes=4 $@
 else
 	$(MSCIMG) $@
 endif
