@@ -1,185 +1,154 @@
 from migen import *
-from migen.genlib.misc import timeline
+from migen.genlib.cdc import PulseSynchronizer
 
-from misoc.interconnect import wishbone
-from misoc.interconnect.csr import AutoCSR, CSRStorage, CSRStatus
-
-IDCODE = 0x03631093 # 7a100t
-ICAP_WIDTH = "X32"
-FILE_NAME = "NONE"
-iprog_command_seq_i = [
-            0xFFFFFFFF, # Dummy Word
-            0x5599AA66, # Sync Word
-            0x04000000, # Type 1 NO OP 
-            0x0C400080, # Write WBSTAR 
-            0x00000000, # WBSTAR 
-            0x0C000180, # Write CMD 
-            0x000000F0, # Write IPROG 
-            0x04000000, # Type 1 NO OP  
-        ]
+from misoc.interconnect.csr import AutoCSR, CSRStorage, CSR
 
 class ICAP(Module, AutoCSR):
-    def __init__(self):
-        self.trigger = CSRStorage()
+    def __init__(self, clk_divide_ratio='2'):
+        self.iprog = CSR()
 
         ###
 
-        O = Signal(32)      # 32-bit output: Configuration data output bus
-        CLK = Signal()      # 1-bit input: Clock Input
-        CSIB = Signal()     # 1-bit input: Active-Low ICAP Enable
-        I = Signal(32)      # 32-bit input: Configuration data input bus
-        RDWRB = Signal()    # 1-bit input: Read/Write Select input
-        state = Signal(4)   # state machine register
+        ICAP_WIDTH = "X32"
+        iprog_command_seq_i = [
+            0xFFFFFFFF, # 0: Dummy Word
+            0x000000BB, # 1: Bust Width Sync Word
+            0x11220044, # 2: Bus Width Detect Pattern
+            0xFFFFFFFF, # 3: Dummy Word
+            0x5599AA66, # 4: Sync Word
+            0x04000000, # 5: Type 1 NO OP 
+            0x0C400080, # 6: Write WBSTAR 
+            0x00000000, # 7: WBSTAR 
+            0x0C000180, # 8: Write CMD 
+            0x000000F0, # 9: Write IPROG 
+            0x04000000, # 10: Type 1 NO OP  
+            ]
 
-        # clock generation
-        div = 4
-        counter = Signal(max=div)
-        self.sync += [
-            If(counter == div//2 - 1,
-                CLK.eq(1)
-            ),
-            If(counter == div - 1,
-                counter.eq(0),
-                CLK.eq(0)
-            ).Else(
-                counter.eq(counter + 1),
-            ),
-        ]
-
+        o = Signal(32)      # 32-bit output: Configuration data output bus
+        clk = Signal()      # 1-bit input: Clock Input
+        csib = Signal()     # 1-bit input: Active-Low ICAP Enable
+        i = Signal(32)      # 32-bit input: Configuration data input bus
+        rdwrb = Signal()    # 1-bit input: Read/Write (1/0) Select input
+        
         self.clock_domains.icap = ClockDomain(reset_less=True)
-        self.comb += ClockSignal("icap").eq(CLK)
+
+        # BUFR primitive module
+        self.specials += Instance("BUFR", name="BUFR_inst",
+            p_BUFR_DIVIDE = clk_divide_ratio,
+
+            o_O = self.icap.clk,
+            i_CE = 1,
+            i_CLR = 1,
+            i_I = ClockSignal()
+            )
+        
+        self.submodules += PulseSynchronizer("sys", "icap")
 
         # rising edge detection
         edge = Signal(2)
         self.sync.icap += [
             edge[1].eq(edge[0]),
-            edge[0].eq(self.trigger.storage)
+            edge[0].eq(self.iprog.re)
         ]
 
-        cases = {
-            # idle_ICAP
-            0x00:       [
-                    RDWRB.eq(1),
-                    CSIB.eq(1),
-                    If(edge == 0b01,
-                        state.eq(0x01)
-                    )
-            ],
-            # Assert RDWRB
-            0x01:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(1),
-                    state.eq(0x02)
-            ],
-            # Assert CSIB and send dummy
-            0x02:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[0]),
-                    state.eq(0x0c)
-            ],
-            # Send sync word
-            0x03:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[1]),
-                    state.eq(0x04)
-            ],
-            # Send NO OP
-            0x04:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[2]),
-                    state.eq(0x05)
-            ],
-            # Send Write WBSTAR
-            0x05:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[3]),
-                    state.eq(0x06)
-            ],
-            # Send WBSTAR
-            0x06:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[4]),
-                    state.eq(0x07)
-            ],
-            # Send Write CMD
-            0x07:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[5]),
-                    state.eq(0x08)
-            ],
-            # Send IPROG CMD
-            0x08:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[6]),
-                    state.eq(0x09)
-            ],
-            # Send NO OP
-            0x09:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(iprog_command_seq_i[7]),
-                    state.eq(0x0a)
-            ],
-            # Deassert CSIB
-            0x0a:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(1),
-                    state.eq(0x0b)
-            ],
-            # Deassert RDWRB
-            0x0b:       [
-                    RDWRB.eq(1),
-                    CSIB.eq(1),
-                    state.eq(0x00)
-            ],
-            # write Bus Width Sync Word
-            0x0c:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(0x000000BB),
-                    state.eq(0x0d)
-            ],
-            # write Bus Width Detect pattern
-            0x0d:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(0x11220044),
-                    state.eq(0x0e)
-            ],
-            # Write dummy   
-            0x0e:       [
-                    RDWRB.eq(0),
-                    CSIB.eq(0),
-                    I.eq(0xFFFFFFFF),
-                    state.eq(0x03)
-            ],
-            "default":  [
-                    RDWRB.eq(1),
-                    CSIB.eq(1),
-                    state.eq(0x00)
-                ]
-        }
-        self.sync.icap += Case(state, cases)
-        
+        fsm = FSM()
+        self.submodules += fsm
+        fsm.act(0,
+            NextValue(rdwrb, 1),
+            NextValue(csib, 1),
+            If(edge == 0b01,
+                NextState(1)
+            )
+        )
+        fsm.act(1,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 1),
+            NextState(2)
+        )
+        fsm.act(2,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[0]),
+            NextState(3)
+        )
+        fsm.act(3,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[1]),
+            NextState(4)
+        )
+        fsm.act(4,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[2]),
+            NextState(5)
+        )
+        fsm.act(5,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[3]),
+            NextState(6)
+        )
+        fsm.act(6,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[4]),
+            NextState(7)
+        )
+        fsm.act(7,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[5]),
+            NextState(8)
+        )
+        fsm.act(8,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[6]),
+            NextState(9)
+        )
+        fsm.act(9,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[7]),
+            NextState(10)
+        )
+        fsm.act(10,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[8]),
+            NextState(11)
+        )
+        fsm.act(11,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[9]),
+            NextState(12)
+        )
+        fsm.act(12,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextValue(i, iprog_command_seq_i[10]),
+            NextState(13)
+        )
+        fsm.act(13,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextState(14)
+        )
+        fsm.act(14,
+            NextValue(rdwrb, 0),
+            NextValue(csib, 0),
+            NextState(0)
+        )
+
         # ICAPE2 primitive module
         self.specials += Instance("ICAPE2", name="ICAPE2_inst",
-            p_DEVICE_ID = IDCODE,
             p_ICAP_WIDTH = ICAP_WIDTH,
-            p_SIM_CFG_FILE_NAME = FILE_NAME,
 
-            o_O = O,
+            o_O = o,
             i_CLK = ClockSignal("icap"),
-            i_CSIB = CSIB,
-            i_I = I,
-            i_RDWRB = RDWRB
+            i_CSIB = csib,
+            i_I = i,
+            i_RDWRB = rdwrb
             )
-        
-
-
