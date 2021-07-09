@@ -15,7 +15,7 @@ def get_cpu_mak(cpu):
     elif cpu == "vexriscv":
         triple = "riscv64-unknown-elf"
         cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32"
-        clang = ""
+        clang = "1"
     elif cpu == "zynq7000":
         triple = "armv7-unknown-linux-gnueabihf"
         cpuflags = "-mfloat-abi=hard"
