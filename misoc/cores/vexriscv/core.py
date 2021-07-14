@@ -46,4 +46,4 @@ class VexRiscv(Module):
 
         # add Verilog sources
         vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog")
-        platform.add_source(os.path.join(vdir, "VexRiscv.v"))
+        platform.add_source(os.path.join(vdir, "VexRiscv_IMA.v"))
