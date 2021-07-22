@@ -9,6 +9,9 @@ COMMONFLAGS += -integrated-as -I. \
 	-D_LIBUNWIND_NO_HEAP -D_LIBUNWIND_BUILD_ZERO_COST_APIS \
 	-DNDEBUG
 
+CFLAGS += -funwind-tables
+CXXFLAGS += -fno-exceptions -funwind-tables
+
 ifeq ($(CPU),or1k)
 all:: libunwind-bare.a libunwind-elf.a
 endif
