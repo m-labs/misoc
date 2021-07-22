@@ -71,6 +71,10 @@ void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, con
 
 char *getenv(const char *name);
 
+#ifdef  __GNUC__
+#define alloca(size)   __builtin_alloca (size)
+#endif
+
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void free(void *ptr);
