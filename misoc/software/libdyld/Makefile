@@ -7,6 +7,9 @@ COMMONFLAGS += -I$(MISOC_DIRECTORY)/software/include/dyld
 ifeq ($(CPU),or1k)
 all:: libdyld.a
 endif
+ifeq ($(CPU),vexriscv)
+all:: libdyld.a
+endif
 
 libdyld.a: dyld.o
 	$(archive)
