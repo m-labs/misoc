@@ -11,8 +11,8 @@ extern "C" {
 #define NULL ((void *)0)
 #endif
 
-typedef unsigned long size_t;
-typedef long ptrdiff_t;
+typedef __SIZE_TYPE__ size_t;
+typedef __PTRDIFF_TYPE__ ptrdiff_t;
 
 #define offsetof(type, member) __builtin_offsetof(type, member)
 
