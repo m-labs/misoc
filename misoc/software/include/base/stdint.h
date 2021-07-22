@@ -27,6 +27,9 @@ typedef char int8_t;
 #define INT32_C(v) v
 #define UINT32_C(v) v##U
 
+#define UINT32_MAX (4294967295U)
+#define UINTPTR_MAX UINT32_MAX
+
 #ifdef __cplusplus
 }
 #endif
