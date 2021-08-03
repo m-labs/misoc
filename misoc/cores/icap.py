@@ -4,16 +4,27 @@ from migen.genlib.cdc import PulseSynchronizer
 from misoc.interconnect.csr import AutoCSR, CSR
 
 class ICAP(Module, AutoCSR):
-    def __init__(self, version, clk_divide_ratio="2"):
+    def __init__(self, fpga_family, clk_divide_ratio="2"):
         """
         ICAP module.
 
         Use this module to issue the IPROG command and restart the gateware.
-        Both E2 and E3 are supported by selecting the right version.
+        Both E2 and E3 are supported by selecting the right version.+
+        
+        Parameters
+        ----------
+        flga_family : str
+            FPGA family name, used to determine the version of primitive. 
+            Supported family: xcku040 (metlino/sayma), xc7a100t (kasli)
+
+        clk_divide_ratio : str
+            Optional. The divide ratio of the clock frequency from system clock.
         """
         self.iprog = CSR()
 
         ###
+        if fpga_family not in {"xcku040", "xc7a100t"}:
+            raise ValueError("Not supported FPGA family")
 
         iprog_command_seq_i = [
             0xFFFFFFFF, # 0: Dummy Word
@@ -30,64 +41,59 @@ class ICAP(Module, AutoCSR):
             ]
         iprog_command_seq = Array(Constant(a) for a in iprog_command_seq_i)
 
-        csib = Signal()     # 1-bit input: Active-Low ICAP Enable
-        i = Signal(32)      # 32-bit input: Configuration data input bus
-        rdwrb = Signal()    # 1-bit input: Read/Write (1/0) Select input
-
-        counter = Signal(max=11)
+        icap_csib = Signal()     # 1-bit input: Active-Low ICAP Enable
+        icap_i = Signal(32)      # 32-bit input: Configuration data input bus
+        icap_rdwrb = Signal()    # 1-bit input: Read/Write (1/0) Select input
 
         self.clock_domains.icap = ClockDomain()
 
-        if version == "E2":
+        if fpga_family == "xc7a100t":
             # BUFR primitive module
-            self.specials += Instance("BUFR", name="BUFR_inst",
+            self.specials += Instance("BUFR",
                 p_BUFR_DIVIDE = clk_divide_ratio,
 
                 o_O = self.icap.clk,
                 i_CE = 1,
-                i_CLR = 1,
+                i_CLR = 0,
                 i_I = ClockSignal()
             )
-        elif version == "E3":
+        elif fpga_family == "xcku040":
             # BUFGCE_DIV primitive module
-            self.specials += Instance("BUFGCE_DIV", name="BUFGCE_DIV_inst",
+            self.specials += Instance("BUFGCE_DIV",
                 p_BUFGCE_DIVIDE = int(clk_divide_ratio),
 
                 o_O = self.icap.clk,
                 i_CE = 1,
-                i_CLR = 1,
+                i_CLR = 0,
                 i_I = ClockSignal()
             )
 
-        self.submodules += PulseSynchronizer("sys", "icap")
+        icap_iprog_re = PulseSynchronizer("sys", "icap")
+        self.comb += [
+            icap_iprog_re.i.eq(self.iprog.re),
+        ]
+        self.submodules += icap_iprog_re
 
+        counter = Signal(max=11)
         fsm = FSM(reset_state="idle")
         self.submodules += ClockDomainsRenamer("icap")(fsm)
         fsm.act("idle",
-            rdwrb.eq(1),
-            csib.eq(1),
-            # NextValue(rdwrb, 1),
-            # NextValue(csib, 1),
-            If(self.iprog.re,
+            icap_rdwrb.eq(1),
+            icap_csib.eq(1),
+            If(icap_iprog_re.o,
                 NextState("assert_write")
             )
         )
         fsm.act("assert_write",
-            rdwrb.eq(0),
-            csib.eq(1),
-            # NextValue(rdwrb, 0),
-            # NextValue(csib, 1),
+            icap_rdwrb.eq(0),
+            icap_csib.eq(1),
             NextState("command")
         )
         fsm.act("command",
-            rdwrb.eq(0),
-            csib.eq(0),
-            # NextValue(rdwrb, 0),
-            # NextValue(csib, 0),
-            NextValue(i, iprog_command_seq[counter]),
-            # i.eq(iprog_command_seq[counter]),
+            icap_rdwrb.eq(0),
+            icap_csib.eq(0),
+            NextValue(icap_i, iprog_command_seq[counter]),
             NextValue(counter, counter+1),
-            # counter.eq(counter+1),
             If(counter == 10,
                 NextState("deactivate")
             ).Else(
@@ -95,28 +101,26 @@ class ICAP(Module, AutoCSR):
             )
         )
         fsm.act("deactivate",
-            rdwrb.eq(0),
-            csib.eq(1),
-            # NextValue(rdwrb, 0),
-            # NextValue(csib, 1),
+            icap_rdwrb.eq(0),
+            icap_csib.eq(1),
             NextState("idle")
         )
 
-        if version == "E2":
+        if fpga_family == "xc7a100t":
             # ICAPE2 primitive module
-            self.specials += Instance("ICAPE2", name="ICAPE2_inst",
+            self.specials += Instance("ICAPE2",
                 p_ICAP_WIDTH = "X32",
 
                 i_CLK = ClockSignal("icap"),
-                i_CSIB = csib,
-                i_I = i,
-                i_RDWRB = rdwrb
+                i_CSIB = icap_csib,
+                i_I = icap_i,
+                i_RDWRB = icap_rdwrb
             )
-        elif version == "E3":
+        elif fpga_family == "xcku040":
             # ICAPE3 primitive module
-            self.specials += Instance("ICAPE3", name="ICAPE3_inst",
+            self.specials += Instance("ICAPE3",
                 i_CLK = ClockSignal("icap"),
-                i_CSIB = csib,
-                i_I = i,
-                i_RDWRB = rdwrb
+                i_CSIB = icap_csib,
+                i_I = icap_i,
+                i_RDWRB = icap_rdwrb
             )

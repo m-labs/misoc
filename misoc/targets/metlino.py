@@ -50,7 +50,7 @@ class BaseSoC(SoCSDRAM):
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
         
-        self.submodules.icap = icap.ICAP(version="E3")
+        self.submodules.icap = icap.ICAP("xcku040")
         self.csr_devices.append("icap")
 
 
