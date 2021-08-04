@@ -150,7 +150,7 @@ class BaseSoC(SoCSDRAM):
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
         
-        self.submodules.icap = icap.ICAP("xc7a100t")
+        self.submodules.icap = icap.ICAP("7series")
         self.csr_devices.append("icap")
 
 
