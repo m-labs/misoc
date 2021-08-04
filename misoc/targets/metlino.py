@@ -9,7 +9,7 @@ from migen.build.platforms.sinara import metlino
 
 from misoc.cores.sdram_settings import MT41J256M16
 from misoc.cores.sdram_phy import kusddrphy
-from misoc.cores import spi_flash
+from misoc.cores import spi_flash, icap
 from misoc.cores.liteeth_mini.phy.ku_1000basex import KU_1000BASEX
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
@@ -49,6 +49,9 @@ class BaseSoC(SoCSDRAM):
             self.flash_boot_address = 0x50000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
+        
+        self.submodules.icap = icap.ICAP("ultrascale")
+        self.csr_devices.append("icap")
 
 
 class MiniSoC(BaseSoC):

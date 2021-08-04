@@ -8,7 +8,7 @@ from migen.build.platforms.sinara import kasli
 
 from misoc.cores.sdram_settings import MT41K256M16
 from misoc.cores.sdram_phy import a7ddrphy
-from misoc.cores import virtual_leds, spi_flash
+from misoc.cores import virtual_leds, spi_flash, icap
 from misoc.cores.a7_gtp import *
 from misoc.cores.liteeth_mini.phy.a7_1000basex import A7_1000BASEX
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
@@ -149,6 +149,9 @@ class BaseSoC(SoCSDRAM):
             self.flash_boot_address = 0x450000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
+        
+        self.submodules.icap = icap.ICAP("7series")
+        self.csr_devices.append("icap")
 
 
 class MiniSoC(BaseSoC):
