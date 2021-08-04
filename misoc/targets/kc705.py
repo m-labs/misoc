@@ -8,7 +8,7 @@ from migen.build.platforms import kc705
 
 from misoc.cores.sdram_settings import MT8JTF12864
 from misoc.cores.sdram_phy import k7ddrphy
-from misoc.cores import spi_flash
+from misoc.cores import spi_flash, icap
 from misoc.cores.liteeth_mini.phy import LiteEthPHY
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
@@ -100,6 +100,8 @@ class BaseSoC(SoCSDRAM):
             self.flash_boot_address = 0xb40000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
+        self.submodules.icap = icap.ICAP("7series")
+        self.csr_devices.append("icap")
 
 
 class MiniSoC(BaseSoC):

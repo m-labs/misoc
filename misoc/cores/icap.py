@@ -15,7 +15,7 @@ class ICAP(Module, AutoCSR):
         ----------
         fpga_family : str
             FPGA family name, used to determine the version of primitive. 
-            Supported family: ultrascale (metlino/sayma), 7series (kasli)
+            Supported family: ultrascale (metlino), 7series (kasli/kc705)
 
         clk_divide_ratio : str
             Optional. The divide ratio of the clock frequency from system clock.
