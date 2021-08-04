@@ -79,13 +79,8 @@ class ICAP(Module, AutoCSR):
             icap_rdwrb.eq(1),
             icap_csib.eq(1),
             If(icap_iprog_re.o,
-                NextState("assert_write")
+                NextState("command")
             )
-        )
-        fsm.act("assert_write",
-            icap_rdwrb.eq(0),
-            icap_csib.eq(1),
-            NextState("command")
         )
         fsm.act("command",
             icap_rdwrb.eq(0),
@@ -93,15 +88,10 @@ class ICAP(Module, AutoCSR):
             icap_i.eq(iprog_command_seq[counter]),
             NextValue(counter, counter+1),
             If(counter == len(iprog_command_seq_i) - 1,
-                NextState("deactivate")
+                NextState("idle")
             ).Else(
                 NextState("command")
             )
-        )
-        fsm.act("deactivate",
-            icap_rdwrb.eq(0),
-            icap_csib.eq(1),
-            NextState("idle")
         )
 
         if fpga_family == "7series":
