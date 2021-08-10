@@ -7,7 +7,7 @@ from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_mtu
 
 
 class LiteEthMACSRAMWriter(Module, AutoCSR):
-    def __init__(self, dw, depth, nslots=2):
+    def __init__(self, dw, depth, nslots=2, endianness="big"):
         self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
 
         slotbits = max(log2_int(nslots), 1)
@@ -29,16 +29,29 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
 
         # length computation
         increment = Signal(3)
-        self.comb += \
-            If(sink.last_be[3],
-                increment.eq(1)
-            ).Elif(sink.last_be[2],
-                increment.eq(2)
-            ).Elif(sink.last_be[1],
-                increment.eq(3)
-            ).Else(
-                increment.eq(4)
-            )
+        if endianness == "big":
+            self.comb += \
+                If(sink.last_be[3],
+                    increment.eq(1)
+                ).Elif(sink.last_be[2],
+                    increment.eq(2)
+                ).Elif(sink.last_be[1],
+                    increment.eq(3)
+                ).Else(
+                    increment.eq(4)
+                )
+        else:
+            self.comb += \
+                If(sink.last_be[0],
+                    increment.eq(1)
+                ).Elif(sink.last_be[1],
+                    increment.eq(2)
+                ).Elif(sink.last_be[2],
+                    increment.eq(3)
+                ).Else(
+                    increment.eq(4)
+                )
+
         counter = Signal(lengthbits)
         counter_reset = Signal()
         counter_ce = Signal()
@@ -139,7 +152,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
 
 
 class LiteEthMACSRAMReader(Module, AutoCSR):
-    def __init__(self, dw, depth, nslots=2):
+    def __init__(self, dw, depth, nslots=2, endianness="big"):
         self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         slotbits = max(log2_int(nslots), 1)
@@ -200,19 +213,34 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
             )
         )
         length_lsb = fifo.source.length[0:2]
-        self.comb += [
-            If(last,
-                If(length_lsb == 3,
-                    source.last_be.eq(0b0010)
-                ).Elif(length_lsb == 2,
-                    source.last_be.eq(0b0100)
-                ).Elif(length_lsb == 1,
-                    source.last_be.eq(0b1000)
-                ).Else(
-                    source.last_be.eq(0b0001)
+        if endianness == "big":
+            self.comb += [
+                If(last,
+                    If(length_lsb == 3,
+                        source.last_be.eq(0b0010)
+                    ).Elif(length_lsb == 2,
+                        source.last_be.eq(0b0100)
+                    ).Elif(length_lsb == 1,
+                        source.last_be.eq(0b1000)
+                    ).Else(
+                        source.last_be.eq(0b0001)
+                    )
                 )
-            )
-        ]
+            ]
+        else:
+            self.comb += [
+                If(last,
+                    If(length_lsb == 3,
+                        source.last_be.eq(0b0100)
+                    ).Elif(length_lsb == 2,
+                        source.last_be.eq(0b0010)
+                    ).Elif(length_lsb == 1,
+                        source.last_be.eq(0b0001)
+                    ).Else(
+                        source.last_be.eq(0b1000)
+                    )
+                )
+            ]
         fsm.act("SEND",
             source.stb.eq(1),
             source.eop.eq(last),
@@ -250,8 +278,8 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
 
 
 class LiteEthMACSRAM(Module, AutoCSR):
-    def __init__(self, dw, depth, nrxslots, ntxslots):
-        self.submodules.writer = LiteEthMACSRAMWriter(dw, depth, nrxslots)
-        self.submodules.reader = LiteEthMACSRAMReader(dw, depth, ntxslots)
+    def __init__(self, dw, depth, nrxslots, ntxslots, endianness):
+        self.submodules.writer = LiteEthMACSRAMWriter(dw, depth, nrxslots, endianness)
+        self.submodules.reader = LiteEthMACSRAMReader(dw, depth, ntxslots, endianness)
         self.submodules.ev = SharedIRQ(self.writer.ev, self.reader.ev)
         self.sink, self.source = self.writer.sink, self.reader.source
