@@ -20,7 +20,7 @@ class LiteEthMAC(Module, AutoCSR):
             self.tx_slots = CSRConstant(ntxslots)
             self.slot_size = CSRConstant(2**bits_for(eth_mtu))
 
-            self.submodules.interface = LiteEthMACWishboneInterface(dw, nrxslots, ntxslots)
+            self.submodules.interface = LiteEthMACWishboneInterface(dw, nrxslots, ntxslots, endianness)
             self.comb += [
                 self.interface.source.connect(self.core.sink),
                 self.core.source.connect(self.interface.sink)
