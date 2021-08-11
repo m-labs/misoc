@@ -154,6 +154,7 @@ class MiniSoC(BaseSoC):
 
         self.submodules.ethmac = LiteEthMAC(
             phy=self.ethphy, dw=32, interface="wishbone",
+            endianness="little" if self.cpu_type == "vexriscv" else "big",
             nrxslots=2, ntxslots=2)
         ethmac_len = (ethmac_nrxslots + ethmac_ntxslots) * 0x800
         self.add_wb_slave(self.mem_map["ethmac"], ethmac_len, self.ethmac.bus)
