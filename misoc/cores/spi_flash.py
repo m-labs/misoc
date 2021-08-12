@@ -24,6 +24,11 @@ def _format_cmd(cmd, spi_width):
             c &= ~(1<<(b*spi_width))
     return c
 
+class SpiIF(object):
+    def __init__(self, i, o, oe):
+        self.i = i
+        self.o = o
+        self.oe = oe
 
 class SpiFlash(Module, AutoCSR):
     def __init__(self, pads, dummy=15, div=2, with_bitbang=True):
@@ -35,7 +40,12 @@ class SpiFlash(Module, AutoCSR):
         Optionally supports software bitbanging (for write, erase, or other commands).
         """
         self.bus = bus = wishbone.Interface()
-        spi_width = len(pads.dq)
+
+        if hasattr(pads, "mosi"):
+            spi_width = 1
+        else:
+            spi_width = len(pads.dq)
+
         if with_bitbang:
             self.bitbang = CSRStorage(4)
             self.miso = CSRStatus()
@@ -59,8 +69,13 @@ class SpiFlash(Module, AutoCSR):
 
         pads.cs_n.reset = 1
 
-        dq = TSTriple(spi_width)
-        self.specials.dq = dq.get_tristate(pads.dq)
+        if spi_width > 1:
+            dq = TSTriple(spi_width)
+            self.specials.dq = dq.get_tristate(pads.dq)
+        else:
+            dq = SpiIF(pads.miso, pads.mosi, Signal())
+            assert with_bitbang == False, \
+                "Bitbang not supported with 1-bit SPI flash."
 
         sr = Signal(max(cmd_width, addr_width, wbone_width))
         self.comb += bus.dat_r.eq(sr)
