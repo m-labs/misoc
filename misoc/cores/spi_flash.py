@@ -24,9 +24,13 @@ def _format_cmd(cmd, spi_width):
             c &= ~(1<<(b*spi_width))
     return c
 
+def reverse_bytes(s):
+    n = (len(s) + 7)//8
+    return Cat(*[s[i*8:min((i + 1)*8, len(s))]
+        for i in reversed(range(n))])
 
 class SpiFlash(Module, AutoCSR):
-    def __init__(self, pads, dummy=15, div=2, with_bitbang=True):
+    def __init__(self, pads, dummy=15, div=2, with_bitbang=True, endianness="big"):
         """
         Simple SPI flash, e.g. N25Q128 on the LX9 Microboard.
 
@@ -63,7 +67,10 @@ class SpiFlash(Module, AutoCSR):
         self.specials.dq = dq.get_tristate(pads.dq)
 
         sr = Signal(max(cmd_width, addr_width, wbone_width))
-        self.comb += bus.dat_r.eq(sr)
+        if endianness == "big":
+            self.comb += bus.dat_r.eq(sr)
+        else:
+            self.comb += bus.dat_r.eq(reverse_bytes(sr))
 
         hw_read_logic = [
             pads.clk.eq(clk),
