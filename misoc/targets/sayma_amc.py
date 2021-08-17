@@ -128,7 +128,9 @@ class BaseSoC(SoCSDRAM):
                                       i_USRCCLKO=spiflash_pads.clk, i_USRCCLKTS=0,
                                       i_FCSBO=1, i_FCSBTS=0,
                                       i_DO=0, i_DTS=0b1110)
-            self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
+            self.submodules.spiflash = spi_flash.SpiFlash(
+                spiflash_pads, dummy=11, div=2,
+                endianness="little" if self.cpu_type == "vexriscv" else "big")
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.flash_boot_address = 0x50000
