@@ -116,7 +116,9 @@ class BaseSoC(SoCSDRAM, AutoCSR):
             self.specials += Instance("STARTUPE2",
                                       i_CLK=0, i_GSR=0, i_GTS=0, i_KEYCLEARB=0, i_PACK=0,
                                       i_USRCCLKO=spiflash_pads.clk, i_USRCCLKTS=0, i_USRDONEO=1, i_USRDONETS=1)
-            self.submodules.spiflash = spi_flash.SpiFlash(spiflash_pads, dummy=11, div=2)
+            self.submodules.spiflash = spi_flash.SpiFlash(
+                spiflash_pads, dummy=11, div=2,
+                endianness="little" if self.cpu_type == "vexriscv" else "big")
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.csr_devices.append("spiflash")

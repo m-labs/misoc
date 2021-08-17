@@ -80,8 +80,9 @@ class BaseSoC(SoCSDRAM):
         self.register_sdram(self.sdrphy, "minicon",
                             sdram_module.geom_settings, sdram_module.timing_settings)
 
-        self.submodules.spiflash = spi_flash.SpiFlash(platform.request("spiflash"),
-                                                          dummy=8, div=2)
+        self.submodules.spiflash = spi_flash.SpiFlash(
+            platform.request("spiflash"), dummy=8, div=2,
+            endianness="little" if self.cpu_type == "vexriscv" else "big")
         self.register_mem("spiflash", 0x70000000, 0x1000000, self.spiflash.bus)
         self.flash_boot_address = 0x70080000
 
