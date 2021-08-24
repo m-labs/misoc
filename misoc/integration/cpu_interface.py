@@ -13,8 +13,8 @@ def get_cpu_mak(cpu):
         cpuflags = "-mhard-mul -mhard-div -mror -mffl1 -maddc"
         clang = "1"
     elif cpu == "vexriscv":
-        triple = "riscv64-unknown-elf"
-        cpuflags = "-D__vexriscv__ -march=rv32im  -mabi=ilp32"
+        triple = "riscv32-unknown-linux"
+        cpuflags = "-D__vexriscv__ -march=rv32ima -mabi=ilp32"
         clang = "1"
     elif cpu == "zynq7000":
         triple = "armv7-unknown-linux-gnueabihf"
