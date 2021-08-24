@@ -3,7 +3,12 @@ TARGET_PREFIX=$(TRIPLE)-
 RM ?= rm -rf
 PYTHON ?= python3
 
-CARGO_TRIPLE=$(subst or1k-linux,or1k-unknown-none,$(TRIPLE))
+ifeq ($(CPU),or1k)
+	CARGO_TRIPLE=$(subst or1k-linux,or1k-unknown-none,$(TRIPLE))
+endif
+ifeq ($(CPU),vexriscv)
+	CARGO_TRIPLE=$(subst riscv32-unknown-linux,riscv32imac-unknown-none-elf,$(TRIPLE))
+endif
 
 ifeq ($(CLANG),1)
 CC_normal      := clang -target $(TRIPLE) -integrated-as
@@ -16,7 +21,13 @@ AR_normal      := $(TARGET_PREFIX)ar
 LD_normal      := $(TARGET_PREFIX)ld
 OBJCOPY_normal := $(TARGET_PREFIX)objcopy
 MSCIMG_normal  := $(PYTHON) -m misoc.tools.mkmscimg
+
+ifeq ($(CPU),or1k)
 CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo cargo rustc --target $(CARGO_TRIPLE)
+endif
+ifeq ($(CPU),vexriscv)
+CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo cargo rustc -Z build-std=core,alloc --target $(CARGO_TRIPLE)
+endif
 
 CC_quiet      = @echo " CC      " $@ && $(CC_normal)
 CX_quiet      = @echo " CX      " $@ && $(CX_normal)
@@ -57,7 +68,12 @@ CXXFLAGS = $(COMMONFLAGS) -std=c++11 -I$(MISOC_DIRECTORY)/software/include/basec
 
 # Rust toolchain options
 RUSTOUT = cargo/$(CARGO_TRIPLE)/debug
-export RUSTFLAGS = -Ctarget-feature=+mul,+div,+ffl1,+cmov,+addc -Crelocation-model=static -Copt-level=s
+ifeq ($(CPU),or1k)
+	export RUSTFLAGS = -Ctarget-feature=+mul,+div,+ffl1,+cmov,+addc -Crelocation-model=static -Copt-level=s
+endif
+ifeq ($(CPU),vexriscv)
+	export RUSTFLAGS = -Ctarget-feature=+m,+a,-c -Crelocation-model=static -Copt-level=s
+endif
 export CC_$(subst -,_,$(CARGO_TRIPLE)) = clang
 export CFLAGS_$(subst -,_,$(CARGO_TRIPLE)) = $(CFLAGS)
 
