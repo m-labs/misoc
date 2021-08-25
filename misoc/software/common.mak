@@ -17,9 +17,17 @@ else
 CC_normal      := $(TARGET_PREFIX)gcc -std=gnu99
 CX_normal      := $(TARGET_PREFIX)g++
 endif
+
+ifeq ($(LLVM_TOOLS),1)
+AR_normal      := llvm-ar
+LD_normal      := ld.lld
+OBJCOPY_normal := llvm-objcopy
+else
 AR_normal      := $(TARGET_PREFIX)ar
 LD_normal      := $(TARGET_PREFIX)ld
 OBJCOPY_normal := $(TARGET_PREFIX)objcopy
+endif
+
 MSCIMG_normal  := $(PYTHON) -m misoc.tools.mkmscimg
 
 ifeq ($(CPU),or1k)
@@ -78,7 +86,10 @@ export CC_$(subst -,_,$(CARGO_TRIPLE)) = clang
 export CFLAGS_$(subst -,_,$(CARGO_TRIPLE)) = $(CFLAGS)
 
 # Linker options
-LDFLAGS = --gc-sections -nostdlib -nodefaultlibs -L$(BUILDINC_DIRECTORY)
+LDFLAGS = --gc-sections -nostdlib -L$(BUILDINC_DIRECTORY)
+ifneq ($(LLVM_TOOLS),1)
+	LDFLAGS += -nodefaultlibs
+endif
 
 ifeq ($(CPU),vexriscv)
 	CPU_ENDIANNESS = LITTLE

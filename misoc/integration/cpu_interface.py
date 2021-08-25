@@ -8,25 +8,30 @@ def get_cpu_mak(cpu):
         triple = "lm32-elf"
         cpuflags = "-mbarrel-shift-enabled -mmultiply-enabled -mdivide-enabled -msign-extend-enabled"
         clang = ""
+        llvm_tools = ""
     elif cpu == "or1k":
         triple = "or1k-linux"
         cpuflags = "-mhard-mul -mhard-div -mror -mffl1 -maddc"
         clang = "1"
+        llvm_tools = ""
     elif cpu == "vexriscv":
         triple = "riscv32-unknown-linux"
         cpuflags = "-D__vexriscv__ -march=rv32ima -mabi=ilp32"
         clang = "1"
+        llvm_tools = "1"
     elif cpu == "zynq7000":
         triple = "armv7-unknown-linux-gnueabihf"
         cpuflags = "-mfloat-abi=hard"
         clang = "1"
+        llvm_tools = "1"
     else:
         raise ValueError("Unsupported CPU type: "+cpu)
     return [
         ("TRIPLE", triple),
         ("CPU", cpu),
         ("CPUFLAGS", cpuflags),
-        ("CLANG", clang)
+        ("CLANG", clang),
+        ("LLVM_TOOLS", llvm_tools)
     ]
 
 
