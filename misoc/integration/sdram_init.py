@@ -251,9 +251,26 @@ def get_sdram_phy_rust(sdram_phy_settings):
 pub mod sdram_phy {
     use csr;
 
+    // Since Rust version (approx.) 1.44.0, asm! macro has been updated and replaced
+    // by llvm_asm! macro / the new asm! macro.
+    //
+    // The ARTIQ OpenRisc port is built using version 1.28, so it needs the old macro.
+    // At the same time, the RISC-V port uses version 1.51, where the update applies.
+    //
+    // Both llvm_asm! and the new asm! change the syntax, so the following asm line
+    // needs conditional compilation. The cleaner way would be to use cfg_version,
+    // but it wasn't available back in version 1.28. We use the target architecture
+    // for this purpose instead.
+
     pub fn spin_cycles(mut cycles: usize) {
         while cycles > 0 {
-            unsafe { asm!(""::::"volatile") }
+            unsafe {
+                #[cfg(not(target_arch = "or1k"))]
+                llvm_asm!(""::::"volatile");
+
+                #[cfg(target_arch = "or1k")]
+                asm!(""::::"volatile")
+            }
             cycles -= 1;
         }
     }
