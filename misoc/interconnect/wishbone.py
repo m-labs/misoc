@@ -654,8 +654,9 @@ class CSRBank(csr.GenericBank):
         self.bus = bus
 
         ###
-
-        csr.GenericBank.__init__(self, description, len(self.bus.dat_w))
+        # Even though the bus width can potentially support 64-bits data bus,
+        # only 32-bits architectures are implemented
+        csr.GenericBank.__init__(self, description, min(len(self.bus.dat_w), 32))
 
         for i, c in enumerate(self.simple_csrs):
             self.comb += [
