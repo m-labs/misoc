@@ -5,9 +5,9 @@ from misoc.interconnect import csr_bus, wishbone
 
 
 class WB2CSR(Module):
-    def __init__(self, bus_wishbone=None, bus_csr=None):
+    def __init__(self, bus_wishbone=None, bus_csr=None, wb_bus_dw=32):
         if bus_wishbone is None:
-            bus_wishbone = wishbone.Interface()
+            bus_wishbone = wishbone.Interface(data_width=wb_bus_dw, adr_width=32-log2_int(wb_bus_dw//8))
         self.wishbone = bus_wishbone
         if bus_csr is None:
             bus_csr = csr_bus.Interface()
