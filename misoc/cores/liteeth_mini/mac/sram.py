@@ -6,6 +6,33 @@ from misoc.interconnect import stream
 from misoc.cores.liteeth_mini.common import eth_phy_layout, eth_mtu
 
 
+class LastBEDecoder(Module):
+    def __init__(self, dw, endianness, last_be):
+        assert endianness in ["big", "little"], "endianness must be either big or litte!"
+        assert dw % 8 == 0, "dw must be evenly divisible by 8!"
+
+        bytes = dw // 8
+
+        # Decoded needs to be able to represent a count from 0 up to
+        # and including `bytes`, as a single bus transfer can hold 0
+        # up to (inclusive) `bytes` octets. Thus add 1 prior to taking
+        # the log2. This will round up.
+        self.decoded = Signal(log2_int(bytes + 1, need_pow2=False))
+
+        if endianness == "big":
+            cases = {
+                **{(1 << (bytes - b)): self.decoded.eq(b) for b in range(1, bytes)},
+                "default": self.decoded.eq(bytes),
+            }
+        elif endianness == "little":
+            cases = {
+                **{(1 << (b - 1)): self.decoded.eq(b) for b in range(1, bytes)},
+                "default": self.decoded.eq(bytes),
+            }
+
+        self.comb += Case(last_be, cases)
+
+
 class LiteEthMACSRAMWriter(Module, AutoCSR):
     def __init__(self, dw, depth, nslots=2, endianness="big"):
         self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
@@ -149,6 +176,28 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
                 )
             ]
         self.comb += Case(slot, cases)
+
+
+class LastBEEncoder(Module):
+    def __init__(self, dw, endianness, length_lsb):
+        assert endianness in ["big", "little"], "endianness must be either big or litte!"
+        assert dw % 8 == 0, "dw must be evenly divisible by 8!"
+        bytes = dw // 8
+
+        self.encoded = Signal(bytes)
+
+        if endianness == "big":
+            cases = {
+                b: self.encoded.eq(1 << (bytes - b)) for b in range(1, bytes)
+            }
+            cases["default"] = self.encoded.eq(1)
+        elif endianness == "little":
+            cases = {
+                b: self.encoded.eq(1 << (b - 1)) for b in range(1, bytes)
+            }
+            cases["default"] = self.encoded.eq(1 << (bytes - 1))
+
+        self.comb += Case(length_lsb, cases)
 
 
 class LiteEthMACSRAMReader(Module, AutoCSR):
