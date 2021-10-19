@@ -53,7 +53,7 @@ class Interconnect(Module):
 
 
 class SRAM(Module):
-    def __init__(self, mem_or_size, address, read_only=False, init=None, bus=None):
+    def __init__(self, mem_or_size, address, read_only=False, init=None, bus=None, align_bits=2):
         if bus is None:
             bus = Interface()
         self.bus = bus
@@ -78,7 +78,7 @@ class SRAM(Module):
         sel = Signal()
         sel_r = Signal()
         self.sync += sel_r.eq(sel)
-        self.comb += sel.eq(self.bus.adr[9:] == address)
+        self.comb += sel.eq(self.bus.adr[11-(align_bits):] == address)
 
         if word_bits:
             word_index = Signal(word_bits)
@@ -123,7 +123,7 @@ class SRAM(Module):
 
 
 class CSRBank(csr.GenericBank):
-    def __init__(self, description, address=0, bus=None):
+    def __init__(self, description, address=0, bus=None, align_bits=2):
         if bus is None:
             bus = Interface()
         self.bus = bus
@@ -133,7 +133,7 @@ class CSRBank(csr.GenericBank):
         csr.GenericBank.__init__(self, description, len(self.bus.dat_w))
 
         sel = Signal()
-        self.comb += sel.eq(self.bus.adr[9:] == address)
+        self.comb += sel.eq(self.bus.adr[(11-align_bits):] == address)
 
         for i, c in enumerate(self.simple_csrs):
             self.comb += [
@@ -157,8 +157,9 @@ class CSRBank(csr.GenericBank):
 # address_map is called exactly once for each object at each call to
 # scan(), so it can have side effects.
 class CSRBankArray(Module):
-    def __init__(self, source, address_map, *ifargs, **ifkwargs):
+    def __init__(self, source, address_map, align_bits=2, *ifargs, **ifkwargs):
         self.source = source
+        self.align_bits = align_bits
         self.address_map = address_map
         self.scan(ifargs, ifkwargs)
 
@@ -183,7 +184,7 @@ class CSRBankArray(Module):
                         continue
                     sram_bus = Interface(*ifargs, **ifkwargs)
                     mmap = SRAM(memory, mapaddr, read_only=read_only,
-                                bus=sram_bus)
+                                bus=sram_bus, align_bits=self.align_bits)
                     self.submodules += mmap
                     csrs += mmap.get_csrs()
                     self.srams.append((name, memory, mapaddr, mmap))
@@ -195,7 +196,7 @@ class CSRBankArray(Module):
                 if mapaddr is None:
                     continue
                 bank_bus = Interface(*ifargs, **ifkwargs)
-                rmap = CSRBank(csrs, mapaddr, bus=bank_bus)
+                rmap = CSRBank(csrs, mapaddr, bus=bank_bus, align_bits=self.align_bits)
                 self.submodules += rmap
                 self.banks.append((name, csrs, mapaddr, rmap))
 
