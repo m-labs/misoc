@@ -55,29 +55,9 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         sink.ack.reset = 1
 
         # length computation
-        increment = Signal(3)
-        if endianness == "big":
-            self.comb += \
-                If(sink.last_be[3],
-                    increment.eq(1)
-                ).Elif(sink.last_be[2],
-                    increment.eq(2)
-                ).Elif(sink.last_be[1],
-                    increment.eq(3)
-                ).Else(
-                    increment.eq(4)
-                )
-        else:
-            self.comb += \
-                If(sink.last_be[0],
-                    increment.eq(1)
-                ).Elif(sink.last_be[1],
-                    increment.eq(2)
-                ).Elif(sink.last_be[2],
-                    increment.eq(3)
-                ).Else(
-                    increment.eq(4)
-                )
+        last_be_dec = LastBEDecoder(dw, endianness, sink.last_be)
+        self.submodules += last_be_dec
+        increment = last_be_dec.decoded
 
         counter = Signal(lengthbits)
         counter_reset = Signal()
@@ -169,7 +149,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         cases = {}
         for n, port in enumerate(ports):
             cases[n] = [
-                ports[n].adr.eq(counter[2:]),
+                ports[n].adr.eq(counter[log2_int(dw // 8):]),
                 ports[n].dat_w.eq(sink.data),
                 If(sink.stb & ongoing,
                     ports[n].we.eq(0xf)
@@ -205,7 +185,7 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
         self.source = source = stream.Endpoint(eth_phy_layout(dw))
 
         slotbits = max(log2_int(nslots), 1)
-        lengthbits = bits_for(depth*4)  # length in bytes
+        lengthbits = bits_for(depth * (dw // 8))  # length in bytes
         self.lengthbits = lengthbits
 
         self._start = CSR()
@@ -237,7 +217,7 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
             If(counter_reset,
                 counter.eq(0)
             ).Elif(counter_ce,
-                counter.eq(counter + 4)
+                counter.eq(counter + (dw // 8))
             )
 
 
@@ -261,35 +241,13 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
                 NextState("END"),
             )
         )
-        length_lsb = fifo.source.length[0:2]
-        if endianness == "big":
-            self.comb += [
-                If(last,
-                    If(length_lsb == 3,
-                        source.last_be.eq(0b0010)
-                    ).Elif(length_lsb == 2,
-                        source.last_be.eq(0b0100)
-                    ).Elif(length_lsb == 1,
-                        source.last_be.eq(0b1000)
-                    ).Else(
-                        source.last_be.eq(0b0001)
-                    )
-                )
-            ]
-        else:
-            self.comb += [
-                If(last,
-                    If(length_lsb == 3,
-                        source.last_be.eq(0b0100)
-                    ).Elif(length_lsb == 2,
-                        source.last_be.eq(0b0010)
-                    ).Elif(length_lsb == 1,
-                        source.last_be.eq(0b0001)
-                    ).Else(
-                        source.last_be.eq(0b1000)
-                    )
-                )
-            ]
+        length_lsb = fifo.source.length[0:log2_int(dw // 8)]
+        last_be_enc = LastBEEncoder(dw, endianness, length_lsb)
+        self.submodules += last_be_enc
+        self.comb += [
+            If(last,
+                source.last_be.eq(last_be_enc.encoded))
+        ]
         fsm.act("SEND",
             source.stb.eq(1),
             source.eop.eq(last),
@@ -305,7 +263,7 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
         )
 
         # last computation
-        self.comb += last.eq((counter + 4) >= fifo.source.length)
+        self.comb += last.eq((counter + (dw // 8)) >= fifo.source.length)
         self.sync += last_d.eq(last)
 
         # memory
@@ -321,7 +279,7 @@ class LiteEthMACSRAMReader(Module, AutoCSR):
 
         cases = {}
         for n, port in enumerate(ports):
-            self.comb += ports[n].adr.eq(counter[2:])
+            self.comb += ports[n].adr.eq(counter[log2_int(dw // 8):])
             cases[n] = [source.data.eq(port.dat_r)]
         self.comb += Case(rd_slot, cases)
 
