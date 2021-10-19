@@ -613,9 +613,9 @@ class Cache(Module):
 
 
 class SRAM(Module):
-    def __init__(self, mem_or_size, read_only=False, init=None, bus=None):
+    def __init__(self, mem_or_size, read_only=False, init=None, bus=None, data_width=32):
         if bus is None:
-            bus = Interface()
+            bus = Interface(data_width=data_width, adr_width=32-log2_int(data_width//8))
         self.bus = bus
         bus_data_width = len(self.bus.dat_r)
         if isinstance(mem_or_size, Memory):
@@ -632,7 +632,7 @@ class SRAM(Module):
         # generate write enable signal
         if not read_only:
             self.comb += [port.we[i].eq(self.bus.cyc & self.bus.stb & self.bus.we & self.bus.sel[i])
-                for i in range(4)]
+                for i in range(bus_data_width//8)] # A granularity of 8 in 64-bits data bus would reuslt in 8 bytes, 8 WEs
         # address and data
         self.comb += [
             port.adr.eq(self.bus.adr[:len(port.adr)]),
