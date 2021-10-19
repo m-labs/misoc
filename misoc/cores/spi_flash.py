@@ -30,7 +30,7 @@ def reverse_bytes(s):
         for i in reversed(range(n))])
 
 class SpiFlash(Module, AutoCSR):
-    def __init__(self, pads, dummy=15, div=2, with_bitbang=True, endianness="big"):
+    def __init__(self, pads, dummy=15, div=2, with_bitbang=True, endianness="big", dw=32):
         """
         Simple SPI flash, e.g. N25Q128 on the LX9 Microboard.
 
@@ -38,7 +38,8 @@ class SpiFlash(Module, AutoCSR):
         Read). Only supports mode0 (cpol=0, cpha=0).
         Optionally supports software bitbanging (for write, erase, or other commands).
         """
-        self.bus = bus = wishbone.Interface()
+        adr_width = 32-log2_int(dw//8)
+        self.bus = bus = wishbone.Interface(data_width=dw, adr_width=adr_width)
         spi_width = len(pads.dq)
         if with_bitbang:
             self.bitbang = CSRStorage(4)
@@ -50,8 +51,6 @@ class SpiFlash(Module, AutoCSR):
         cs_n = Signal(reset=1)
         clk = Signal()
         dq_oe = Signal()
-        wbone_width = len(bus.dat_r)
-
 
         read_cmd_params = {
             4: (_format_cmd(_QIOFR, 4), 4*8),
@@ -66,7 +65,7 @@ class SpiFlash(Module, AutoCSR):
         dq = TSTriple(spi_width)
         self.specials.dq = dq.get_tristate(pads.dq)
 
-        sr = Signal(max(cmd_width, addr_width, wbone_width))
+        sr = Signal(max(cmd_width, addr_width, dw))
         if endianness == "big":
             self.comb += bus.dat_r.eq(sr)
         else:
@@ -130,14 +129,14 @@ class SpiFlash(Module, AutoCSR):
             ]
 
         # spi is byte-addressed, prefix by zeros
-        z = Replicate(0, log2_int(wbone_width//8))
+        z = Replicate(0, log2_int(dw//8))
 
         seq = [
             (cmd_width//spi_width*div,
                 [dq_oe.eq(1), cs_n.eq(0), sr[-cmd_width:].eq(read_cmd)]),
             (addr_width//spi_width*div,
                 [sr[-addr_width:].eq(Cat(z, bus.adr))]),
-            ((dummy + wbone_width//spi_width)*div,
+            ((dummy + dw//spi_width)*div,
                 [dq_oe.eq(0)]),
             (1,
                 [bus.ack.eq(1), cs_n.eq(1)]),
