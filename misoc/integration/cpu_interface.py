@@ -97,7 +97,7 @@ def is_readonly(csr):
     return isinstance(csr, CSRStatus)
 
 
-def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only):
+def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only, cpu_dw_bytes):
     r = ""
 
     r += "#define CSR_"+reg_name.upper()+"_ADDR "+hex(reg_base)+"\n"
@@ -119,7 +119,7 @@ def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only):
     if size > 1:
         r += "\t"+ctype+" r = MMPTR("+hex(reg_base)+");\n"
         for byte in range(1, nwords):
-            r += "\tr <<= "+str(busword)+";\n\tr |= MMPTR("+hex(reg_base+4*byte)+");\n"
+            r += "\tr <<= "+str(busword)+";\n\tr |= MMPTR("+hex(reg_base+8*byte)+");\n"
         r += "\treturn r;\n}\n"
     else:
         r += "\treturn MMPTR("+hex(reg_base)+");\n}\n"
@@ -132,12 +132,12 @@ def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only):
                 value_shifted = "value >> "+str(shift)
             else:
                 value_shifted = "value"
-            r += "\tMMPTR("+hex(reg_base+4*word)+") = "+value_shifted+";\n"
+            r += "\tMMPTR("+hex(reg_base+cpu_dw_bytes*word)+") = "+value_shifted+";\n"
         r += "}\n"
     return r
 
 
-def get_csr_header(regions, constants):
+def get_csr_header(regions, constants, cpu_dw_bytes):
     r = "#ifndef __GENERATED_CSR_H\n#define __GENERATED_CSR_H\n"
     r += "#include <hw/common.h>\n"
     for name, origin, busword, obj in regions:
@@ -148,8 +148,8 @@ def get_csr_header(regions, constants):
             r += "#define CSR_"+name.upper()+"_BASE "+hex(origin)+"\n"
             for csr in obj:
                 nr = (csr.size + busword - 1)//busword
-                r += _get_rw_functions_c(name + "_" + csr.name, origin, nr, busword, is_readonly(csr))
-                origin += 4*nr
+                r += _get_rw_functions_c(name + "_" + csr.name, origin, nr, busword, is_readonly(csr), cpu_dw_bytes)
+                origin += cpu_dw_bytes*nr
 
     r += "\n/* constants */\n"
     for name, value in constants:
@@ -183,7 +183,7 @@ def _get_rstype(size):
         return "u8"
 
 
-def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only):
+def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only, cpu_dw_bytes):
     r = ""
 
     r += "    pub const "+reg_name.upper()+"_ADDR: *mut u32 = "+hex(reg_base)+" as *mut u32;\n"
@@ -200,7 +200,7 @@ def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only):
         r += "      let r = read_volatile("+rsname+") as "+rstype+";\n"
         for word in range(1, nwords):
             r += "      let r = r << "+str(busword)+" | " + \
-                 "read_volatile("+rsname+".offset("+str(word)+")) as "+rstype+";\n"
+                 "read_volatile("+rsname+".offset("+str(word*(cpu_dw_bytes//4))+")) as "+rstype+";\n"
         r += "      r\n"
     else:
         r += "      read_volatile("+rsname+") as "+rstype+"\n"
@@ -215,7 +215,7 @@ def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only):
                 value_shifted = "w >> "+str(shift)
             else:
                 value_shifted = "w"
-            r += "      write_volatile("+rsname+".offset("+str(word)+"), "+\
+            r += "      write_volatile("+rsname+".offset("+str(word*(cpu_dw_bytes//4))+"), "+\
                  "("+value_shifted+") as u32);\n"
         r += "    }\n\n"
     return r
@@ -228,7 +228,7 @@ def _region_by_name(regions, search_name):
     raise KeyError
 
 
-def get_csr_rust(regions, groups, constants):
+def get_csr_rust(regions, groups, constants, cpu_dw_bytes):
     r = "#[allow(dead_code)]\n"
     r += "pub mod csr {\n"
 
@@ -242,8 +242,8 @@ def get_csr_rust(regions, groups, constants):
             for csr in obj:
                 nwords = (csr.size + busword - 1)//busword
                 r += _get_rw_functions_rs(csr.name, origin, csr.size, nwords, busword,
-                                          is_readonly(csr))
-                origin += 4*nwords
+                                          is_readonly(csr), cpu_dw_bytes)
+                origin += cpu_dw_bytes*nwords
             r += "  }\n\n"
 
     for group_name, group_members in groups:
@@ -300,12 +300,12 @@ def get_rust_cfg(regions, constants):
     return r
 
 
-def get_csr_csv(regions):
+def get_csr_csv(regions, cpu_dw_bytes):
     r = ""
     for name, origin, busword, obj in regions:
         if not isinstance(obj, Memory):
             for csr in obj:
                 nr = (csr.size + busword - 1)//busword
                 r += "{}.{},0x{:08x},{},{}\n".format(name, csr.name, origin, csr.size, "ro" if is_readonly(csr) else "rw")
-                origin += 4*nr
+                origin += cpu_dw_bytes*nr
     return r
