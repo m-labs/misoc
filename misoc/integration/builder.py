@@ -85,6 +85,7 @@ class Builder:
 
     def generate_includes(self):
         cpu_type = self.soc.cpu_type
+        cpu_dw_bytes = self.soc.cpu_dw//8
         memory_regions = self.soc.get_memory_regions()
         memory_groups = self.soc.get_memory_groups()
         flash_boot_address = getattr(self.soc, "flash_boot_address", None)
@@ -119,12 +120,12 @@ class Builder:
         with WriteGenerated(generated_dir, "mem.h") as f:
             f.write(cpu_interface.get_mem_header(memory_regions, flash_boot_address))
         with WriteGenerated(generated_dir, "csr.h") as f:
-            f.write(cpu_interface.get_csr_header(csr_regions, constants))
+            f.write(cpu_interface.get_csr_header(csr_regions, constants, cpu_dw_bytes))
 
         with WriteGenerated(generated_dir, "mem.rs") as f:
             f.write(cpu_interface.get_mem_rust(memory_regions, memory_groups, flash_boot_address))
         with WriteGenerated(generated_dir, "csr.rs") as f:
-            f.write(cpu_interface.get_csr_rust(csr_regions, csr_groups, constants))
+            f.write(cpu_interface.get_csr_rust(csr_regions, csr_groups, constants, cpu_dw_bytes))
         with WriteGenerated(generated_dir, "rust-cfg") as f:
             f.write(cpu_interface.get_rust_cfg(csr_regions, constants))
 
@@ -136,7 +137,7 @@ class Builder:
 
         if self.csr_csv is not None:
             with open(self.csr_csv, "w") as f:
-                f.write(cpu_interface.get_csr_csv(csr_regions))
+                f.write(cpu_interface.get_csr_csv(csr_regions, cpu_dw_bytes))
 
     def generate_software(self):
         software_dir = os.path.join(self.output_dir, "software")
