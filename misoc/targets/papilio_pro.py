@@ -83,7 +83,7 @@ class BaseSoC(SoCSDRAM):
         if not self.integrated_rom_size:
             self.submodules.spiflash = spi_flash.SpiFlash(
                 platform.request("spiflash2x"), dummy=4, div=6,
-                endianness="little" if self.cpu_type == "vexriscv" else "big")
+                endianness="little" if self.cpu_type == "vexriscv" else "big", dw=self.cpu_dw)
             self.flash_boot_address = 0x70000
             self.register_rom(self.spiflash.bus)
             self.csr_devices.append("spiflash")

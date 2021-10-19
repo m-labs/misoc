@@ -22,10 +22,10 @@ class SoCSDRAM(SoCCore):
 
         self._sdram_phy = []
         self._cpulevel_sdram_ifs = []
-        self._cpulevel_sdram_if_arbitrated = wishbone.Interface()
+        self._cpulevel_sdram_if_arbitrated = wishbone.Interface(data_width=self.cpu_dw, adr_width=32-log2_int(self.cpu_dw//8))
 
     def add_cpulevel_sdram_if(self, interface):
-        """Registers a 32-bit Wishbone interface, capable of accessing SDRAM,
+        """Registers a 32/64-bit Wishbone interface, capable of accessing SDRAM,
         at the same level as the CPU.
 
         This can be called anytime until finalization.
@@ -41,7 +41,7 @@ class SoCSDRAM(SoCCore):
         This can only be called after ``register_sdram``.
         """
         if isinstance(self.sdram_controller, minicon.Minicon):
-            bus = wishbone.Interface(len(self.sdram_controller.bus.dat_w))
+            bus = wishbone.Interface(len(self.sdram_controller.bus.dat_w), adr_width=32-log2_int(self.cpu_dw//8))
             self._native_sdram_ifs.append(bus)
             return bus
         elif isinstance(self.sdram_controller, lasmicon.LASMIcon):
@@ -62,7 +62,7 @@ class SoCSDRAM(SoCCore):
                             geom_settings.colbits)*sdram_width//8
         # TODO: modify mem_map to allow larger memories.
         main_ram_size = min(main_ram_size, 256*1024*1024)
-        wb_sdram = wishbone.Interface()
+        wb_sdram = wishbone.Interface(data_width=self.cpu_dw, adr_width=32-log2_int(self.cpu_dw//8))
         self.add_cpulevel_sdram_if(wb_sdram)
         self.register_mem("main_ram", self.mem_map["main_ram"],
                           main_ram_size, wb_sdram)
@@ -76,7 +76,7 @@ class SoCSDRAM(SoCCore):
         # create controller
         if sdram_controller_type == "minicon":
             self.submodules.sdram_controller = minicon.Minicon(
-                phy.settings, geom_settings, timing_settings)
+                phy.settings, geom_settings, timing_settings, adr_width=32-log2_int(self.cpu_dw//8))
             self._native_sdram_ifs = []
 
             bridge_if = self.get_native_sdram_if()

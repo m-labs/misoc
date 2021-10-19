@@ -136,8 +136,8 @@ class Decoder(Module):
 
 
 class InterconnectShared(Module):
-    def __init__(self, masters, slaves, register=False):
-        shared = Interface()
+    def __init__(self, masters, slaves, register=False, dw=32):
+        shared = Interface(data_width=dw, adr_width=32-log2_int(dw//8))
         self.submodules += Arbiter(masters, shared)
         self.submodules += Decoder(shared, slaves, register)
 
