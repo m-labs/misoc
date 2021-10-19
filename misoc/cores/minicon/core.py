@@ -61,7 +61,7 @@ class _Bank(Module):
 
 
 class Minicon(Module):
-    def __init__(self, phy_settings, geom_settings, timing_settings):
+    def __init__(self, phy_settings, geom_settings, timing_settings, adr_width=30):
         if phy_settings.memtype in ["SDR"]:
             burst_length = phy_settings.nphases*1  # command multiplication*SDR
         elif phy_settings.memtype in ["DDR", "LPDDR", "DDR2", "DDR3"]:
@@ -76,7 +76,7 @@ class Minicon(Module):
             phy_settings.dfi_databits,
             phy_settings.nphases)
 
-        self.bus = bus = wishbone.Interface(burst_width)
+        self.bus = bus = wishbone.Interface(burst_width, adr_width=adr_width)
 
         rdphase = phy_settings.rdphase
         wrphase = phy_settings.wrphase
