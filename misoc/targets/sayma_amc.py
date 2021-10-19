@@ -130,7 +130,7 @@ class BaseSoC(SoCSDRAM):
                                       i_DO=0, i_DTS=0b1110)
             self.submodules.spiflash = spi_flash.SpiFlash(
                 spiflash_pads, dummy=11, div=2,
-                endianness="little" if self.cpu_type == "vexriscv" else "big")
+                endianness="little" if self.cpu_type == "vexriscv" else "big", dw=self.cpu_dw)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.flash_boot_address = 0x50000
@@ -156,7 +156,7 @@ class MiniSoC(BaseSoC):
            self.platform.request("gth_clk200"),
            self.platform.request("sfp", 1),
            self.clk_freq)
-        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
+        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=self.cpu_dw, interface="wishbone",
                                             endianness="little" if self.cpu_type == "vexriscv" else "big",
                                             nrxslots=ethmac_nrxslots, ntxslots=ethmac_ntxslots)
         ethmac_len = (ethmac_nrxslots + ethmac_ntxslots) * 0x800

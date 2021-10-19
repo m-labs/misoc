@@ -33,7 +33,7 @@ class MiniSoC(BaseSoC):
 
         self.submodules.ethphy = LiteEthPHY(platform.request("eth_clocks"),
                                             platform.request("eth"))
-        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32,
+        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=self.cpu_dw,
                                             interface="wishbone",
                                             endianness="little" if self.cpu_type == "vexriscv" else "big",
                                             with_preamble_crc=False)

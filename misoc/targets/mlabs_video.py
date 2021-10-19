@@ -138,7 +138,7 @@ class MiniSoC(BaseSoC):
         self.sync.base50 += eth_clocks.phy.eq(~eth_clocks.phy)
         self.submodules.ethphy = LiteEthPHY(eth_clocks,
                                             platform.request("eth"))
-        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=32, interface="wishbone",
+        self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=self.cpu_dw, interface="wishbone",
                                             endianness="little" if self.cpu_type == "vexriscv" else "big")
         self.add_wb_slave(self.mem_map["ethmac"], 0x2000, self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)

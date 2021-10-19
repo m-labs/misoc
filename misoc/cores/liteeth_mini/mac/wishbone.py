@@ -12,7 +12,7 @@ class LiteEthMACWishboneInterface(Module, AutoCSR):
     def __init__(self, dw, nrxslots=2, ntxslots=2, endianness="big"):
         self.sink = stream.Endpoint(eth_phy_layout(dw))
         self.source = stream.Endpoint(eth_phy_layout(dw))
-        self.bus = wishbone.Interface()
+        self.bus = wishbone.Interface(data_width=dw, adr_width=32-log2_int(dw//8))
 
         # # #
 
@@ -25,10 +25,10 @@ class LiteEthMACWishboneInterface(Module, AutoCSR):
         ]
 
         # Wishbone interface
-        wb_rx_sram_ifs = [wishbone.SRAM(self.sram.writer.mems[n], read_only=True)
+        wb_rx_sram_ifs = [wishbone.SRAM(self.sram.writer.mems[n], read_only=True, data_width=dw)
             for n in range(nrxslots)]
         # TODO: FullMemoryWE should move to Mibuild
-        wb_tx_sram_ifs = [FullMemoryWE()(wishbone.SRAM(self.sram.reader.mems[n], read_only=False))
+        wb_tx_sram_ifs = [FullMemoryWE()(wishbone.SRAM(self.sram.reader.mems[n], read_only=False, data_width=dw))
             for n in range(ntxslots)]
         wb_sram_ifs = wb_rx_sram_ifs + wb_tx_sram_ifs
 

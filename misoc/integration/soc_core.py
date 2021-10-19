@@ -52,7 +52,6 @@ class SoCCore(Module):
         self._constants = []  # list of (name, value)
 
         self._wb_masters = []
-        self._wb_slaves = WishboneSlaveManager(self.shadow_base)
 
         self.config = dict()
 
@@ -78,21 +77,24 @@ class SoCCore(Module):
         self.add_wb_master(self.cpu.ibus)
         self.add_wb_master(self.cpu.dbus)
 
+        self.cpu_dw = len(self.cpu.dbus.dat_w)
+        self._wb_slaves = WishboneSlaveManager(self.shadow_base, dw=self.cpu_dw)
+
         if integrated_rom_size:
-            self.submodules.rom = wishbone.SRAM(integrated_rom_size, read_only=True)
+            self.submodules.rom = wishbone.SRAM(integrated_rom_size, read_only=True, data_width=self.cpu_dw)
             self.register_rom(self.rom.bus, integrated_rom_size)
 
         if integrated_sram_size:
-            self.submodules.sram = wishbone.SRAM(integrated_sram_size)
+            self.submodules.sram = wishbone.SRAM(integrated_sram_size, data_width=self.cpu_dw)
             self.register_mem("sram", self.mem_map["sram"], integrated_sram_size, self.sram.bus)
 
         # Main Ram can be used when no external SDRAM is present, and use SDRAM mapping.
         if integrated_main_ram_size:
-            self.submodules.main_ram = wishbone.SRAM(integrated_main_ram_size)
+            self.submodules.main_ram = wishbone.SRAM(integrated_main_ram_size, data_width=self.cpu_dw)
             self.register_mem("main_ram", self.mem_map["main_ram"], integrated_main_ram_size, self.main_ram.bus)
 
         self.submodules.wishbone2csr = wishbone2csr.WB2CSR(
-            bus_csr=csr_bus.Interface(csr_data_width, csr_address_width))
+            bus_csr=csr_bus.Interface(csr_data_width, csr_address_width), wb_bus_dw=self.cpu_dw)
         self.register_mem("csr", self.mem_map["csr"], 4*2**csr_address_width, self.wishbone2csr.wishbone)
 
         if with_uart:
@@ -181,12 +183,13 @@ class SoCCore(Module):
 
         # Wishbone
         self.submodules.wishbonecon = wishbone.InterconnectShared(self._wb_masters,
-            self._wb_slaves.get_interconnect_slaves(), register=True)
+            self._wb_slaves.get_interconnect_slaves(), register=True, dw=self.cpu_dw)
 
         # CSR
         self.submodules.csrbankarray = csr_bus.CSRBankArray(self,
             self.get_csr_dev_address,
-            data_width=self.csr_data_width, address_width=self.csr_address_width)
+            data_width=self.csr_data_width, address_width=self.csr_address_width,
+            align_bits=log2_int(self.cpu_dw//8))
         self.submodules.csrcon = csr_bus.Interconnect(
             self.wishbone2csr.csr, self.csrbankarray.get_buses())
         for name, csrs, mapaddr, rmap in self.csrbankarray.banks:
