@@ -1,3 +1,5 @@
+from migen import *
+
 def split(bit, addresses):
     s0 = []
     s1 = []
@@ -43,14 +45,17 @@ def make_sel_fun(bits):
 
 
 class WishboneSlaveManager:
-    def __init__(self, max_address):
+    def __init__(self, max_address, dw=32):
+        self.dw = dw
         self.max_address = max_address
         self.slaves = []  # list of (origin, length, interface)
 
     def add(self, origin, length, interface):
         if origin < 0 or length <= 0 or origin + length > self.max_address:
             raise ValueError("Invalid range for origin/length of Wishbone region")
-        if origin & 3 or length & 3:
+        
+        align_mask = self.dw//8 - 1
+        if origin & align_mask or length & align_mask:
             raise ValueError("Misaligned Wishbone address")
         def in_this_region(addr):
             return addr >= origin and addr < origin + length
@@ -62,8 +67,11 @@ class WishboneSlaveManager:
         self.slaves.append((origin, length, interface))
 
     def get_interconnect_slaves(self):
-        decoder = make_decoder(30, [origin >> 2 for origin, _, _ in self.slaves])
+        align = log2_int(self.dw//8)
+        for slave in self.slaves:
+            iface = slave[2]
+        decoder = make_decoder(32 - align, [origin >> align for origin, _, _ in self.slaves])
         ic_slaves = []
         for origin, _, interface in self.slaves:
-            ic_slaves.append((make_sel_fun(decoder[origin >> 2]), interface))
+            ic_slaves.append((make_sel_fun(decoder[origin >> align]), interface))
         return ic_slaves
