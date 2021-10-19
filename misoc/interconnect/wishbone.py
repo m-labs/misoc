@@ -648,9 +648,9 @@ class SRAM(Module):
 
 
 class CSRBank(csr.GenericBank):
-    def __init__(self, description, bus=None):
+    def __init__(self, description, bus=None, dw=32):
         if bus is None:
-            bus = Interface()
+            bus = Interface(data_width=dw, adr_width=32-log2_int(dw//8))
         self.bus = bus
 
         ###
