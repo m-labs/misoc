@@ -68,8 +68,6 @@ class WishboneSlaveManager:
 
     def get_interconnect_slaves(self):
         align = log2_int(self.dw//8)
-        for slave in self.slaves:
-            iface = slave[2]
         decoder = make_decoder(32 - align, [origin >> align for origin, _, _ in self.slaves])
         ic_slaves = []
         for origin, _, interface in self.slaves:
