@@ -78,6 +78,8 @@ class SoCCore(Module):
         self.add_wb_master(self.cpu.dbus)
 
         self.cpu_dw = len(self.cpu.dbus.dat_w)
+        self.config["DATA_WIDTH_BYTES"] = self.cpu_dw//8
+
         self._wb_slaves = WishboneSlaveManager(self.shadow_base, dw=self.cpu_dw)
 
         if integrated_rom_size:
