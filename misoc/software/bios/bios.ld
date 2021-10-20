@@ -23,7 +23,7 @@ SECTIONS
 		/* Make sure the file is aligned on disk as well
 		   as in memory; CRC calculation requires that. */
 		FILL(0);
-		. = ALIGN(4);
+		. = ALIGN(8) + 4;
 		_erodata = .;
 	} > rom
 
