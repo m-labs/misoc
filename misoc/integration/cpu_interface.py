@@ -137,7 +137,7 @@ def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only, cpu_dw_b
     return r
 
 
-def get_csr_header(regions, constants, cpu_dw_bytes):
+def get_csr_header(regions, constants, cpu_dw_bytes=4):
     r = "#ifndef __GENERATED_CSR_H\n#define __GENERATED_CSR_H\n"
     r += "#include <hw/common.h>\n"
     for name, origin, busword, obj in regions:
@@ -228,7 +228,7 @@ def _region_by_name(regions, search_name):
     raise KeyError
 
 
-def get_csr_rust(regions, groups, constants, cpu_dw_bytes):
+def get_csr_rust(regions, groups, constants, cpu_dw_bytes=4):
     r = "#[allow(dead_code)]\n"
     r += "pub mod csr {\n"
 
@@ -300,7 +300,7 @@ def get_rust_cfg(regions, constants):
     return r
 
 
-def get_csr_csv(regions, cpu_dw_bytes):
+def get_csr_csv(regions, cpu_dw_bytes=4):
     r = ""
     for name, origin, busword, obj in regions:
         if not isinstance(obj, Memory):
