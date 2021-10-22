@@ -119,7 +119,7 @@ def _get_rw_functions_c(reg_name, reg_base, nwords, busword, read_only, cpu_dw_b
     if size > 1:
         r += "\t"+ctype+" r = MMPTR("+hex(reg_base)+");\n"
         for byte in range(1, nwords):
-            r += "\tr <<= "+str(busword)+";\n\tr |= MMPTR("+hex(reg_base+8*byte)+");\n"
+            r += "\tr <<= "+str(busword)+";\n\tr |= MMPTR("+hex(reg_base+cpu_dw_bytes*byte)+");\n"
         r += "\treturn r;\n}\n"
     else:
         r += "\treturn MMPTR("+hex(reg_base)+");\n}\n"
