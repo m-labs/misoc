@@ -648,15 +648,13 @@ class SRAM(Module):
 
 
 class CSRBank(csr.GenericBank):
-    def __init__(self, description, bus=None, dw=32):
+    def __init__(self, description, bus=None):
         if bus is None:
-            bus = Interface(data_width=dw, adr_width=32-log2_int(dw//8))
+            bus = Interface()
         self.bus = bus
 
         ###
-        # Even though the bus width can potentially support 64-bits data bus,
-        # only 32-bits architectures are implemented
-        csr.GenericBank.__init__(self, description, min(len(self.bus.dat_w), 32))
+        csr.GenericBank.__init__(self, description, len(self.bus.dat_w))
 
         for i, c in enumerate(self.simple_csrs):
             self.comb += [
