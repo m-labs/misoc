@@ -38,7 +38,7 @@ class LiteEthMACSRAMWriter(Module, AutoCSR):
         self.sink = sink = stream.Endpoint(eth_phy_layout(dw))
 
         slotbits = max(log2_int(nslots), 1)
-        lengthbits = 32
+        lengthbits = bits_for(depth * dw//8)
 
         self._slot = CSRStatus(slotbits)
         self._length = CSRStatus(lengthbits)
