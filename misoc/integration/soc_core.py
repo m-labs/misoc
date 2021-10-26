@@ -23,7 +23,7 @@ class SoCCore(Module):
                 integrated_sram_size=4096,
                 integrated_main_ram_size=16*1024,
                 shadow_base=0x80000000,
-                csr_data_width=8, csr_address_width=14,
+                csr_data_width=8,
                 with_uart=True, uart_baudrate=115200,
                 ident="",
                 with_timer=True):
@@ -43,9 +43,6 @@ class SoCCore(Module):
         self.uart_baudrate = uart_baudrate
 
         self.shadow_base = shadow_base
-
-        self.csr_data_width = csr_data_width
-        self.csr_address_width = csr_address_width
 
         self._memory_regions = []  # list of (name, origin, length)
         self._csr_regions = []  # list of (name, origin, busword, csr_list/Memory)
@@ -80,6 +77,9 @@ class SoCCore(Module):
         self.cpu_dw = len(self.cpu.dbus.dat_w)
         self.config["DATA_WIDTH_BYTES"] = self.cpu_dw//8
 
+        self.csr_data_width = csr_data_width
+        self.csr_address_width = 16 - log2_int(self.cpu_dw//8)
+
         self._wb_slaves = WishboneSlaveManager(self.shadow_base, dw=self.cpu_dw)
 
         if integrated_rom_size:
@@ -96,8 +96,8 @@ class SoCCore(Module):
             self.register_mem("main_ram", self.mem_map["main_ram"], integrated_main_ram_size, self.main_ram.bus)
 
         self.submodules.wishbone2csr = wishbone2csr.WB2CSR(
-            bus_csr=csr_bus.Interface(csr_data_width, csr_address_width), wb_bus_dw=self.cpu_dw)
-        self.register_mem("csr", self.mem_map["csr"], 4*2**csr_address_width, self.wishbone2csr.wishbone)
+            bus_csr=csr_bus.Interface(self.csr_data_width, self.csr_address_width), wb_bus_dw=self.cpu_dw)
+        self.register_mem("csr", self.mem_map["csr"], 64*1024, self.wishbone2csr.wishbone)
 
         if with_uart:
             self.submodules.uart_phy = uart.RS232PHY(platform.request("serial"), clk_freq, uart_baudrate)
