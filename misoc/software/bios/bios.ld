@@ -20,8 +20,12 @@ SECTIONS
 		*(.rodata .rodata.* .gnu.linkonce.r.*)
 		*(.rodata1)
 
-		/* Make sure the file is aligned on disk as well
-		   as in memory; CRC calculation requires that. */
+		/* Make sure the file is aligned on disk as well as in memory;
+		   1. CRC calculation requires 4-bytes alignment.
+		   2. The ROM needs to be 8-bytes aligned overall. It is to
+		      convert the binary from big endian to little endian for
+			  little endian CPUs. (e.g. RISC-V).
+		   Solution: Misalign the CRC by exactly 4 bytes */
 		FILL(0);
 		. = ALIGN(8) + 4;
 		_erodata = .;
