@@ -16,6 +16,7 @@ class VexRiscv(Module):
 
         self.ibus = i = wishbone.Interface(data_width=cpu_dw, adr_width=adr_width)
         self.dbus = d = wishbone.Interface(data_width=cpu_dw, adr_width=adr_width)
+        self.endianness = "little"
 
         self.interrupt = Signal(32)
 
