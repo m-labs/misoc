@@ -19,6 +19,7 @@ class SoCCore(Module):
     }
     def __init__(self, platform, clk_freq,
                 cpu_type="lm32", cpu_reset_address=0x00000000,
+                cpu_bus_width=32,
                 integrated_rom_size=0,
                 integrated_sram_size=4096,
                 integrated_main_ram_size=16*1024,
@@ -62,19 +63,29 @@ class SoCCore(Module):
         self._csr_groups = []  # list of (group_name, (group_member0, group_member1, ...))
         self.interrupt_devices = []
 
-        if cpu_type == "lm32":
+        if cpu_type == "lm32" and cpu_bus_width == 32:
             self.submodules.cpu = lm32.LM32(platform, self.cpu_reset_address)
-        elif cpu_type == "or1k":
+        elif cpu_type == "or1k" and cpu_bus_width == 32:
             self.submodules.cpu = mor1kx.MOR1KX(platform,
                     OPTION_RESET_PC=self.cpu_reset_address)
-        elif cpu_type == "vexriscv":
-            self.submodules.cpu = vexriscv.VexRiscv(platform, self.cpu_reset_address)
+        elif cpu_type == "vexriscv" and cpu_bus_width in (32, 64):
+            if cpu_bus_width == 32:
+                self.submodules.cpu = vexriscv.VexRiscv(platform,
+                        self.cpu_reset_address, variant="VexRiscv_IMA")
+            else:
+                self.submodules.cpu = vexriscv.VexRiscv(platform,
+                        self.cpu_reset_address, variant="VexRiscv_IMA_wide")
+        elif cpu_type == "riscv32g" and cpu_bus_width == 64:
+            assert(cpu_bus_width == 64)
+            self.submodules.cpu = vexriscv.VexRiscv(platform,
+                    self.cpu_reset_address, variant="VexRiscv_G")
         else:
-            raise ValueError("Unsupported CPU type: {}".format(cpu_type))
+            raise ValueError("Unsupported CPU type: {}; Bus width: {}".format(cpu_type, cpu_bus_width))
         self.add_wb_master(self.cpu.ibus)
         self.add_wb_master(self.cpu.dbus)
 
         self.cpu_dw = len(self.cpu.dbus.dat_w)
+        assert(self.cpu_dw, cpu_bus_width)
         self.config["DATA_WIDTH_BYTES"] = self.cpu_dw//8
 
         self.csr_data_width = csr_data_width

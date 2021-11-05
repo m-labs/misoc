@@ -1,21 +1,12 @@
 import os
 
 from migen import *
-from migen.build.platforms.sinara import kasli
+
 from misoc.interconnect import wishbone
 
 
 class VexRiscv(Module):
-    def __init__(self, platform, cpu_reset_address, with_fpu=False):
-        if isinstance(platform, kasli.Platform) and platform.hw_rev in ("v1.0", "v1.1"):
-            if with_fpu:
-                raise ValueError("VexRiscv FPU is not supported on Kasli v1.x")
-            variant = "VexRiscv_IMA"
-        elif with_fpu:
-            variant = "VexRiscv_G"
-        else:
-            variant = "VexRiscv_IMA_wide"
-
+    def __init__(self, platform, cpu_reset_address, variant="VexRiscv_IMA"):
         cpu_dw = {
             "VexRiscv_G"        : 64,
             "VexRiscv_IMA"      : 32,

@@ -144,14 +144,16 @@ class SoCSDRAM(SoCCore):
 
 def soc_sdram_args(parser):
     parser.add_argument("--cpu-type", default=None,
-                        help="select CPU: lm32, or1k")
+                        help="select CPU: lm32, or1k, vexriscv")
+    parser.add_argument("--cpu-bus-width", default=None, type=int,
+                        help="width of CPU IBus/DBus in bits: 32 or 64")
     parser.add_argument("--integrated-rom-size", default=None, type=int,
                         help="size/enable the integrated (BIOS) ROM")
 
 
 def soc_sdram_argdict(args):
     r = dict()
-    for a in "cpu_type", "integrated_rom_size":
+    for a in "cpu_type", "cpu_bus_width", "integrated_rom_size":
         arg = getattr(args, a)
         if arg is not None:
             r[a] = arg
