@@ -33,7 +33,6 @@ def get_cpu_mak(cpu):
         raise ValueError("Unsupported CPU type: "+cpu)
     return [
         ("TRIPLE", triple),
-        ("CPU", cpu),
         ("CPUFLAGS", cpuflags),
         ("CLANG", clang),
         ("LLVM_TOOLS", llvm_tools)
