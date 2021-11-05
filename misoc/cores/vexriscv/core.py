@@ -1,14 +1,24 @@
 import os
 
 from migen import *
-
+from migen.build.platforms.sinara import kasli
 from misoc.interconnect import wishbone
 
 
 class VexRiscv(Module):
-    def __init__(self, platform, cpu_reset_address):
-        self.ibus = i = wishbone.Interface()
-        self.dbus = d = wishbone.Interface()
+        if isinstance(platform, kasli.Platform) and platform.hw_rev in ("v1.0", "v1.1"):
+            variant = "VexRiscv_IMA"
+        else:
+            variant = "VexRiscv_IMA_wide"
+
+        cpu_dw = {
+            "VexRiscv_IMA"      : 32,
+            "VexRiscv_IMA_wide" : 64
+        }[variant]
+        adr_width = 32-log2_int(cpu_dw//8)
+
+        self.ibus = i = wishbone.Interface(data_width=cpu_dw, adr_width=adr_width)
+        self.dbus = d = wishbone.Interface(data_width=cpu_dw, adr_width=adr_width)
 
         self.interrupt = Signal(32)
 
