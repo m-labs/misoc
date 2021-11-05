@@ -9,6 +9,9 @@ endif
 ifeq ($(CPU),vexriscv)
 	CARGO_TRIPLE=$(subst riscv32-unknown-linux,riscv32ima-unknown-none-elf,$(TRIPLE))
 endif
+ifeq ($(CPU),riscv32g)
+	CARGO_TRIPLE=$(subst riscv32-unknown-linux,riscv32g-unknown-none-elf,$(TRIPLE))
+endif
 
 ifeq ($(CLANG),1)
 CC_normal      := clang -target $(TRIPLE) -integrated-as
@@ -34,6 +37,9 @@ ifeq ($(CPU),or1k)
 CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo cargo rustc --target $(CARGO_TRIPLE)
 endif
 ifeq ($(CPU),vexriscv)
+CARGO_normal   := cargo xbuild
+endif
+ifeq ($(CPU),riscv32g)
 CARGO_normal   := cargo xbuild
 endif
 
@@ -76,11 +82,15 @@ CXXFLAGS = $(COMMONFLAGS) -std=c++11 -I$(MISOC_DIRECTORY)/software/include/basec
 
 # Rust toolchain options
 RUSTOUT = cargo/$(CARGO_TRIPLE)/debug
+RUST_COMMONFLAGS = -Crelocation-model=static -Copt-level=s
 ifeq ($(CPU),or1k)
-	export RUSTFLAGS = -Ctarget-feature=+mul,+div,+ffl1,+cmov,+addc -Crelocation-model=static -Copt-level=s
+	export RUSTFLAGS = -Ctarget-feature=+mul,+div,+ffl1,+cmov,+addc $(RUST_COMMONFLAGS)
 endif
 ifeq ($(CPU),vexriscv)
-	export RUSTFLAGS = -Ctarget-feature=+m,+a,-c -Crelocation-model=static -Copt-level=s
+	export RUSTFLAGS = -Ctarget-feature=+m,+a,-c $(RUST_COMMONFLAGS)
+endif
+ifeq ($(CPU),riscv32g)
+	export RUSTFLAGS = -Ctarget-feature=+m,+a,-c,+f,+d $(RUST_COMMONFLAGS)
 endif
 export CC_$(subst -,_,$(CARGO_TRIPLE)) = clang
 export CFLAGS_$(subst -,_,$(CARGO_TRIPLE)) = $(CFLAGS)
@@ -92,6 +102,8 @@ ifneq ($(LLVM_TOOLS),1)
 endif
 
 ifeq ($(CPU),vexriscv)
+	CPU_ENDIANNESS = LITTLE
+else ifeq ($(CPU),riscv32g)
 	CPU_ENDIANNESS = LITTLE
 else
 	CPU_ENDIANNESS = BIG
