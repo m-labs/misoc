@@ -176,7 +176,7 @@ class Builder:
         if self.soc.integrated_rom_size:
             bios_file = os.path.join(self.output_dir, "software", "bios",
                                      "bios.bin")
-            unpack_endian = ">" if self.soc.cpu_type != "vexriscv" else "<"
+            unpack_endian = "<" if self.soc.endianness == "little" else ">"
             unpack_size = self.soc.cpu_dw // 8
             unpack_type = "I" if unpack_size == 4 else "Q"
             with open(bios_file, "rb") as boot_file:

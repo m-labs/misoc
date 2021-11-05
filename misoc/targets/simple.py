@@ -35,7 +35,7 @@ class MiniSoC(BaseSoC):
                                             platform.request("eth"))
         self.submodules.ethmac = LiteEthMAC(phy=self.ethphy, dw=self.cpu_dw,
                                             interface="wishbone",
-                                            endianness="little" if self.cpu_type == "vexriscv" else "big",
+                                            endianness=self.endianness,
                                             with_preamble_crc=False)
         self.add_wb_slave(self.mem_map["ethmac"], 0x2000, self.ethmac.bus)
         self.add_memory_region("ethmac", self.mem_map["ethmac"] | self.shadow_base, 0x2000)
