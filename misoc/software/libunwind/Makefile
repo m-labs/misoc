@@ -13,13 +13,13 @@ CFLAGS += -funwind-tables
 CXXFLAGS += -fno-exceptions -funwind-tables
 
 ifeq ($(CPU),or1k)
-all:: libunwind-bare.a libunwind-elf.a
+all:: libunwind-bare.a libunwind-or1k-elf.a
 endif
 ifeq ($(CPU),vexriscv)
-all:: libunwind-bare.a libunwind-elf.a
+all:: libunwind-bare.a libunwind-vexriscv-elf.a
 endif
 ifeq ($(CPU),riscv32g)
-all:: libunwind-elf.a
+all:: libunwind-riscv32g-elf.a
 endif
 
 libunwind-%.a: UnwindRegistersSave.o UnwindRegistersRestore.o \
@@ -29,10 +29,10 @@ libunwind-%.a: UnwindRegistersSave.o UnwindRegistersRestore.o \
 %.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
 	$(assemble)
 
-%-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
+%-$(CPU)-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
 	$(compilexx)
 
-%-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
+%-$(CPU)-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
 	$(compile)
 
 %-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
