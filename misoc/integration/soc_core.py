@@ -88,6 +88,8 @@ class SoCCore(Module):
         assert(self.cpu_dw, cpu_bus_width)
         self.config["DATA_WIDTH_BYTES"] = self.cpu_dw//8
 
+        self.endianness = getattr(self.cpu, "endianness", "big")
+
         self.csr_data_width = csr_data_width
         self.csr_address_width = 16 - log2_int(self.cpu_dw//8)
 
@@ -224,7 +226,7 @@ class SoCCore(Module):
 
 def soc_core_args(parser):
     parser.add_argument("--cpu-type", default=None,
-                        help="select CPU: lm32, or1k, vexriscv")
+                        help="select CPU: lm32, or1k, vexriscv, riscv32g")
     parser.add_argument("--cpu-bus-width", default=None, type=int,
                         help="width of CPU IBus/DBus in bits: 32 or 64")
     parser.add_argument("--integrated-rom-size", default=None, type=int,
