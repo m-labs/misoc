@@ -28,7 +28,7 @@ class VexRiscv(Module):
 
         self.interrupt = Signal(32)
 
-        self.specials += Instance("VexRiscv",
+        self.specials += Instance(variant,
                                   i_clk=ClockSignal(),
                                   i_reset=ResetSignal(),
 
@@ -62,4 +62,4 @@ class VexRiscv(Module):
 
         # add Verilog sources
         vdir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "verilog")
-        platform.add_source(os.path.join(vdir, "VexRiscv_IMA.v"))
+        platform.add_source(os.path.join(vdir, variant+".v"))
