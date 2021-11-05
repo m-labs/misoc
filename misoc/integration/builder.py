@@ -78,10 +78,12 @@ class Builder:
         for name in misoc_extra_software_packages:
             self.add_software_package(name)
 
-    def add_software_package(self, name, src_dir=None):
+    def add_software_package(self, name, src_dir=None, cpu_type=None):
         if src_dir is None:
             src_dir = os.path.join(misoc_directory, "software", name)
-        self.software_packages.append((name, src_dir))
+        if cpu_type is None:
+            cpu_type = self.soc.cpu_type
+        self.software_packages.append((name, src_dir, cpu_type))
 
     def generate_includes(self):
         cpu_type = self.soc.cpu_type
@@ -104,12 +106,19 @@ class Builder:
         with WriteGenerated(generated_dir, "variables.mak") as f:
             def define(k, v):
                 f.write("{}={}\n".format(k, _makefile_escape(v)))
-            for k, v in cpu_interface.get_cpu_mak(cpu_type):
-                define(k, v)
+
+            # Find the list of required CPUs for building the software
+            cpu_types = set([cpu_type for _, _, cpu_type in self.software_packages])
+            for cpu_type in cpu_types:
+                f.write("ifeq ($(CPU),{})\n".format(cpu_type))
+                for k, v in cpu_interface.get_cpu_mak(cpu_type):
+                    define(k, v)
+                f.write("endif\n")
+
             define("MISOC_DIRECTORY", misoc_directory)
             define("BUILDINC_DIRECTORY", buildinc_dir)
             f.write("export BUILDINC_DIRECTORY\n")
-            for name, src_dir in self.software_packages:
+            for name, src_dir, _ in self.software_packages:
                 define(name.upper() + "_DIRECTORY", src_dir)
 
         with WriteGenerated(generated_dir, "output_format.ld") as f:
@@ -144,7 +153,7 @@ class Builder:
         with open(os.path.join(software_dir, "Makefile"), "w") as top_makefile:
             top_makefile.write("software:\n")
 
-            for name, src_dir in self.software_packages:
+            for name, src_dir, cpu_type in self.software_packages:
                 dst_dir = os.path.join(software_dir, name)
                 os.makedirs(dst_dir, exist_ok=True)
                 src = os.path.join(src_dir, "Makefile")
@@ -155,9 +164,9 @@ class Builder:
                     except FileNotFoundError:
                         pass
                     os.symlink(src, dst)
-                    top_makefile.write("\tmake -C {}\n".format(dst_dir))
+                    top_makefile.write("\tmake -C {} CPU={}\n".format(dst_dir, cpu_type))
                 else:
-                    top_makefile.write("\tmake -C {} -f {}\n".format(dst_dir, src))
+                    top_makefile.write("\tmake -C {} -f {} CPU={}\n".format(dst_dir, src, cpu_type))
 
         if self.compile_software:
             cmd = ["make", "-C", software_dir]
