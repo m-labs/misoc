@@ -75,7 +75,7 @@ class SoCCore(Module):
             else:
                 self.submodules.cpu = vexriscv.VexRiscv(platform,
                         self.cpu_reset_address, variant="VexRiscv_IMA_wide")
-        elif cpu_type == "riscv32g" and cpu_bus_width == 64:
+        elif cpu_type == "vexriscv-g" and cpu_bus_width == 64:
             assert(cpu_bus_width == 64)
             self.submodules.cpu = vexriscv.VexRiscv(platform,
                     self.cpu_reset_address, variant="VexRiscv_G")
@@ -226,7 +226,7 @@ class SoCCore(Module):
 
 def soc_core_args(parser):
     parser.add_argument("--cpu-type", default=None,
-                        help="select CPU: lm32, or1k, vexriscv, riscv32g")
+                        help="select CPU: lm32, or1k, vexriscv, vexriscv-g")
     parser.add_argument("--cpu-bus-width", default=None, type=int,
                         help="width of CPU IBus/DBus in bits: 32 or 64")
     parser.add_argument("--integrated-rom-size", default=None, type=int,

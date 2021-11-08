@@ -9,7 +9,7 @@ endif
 ifeq ($(CPU),vexriscv)
 	CARGO_TRIPLE=$(subst riscv32-unknown-linux,riscv32ima-unknown-none-elf,$(TRIPLE))
 endif
-ifeq ($(CPU),riscv32g)
+ifeq ($(CPU),vexriscv-g)
 	CARGO_TRIPLE=$(subst riscv32-unknown-linux,riscv32g-unknown-none-elf,$(TRIPLE))
 endif
 
@@ -39,7 +39,7 @@ endif
 ifeq ($(CPU),vexriscv)
 CARGO_normal   := cargo xbuild
 endif
-ifeq ($(CPU),riscv32g)
+ifeq ($(CPU),vexriscv-g)
 CARGO_normal   := cargo xbuild
 endif
 
@@ -89,7 +89,7 @@ endif
 ifeq ($(CPU),vexriscv)
 	export RUSTFLAGS = -Ctarget-feature=+m,+a,-c $(RUST_COMMONFLAGS)
 endif
-ifeq ($(CPU),riscv32g)
+ifeq ($(CPU),vexriscv-g)
 	export RUSTFLAGS = -Ctarget-feature=+m,+a,-c,+f,+d $(RUST_COMMONFLAGS)
 endif
 export CC_$(subst -,_,$(CARGO_TRIPLE)) = clang
@@ -103,7 +103,7 @@ endif
 
 ifeq ($(CPU),vexriscv)
 	CPU_ENDIANNESS = LITTLE
-else ifeq ($(CPU),riscv32g)
+else ifeq ($(CPU),vexriscv-g)
 	CPU_ENDIANNESS = LITTLE
 else
 	CPU_ENDIANNESS = BIG

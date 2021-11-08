@@ -18,8 +18,8 @@ endif
 ifeq ($(CPU),vexriscv)
 all:: libunwind-bare.a libunwind-vexriscv-elf.a
 endif
-ifeq ($(CPU),riscv32g)
-all:: libunwind-riscv32g-elf.a
+ifeq ($(CPU),vexriscv-g)
+all:: libunwind-vexriscv-g-elf.a
 endif
 
 libunwind-%.a: UnwindRegistersSave.o UnwindRegistersRestore.o \

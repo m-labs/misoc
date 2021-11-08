@@ -19,7 +19,7 @@ def get_cpu_mak(cpu):
         cpuflags = "-D__vexriscv__ -march=rv32ima -mabi=ilp32"
         clang = "1"
         llvm_tools = "1"
-    elif cpu == "riscv32g":
+    elif cpu == "vexriscv-g":
         triple = "riscv32-unknown-linux"
         cpuflags = "-D__vexriscv__ -march=rv32g -mabi=ilp32d"
         clang = "1"
@@ -40,7 +40,7 @@ def get_cpu_mak(cpu):
 
 
 def get_linker_output_format(cpu_type):
-    if cpu_type == "vexriscv" or cpu_type == "riscv32g":
+    if cpu_type == "vexriscv" or cpu_type == "vexriscv-g":
         return "OUTPUT_FORMAT(\"elf32-littleriscv\", \"elf32-littleriscv\", \"elf32-littleriscv\")"
     else:
         return "OUTPUT_FORMAT(\"elf32-{}\")\n".format(cpu_type)
