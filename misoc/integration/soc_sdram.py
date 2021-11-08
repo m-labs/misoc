@@ -144,7 +144,7 @@ class SoCSDRAM(SoCCore):
 
 def soc_sdram_args(parser):
     parser.add_argument("--cpu-type", default=None,
-                        help="select CPU: lm32, or1k, vexriscv")
+                        help="select CPU: lm32, or1k, vexriscv, vexriscv-g")
     parser.add_argument("--cpu-bus-width", default=None, type=int,
                         help="width of CPU IBus/DBus in bits: 32 or 64")
     parser.add_argument("--integrated-rom-size", default=None, type=int,
