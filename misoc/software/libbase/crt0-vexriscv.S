@@ -72,5 +72,5 @@ bss_done:
   csrw mie,a0
 
   call main
-infinit_loop:
-  j infinit_loop
+infinite_loop:
+  j infinite_loop
