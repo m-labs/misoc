@@ -119,7 +119,7 @@ class BaseSoC(SoCSDRAM):
         if not self.integrated_rom_size:
             self.submodules.spiflash = spi_flash.SpiFlash(
                 platform.request("spiflash4x"), dummy=10, div=4,
-                endianness=self.endianness, dw=self.cpu_dw)
+                endianness=self.cpu.endianness, dw=self.cpu_dw)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
             self.flash_boot_address = 0x220000

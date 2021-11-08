@@ -88,8 +88,6 @@ class SoCCore(Module):
         assert(self.cpu_dw, cpu_bus_width)
         self.config["DATA_WIDTH_BYTES"] = self.cpu_dw//8
 
-        self.endianness = getattr(self.cpu, "endianness", "big")
-
         self.csr_data_width = csr_data_width
         self.csr_address_width = 16 - log2_int(self.cpu_dw//8)
 

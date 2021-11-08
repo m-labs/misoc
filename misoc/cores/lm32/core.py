@@ -10,6 +10,7 @@ class LM32(Module):
         self.ibus = i = wishbone.Interface()
         self.dbus = d = wishbone.Interface()
         self.interrupt = Signal(32)
+        self.endianness = "big"
 
         ###
 
