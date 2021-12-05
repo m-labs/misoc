@@ -34,13 +34,13 @@ endif
 MSCIMG_normal  := $(PYTHON) -m misoc.tools.mkmscimg
 
 ifeq ($(CPU),or1k)
-CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo cargo rustc --target $(CARGO_TRIPLE)
+CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo TARGET_AR=$(AR_normal) cargo rustc --target $(CARGO_TRIPLE)
 endif
 ifeq ($(CPU),vexriscv)
-CARGO_normal   := cargo xbuild
+CARGO_normal   := env TARGET_AR=$(AR_normal) cargo xbuild
 endif
 ifeq ($(CPU),vexriscv-g)
-CARGO_normal   := cargo xbuild
+CARGO_normal   := env TARGET_AR=$(AR_normal) cargo xbuild
 endif
 
 CC_quiet      = @echo " CC      " $@ && $(CC_normal)
