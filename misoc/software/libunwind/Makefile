@@ -6,14 +6,14 @@ COMMONFLAGS += -integrated-as -I. \
 	-I$(MISOC_DIRECTORY)/software/unwinder/include/ \
 	-I$(LIBUNWIND_DIRECTORY) \
 	-D__ELF__ -D__linux__ \
-	-D_LIBUNWIND_NO_HEAP -D_LIBUNWIND_BUILD_ZERO_COST_APIS \
-	-DNDEBUG
+	-D_LIBUNWIND_NO_HEAP -DNDEBUG
 
 CFLAGS += -funwind-tables
 CXXFLAGS += -fno-exceptions -funwind-tables
 
 ifeq ($(CPU),or1k)
 all:: libunwind-bare.a libunwind-or1k-elf.a
+COMMONFLAGS += -D_LIBUNWIND_BUILD_ZERO_COST_APIS
 endif
 ifeq ($(CPU),vexriscv)
 all:: libunwind-bare.a libunwind-vexriscv-elf.a
