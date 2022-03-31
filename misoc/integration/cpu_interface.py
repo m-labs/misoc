@@ -187,7 +187,7 @@ def _get_rstype(size):
         return "u8"
 
 
-def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only, cpu_dw_bytes):
+def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only, cpu_dw_bytes, use_dmb=False):
     r = ""
 
     r += "    pub const "+reg_name.upper()+"_ADDR: *mut u32 = "+hex(reg_base)+" as *mut u32;\n"
@@ -202,9 +202,13 @@ def _get_rw_functions_rs(reg_name, reg_base, size, nwords, busword, read_only, c
     r += "    pub unsafe fn "+reg_name+"_read() -> "+rstype+" {\n"
     if nwords > 1:
         r += "      let r = read_volatile("+rsname+") as "+rstype+";\n"
+        if use_dmb:
+            r += "      dmb();\n"
         for word in range(1, nwords):
             r += "      let r = r << "+str(busword)+" | " + \
                  "read_volatile("+rsname+".offset("+str(word*(cpu_dw_bytes//4))+")) as "+rstype+";\n"
+            if use_dmb:
+                r += "      dmb();\n"
         r += "      r\n"
     else:
         r += "      read_volatile("+rsname+") as "+rstype+"\n"
@@ -232,7 +236,7 @@ def _region_by_name(regions, search_name):
     raise KeyError
 
 
-def get_csr_rust(regions, groups, constants, cpu_dw_bytes=4):
+def get_csr_rust(regions, groups, constants, cpu_dw_bytes=4, use_dmb=False):
     r = "#[allow(dead_code)]\n"
     r += "pub mod csr {\n"
 
@@ -242,11 +246,15 @@ def get_csr_rust(regions, groups, constants, cpu_dw_bytes=4):
             r += "\n"
             r += "  pub mod "+name+" {\n"
             r += "    #[allow(unused_imports)]\n"
-            r += "    use core::ptr::{read_volatile, write_volatile};\n\n"
+            r += "    use core::ptr::{read_volatile, write_volatile};\n"
+            if use_dmb:
+                r += "    #[allow(unused_imports)]\n"
+                r += "    use libcortex_a9::asm::dmb;\n"
+            r += "\n"
             for csr in obj:
                 nwords = (csr.size + busword - 1)//busword
                 r += _get_rw_functions_rs(csr.name, origin, csr.size, nwords, busword,
-                                          is_readonly(csr), cpu_dw_bytes)
+                                          is_readonly(csr), cpu_dw_bytes, use_dmb)
                 origin += cpu_dw_bytes*nwords
             r += "  }\n\n"
 
