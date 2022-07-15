@@ -4,6 +4,7 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
+from migen.genlib.cdc import MultiReg
 from migen.build.platforms.sinara import kasli
 
 from misoc.cores.sdram_settings import MT41K256M16
@@ -14,6 +15,7 @@ from misoc.cores.liteeth_mini.phy.a7_1000basex import A7_1000BASEX
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
+from misoc.interconnect.csr import *
 
 
 class AsyncResetSynchronizerBUFG(Module):
@@ -34,23 +36,50 @@ class AsyncResetSynchronizerBUFG(Module):
         ]
 
 
-class _CRG(Module):
+class _CRG(Module, AutoCSR):
     def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
+        self.clk125_buf = Signal()
+
+        self.clock_sel = CSRStorage()
+        self.pll_locked = CSRStatus()
+
+        # old "sys" clock, now bootstrap
         clk125 = platform.request("clk125_gtp")
         platform.add_period_constraint(clk125, 8.)
         self.clk125_buf = Signal()
-        self.clk125_div2 = Signal()
+        #self.clk125_div2 = Signal()
         self.specials += Instance("IBUFDS_GTE2",
             i_CEB=0,
             i_I=clk125.p, i_IB=clk125.n,
-            o_O=self.clk125_buf,
-            o_ODIV2=self.clk125_div2)
+            o_O=self.clk125_buf)
+            # o_ODIV2=self.clk125_div2)
 
+        # old "rtio" clock
+        if platform.hw_rev == "v2.0":
+            si5324_out = platform.request("cdr_clk_clean_fabric")
+        else:
+            si5324_out = platform.request("si5324_clkout_fabric")
+        si5324_buf = Signal()
+        platform.add_period_constraint(si5324_out, 8.0)
+        self.specials += [
+            Instance("IBUFGDS",
+                p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="FALSE",
+                i_I=si5324_out.p, i_IB=si5324_out.n, o_O=si5324_buf),
+        ]
+
+        chosen_clk = Signal()
+
+        self.specials += Instance("BUFGMUX",
+                i_I0=self.clk125_buf,
+                i_I1=si5324_buf,
+                o_O=chosen_clk,
+                i_S = self.clock_sel.storage),
+            
         mmcm_locked = Signal()
         mmcm_fb = Signal()
         mmcm_sys = Signal()
@@ -61,15 +90,19 @@ class _CRG(Module):
         pll_clk200 = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
+                # what if si5324 output is 100 or 150MHz?
+                p_CLKIN1_PERIOD=8.0,
+                i_CLKIN1=chosen_clk,
 
                 i_CLKFBIN=mmcm_fb,
                 o_CLKFBOUT=mmcm_fb,
                 o_LOCKED=mmcm_locked,
 
-                # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=14.5, p_DIVCLK_DIVIDE=1,
+                # VCO @ 1GHz with MULT=16 (62.5MHz)
+                # why was it 14.5 then?
+
+                # VCO @ 1GHz with MULT = 8 (non-divided 125MHz)
+                p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
 
                 # ~125MHz
                 p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
@@ -79,15 +112,15 @@ class _CRG(Module):
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
             Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
+                p_CLKIN1_PERIOD=8.0,
+                i_CLKIN1=chosen_clk,
 
                 i_CLKFBIN=pll_fb,
                 o_CLKFBOUT=pll_fb,
                 o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz
-                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT=8, p_DIVCLK_DIVIDE=1,
 
                 # 200MHz for IDELAYCTRL
                 p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
@@ -97,6 +130,7 @@ class _CRG(Module):
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
+            MultiReg(pll_locked, self.pll_locked.status)
         ]
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked),
 
@@ -120,11 +154,14 @@ class BaseSoC(SoCSDRAM):
 
         SoCSDRAM.__init__(self, platform,
                           clk_freq=125e6*14.5/16, cpu_reset_address=0x400000,
-                          **kwargs)
+                          **kwargs) 
 
         self.config["HW_REV"] = hw_rev
 
         self.submodules.crg = _CRG(platform)
+
+        self.csr_devices.append("crg")
+
         self.platform.add_period_constraint(self.crg.cd_sys.clk, 1e9/self.clk_freq)
 
         self.submodules.ddrphy = a7ddrphy.A7DDRPHY(platform.request("ddram"))
