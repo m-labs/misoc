@@ -52,25 +52,24 @@ class _CRG(Module, AutoCSR):
         clk125 = platform.request("clk125_gtp")
         platform.add_period_constraint(clk125, 8.)
         self.clk125_buf = Signal()
-        #self.clk125_div2 = Signal()
         self.specials += Instance("IBUFDS_GTE2",
             i_CEB=0,
             i_I=clk125.p, i_IB=clk125.n,
             o_O=self.clk125_buf)
-            # o_ODIV2=self.clk125_div2)
 
-        # old "rtio" clock
+        # "rtio" clock (mgt flavor)
         if platform.hw_rev == "v2.0":
-            si5324_out = platform.request("cdr_clk_clean_fabric")
+            si5324_out = platform.request("cdr_clk_clean")
         else:
-            si5324_out = platform.request("si5324_clkout_fabric")
+            si5324_out = platform.request("si5324_clkout")
+         
         si5324_buf = Signal()
         platform.add_period_constraint(si5324_out, 8.0)
-        self.specials += [
-            Instance("IBUFGDS",
-                p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="FALSE",
-                i_I=si5324_out.p, i_IB=si5324_out.n, o_O=si5324_buf),
-        ]
+
+        self.specials += Instance("IBUFDS_GTE2",
+            i_CEB=0,
+            i_I=si5324_out.p, i_IB=si5324_out.n,
+            o_O=si5324_buf)
 
         chosen_clk = Signal()
 
