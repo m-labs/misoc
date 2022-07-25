@@ -102,7 +102,7 @@ class _CRG(Module, AutoCSR):
         pll_clk200 = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
-                # what if si5324 output is 100 or 150MHz?
+                # 100/150mhz si5324 output not supported
                 p_CLKIN1_PERIOD=16.0,
                 i_CLKIN1=chosen_clk_div2,
 
@@ -111,8 +111,8 @@ class _CRG(Module, AutoCSR):
                 o_LOCKED=mmcm_locked,
 
                 # VCO @ 1GHz with MULT=16 (62.5MHz)
-                # why 14.5 then?
-                p_CLKFBOUT_MULT_F=14.5, p_DIVCLK_DIVIDE=1,
+                # why was it 14.5 then?
+                p_CLKFBOUT_MULT_F=16.0, p_DIVCLK_DIVIDE=1,
 
                 # ~125MHz
                 p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
