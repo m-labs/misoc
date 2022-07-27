@@ -75,13 +75,15 @@ class _CRG(Module, AutoCSR):
             raise NotImplementedError
          
         si5324_buf = Signal()
+        si5324_div2 = Signal()
 
         platform.add_period_constraint(si5324_out, si5324_period)
 
         self.specials += Instance("IBUFDS_GTE2",
             i_CEB=0,
             i_I=si5324_out.p, i_IB=si5324_out.n,
-            o_O=si5324_buf)
+            o_O=si5324_buf,
+            o_ODIV2=si5324_div2)
 
         # required for qpll
         self.clk125_buf = bootstrap_buf
@@ -97,8 +99,8 @@ class _CRG(Module, AutoCSR):
         self.specials += [
             Instance("MMCME2_BASE",
                 # 100/150mhz si5324 output not supported
-                p_CLKIN1_PERIOD=si5324_period,
-                i_CLKIN1=si5324_buf,
+                p_CLKIN1_PERIOD=si5324_period*2,
+                i_CLKIN1=si5324_div2,
 
                 i_CLKFBIN=mmcm_fb,
                 o_CLKFBOUT=mmcm_fb,
@@ -106,7 +108,7 @@ class _CRG(Module, AutoCSR):
 
                 # VCO @ 1GHz with MULT=8 (125MHz - Kasli 2.0)
                 # VCO @ 800MHz (100MHz - Kasli 1.0/1.1)
-                p_CLKFBOUT_MULT_F=8.0, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT_F=16.0, p_DIVCLK_DIVIDE=1,
 
                 # ~125MHz (or 100MHz)
                 p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
@@ -116,15 +118,15 @@ class _CRG(Module, AutoCSR):
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
             Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=si5324_period,
-                i_CLKIN1=si5324_buf,
+                p_CLKIN1_PERIOD=si5324_period*2,
+                i_CLKIN1=si5324_div2,
 
                 i_CLKFBIN=pll_fb,
                 o_CLKFBOUT=pll_fb,
                 o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz (multiplier depends on frequency)
-                p_CLKFBOUT_MULT=pll_mult, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT=pll_mult*2, p_DIVCLK_DIVIDE=1,
 
                 # 200MHz for IDELAYCTRL
                 p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
@@ -147,7 +149,7 @@ class _CRG(Module, AutoCSR):
 
         platform.add_false_path_constraints(
             bootstrap_buf,
-            self.cd_sys4x.clk, self.cd_sys4x_dqs.clk, self.cd_clk200.clk)
+            self.cd_sys.clk, self.cd_sys4x.clk, self.cd_sys4x_dqs.clk, self.cd_clk200.clk)
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
