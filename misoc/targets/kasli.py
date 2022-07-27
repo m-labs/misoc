@@ -58,11 +58,12 @@ class _CRG(Module, AutoCSR):
             o_O=bootstrap_buf,
             o_ODIV2=bootstrap_div2)
 
-        # ex-rtio clock
+        # "rtio" clock (mgt flavor)
         if platform.hw_rev == "v2.0":
-            si5324_out = platform.request("cdr_clk_clean_fabric")
+            si5324_out = platform.request("cdr_clk_clean")
+            
         else:
-            si5324_out = platform.request("si5324_clkout_fabric")
+            si5324_out = platform.request("si5324_clkout")
 
         if freq == 125.0e6:
             si5324_period = 8.
@@ -74,14 +75,14 @@ class _CRG(Module, AutoCSR):
             raise NotImplementedError
          
         si5324_buf = Signal()
+        si5324_ibufg = Signal()
 
         platform.add_period_constraint(si5324_out, si5324_period)
 
-        self.specials += [
-            Instance("IBUFGDS",
-                p_DIFF_TERM="TRUE", p_IBUF_LOW_PWR="FALSE",
-                i_I=si5324_out.p, i_IB=si5324_out.n, o_O=si5324_buf),
-        ]
+        self.specials += Instance("IBUFDS_GTE2",
+            i_CEB=0,
+            i_I=si5324_out.p, i_IB=si5324_out.n,
+            o_O=si5324_buf)
 
         # required for qpll
         self.clk125_buf = bootstrap_buf
@@ -96,8 +97,9 @@ class _CRG(Module, AutoCSR):
         pll_clk200 = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
+                # 100/150mhz si5324 output not supported
                 p_CLKIN1_PERIOD=si5324_period,
-                i_CLKIN1=si5324_buf,
+                i_CLKIN1=si5324_ibufg,
 
                 i_CLKFBIN=mmcm_fb,
                 o_CLKFBOUT=mmcm_fb,
@@ -116,7 +118,7 @@ class _CRG(Module, AutoCSR):
             ),
             Instance("PLLE2_BASE",
                 p_CLKIN1_PERIOD=si5324_period,
-                i_CLKIN1=si5324_buf,
+                i_CLKIN1=si5324_ibufg,
 
                 i_CLKFBIN=pll_fb,
                 o_CLKFBOUT=pll_fb,
@@ -137,6 +139,7 @@ class _CRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            Instance("IBUFG", i_I=si5324_buf, o_O=si5324_ibufg),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
             MultiReg(pll_locked, self.pll_locked.status),
             MultiReg(mmcm_locked, self.mmcm_locked.status)
