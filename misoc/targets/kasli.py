@@ -123,7 +123,7 @@ class _CRG(Module, AutoCSR):
                 o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz (multiplier depends on frequency)
-                p_CLKFBOUT_MULT=pll_mult*2, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT=pll_mult, p_DIVCLK_DIVIDE=1,
 
                 # 200MHz for IDELAYCTRL
                 p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
