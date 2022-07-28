@@ -89,7 +89,8 @@ class _CRG(Module, AutoCSR):
         self.clk125_buf = bootstrap_buf
 
         mmcm_locked = Signal()
-        mmcm_fb = Signal()
+        mmcm_fb_in = Signal()
+        mmcm_fb_out = Signal()
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
@@ -98,12 +99,12 @@ class _CRG(Module, AutoCSR):
         pll_clk200 = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
-                # 100/150mhz si5324 output not supported
+                # 150mhz not supported anymore
                 p_CLKIN1_PERIOD=si5324_period*2,
                 i_CLKIN1=si5324_div2,
 
-                i_CLKFBIN=mmcm_fb,
-                o_CLKFBOUT=mmcm_fb,
+                i_CLKFBIN=mmcm_fb_in,
+                o_CLKFBOUT=mmcm_fb_out,
                 o_LOCKED=mmcm_locked,
 
                 # VCO @ 1GHz with MULT=16 (62.5MHz - Kasli 2.0)
@@ -140,6 +141,7 @@ class _CRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
             MultiReg(pll_locked, self.pll_locked.status),
             MultiReg(mmcm_locked, self.mmcm_locked.status)
