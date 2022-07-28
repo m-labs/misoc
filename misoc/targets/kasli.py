@@ -171,7 +171,7 @@ class BaseSoC(SoCSDRAM):
             hw_rev = "v1.0"
         platform = kasli.Platform(hw_rev=hw_rev)
 
-        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000,
+        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, uart_initial_clk_freq=62.5e6
                           **kwargs) 
 
         self.config["HW_REV"] = hw_rev
