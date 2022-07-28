@@ -142,12 +142,9 @@ class _CRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
             MultiReg(pll_locked, self.pll_locked.status),
             MultiReg(mmcm_locked, self.mmcm_locked.status)
         ]
-        
-        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked),
 
         platform.add_false_path_constraints(
             bootstrap_buf,
@@ -171,7 +168,7 @@ class BaseSoC(SoCSDRAM):
             hw_rev = "v1.0"
         platform = kasli.Platform(hw_rev=hw_rev)
 
-        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, uart_initial_clk_freq=62.5e6
+        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000,
                           **kwargs) 
 
         self.config["HW_REV"] = hw_rev
