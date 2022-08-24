@@ -92,7 +92,23 @@ class _CRG(Module, AutoCSR):
         pll_locked = Signal()
         pll_fb = Signal()
         pll_clk200 = Signal()
+
+        mmcm_sys_clk125 = Signal()
+        mmcm_fb_clk125 = Signal()
         self.specials += [
+            Instance("MMCME2_BASE",
+                p_CLKIN1_PERIOD=16.0,
+                i_CLKIN1=self.clk125_div2,
+
+                i_CLKFBIN=mmcm_fb_clk125,
+                o_CLKFBOUT=mmcm_fb_clk125,
+
+                # VCO @ 1GHz with MULT=16 (62.5MHz - Kasli 2.0)
+                p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
+
+                # ~125MHz
+                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys_clk125,
+            ),
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=cdr_clk_period*2,
                 i_CLKIN1=cdr_clk_div2,
@@ -127,7 +143,7 @@ class _CRG(Module, AutoCSR):
                 p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
             ),
             Instance("BUFGMUX", 
-                i_I0=self.clk125_div2, 
+                i_I0=mmcm_sys_clk125, 
                 i_I1=mmcm_sys, 
                 o_O=self.cd_sys.clk, 
                 i_S=self.clock_sel.storage
@@ -138,12 +154,16 @@ class _CRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
             MultiReg(pll_locked, self.pll_locked.status),
             MultiReg(mmcm_locked, self.mmcm_locked.status),
-            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked)
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
 
-        platform.add_false_path_constraints(
-            self.clk125_buf,
-            self.cd_sys.clk, self.cd_sys4x.clk, self.cd_sys4x_dqs.clk, self.cd_clk200.clk)
+        # reset if MMCM loses lock (after switch)
+        self.submodules += AsyncResetSynchronizerBUFG(
+            self.cd_sys, ~mmcm_locked & self.clock_sel.storage)
+            
+
+        platform.add_false_path_constraints(self.clk125_buf,
+            self.cd_sys.clk)
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
@@ -164,7 +184,7 @@ class BaseSoC(SoCSDRAM):
         platform = kasli.Platform(hw_rev=hw_rev)
 
         SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000,
-                          uart_initial_clk_freq=62.5e6, **kwargs) 
+                          uart_initial_clk_freq=125e6, **kwargs) 
 
         self.config["HW_REV"] = hw_rev
 
