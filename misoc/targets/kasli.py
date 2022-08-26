@@ -44,7 +44,7 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_clk200 = ClockDomain()
 
         self.clock_sel = CSRStorage()
-        self.pll_locked = CSRStatus()
+        self.mmcm_reset = CSRStorage(reset=1)
         self.mmcm_locked = CSRStatus()
 
         # bootstrap clock
@@ -66,11 +66,14 @@ class _CRG(Module, AutoCSR):
 
         if freq == 125.0e6:
             cdr_clk_period = 8.
+            bootstrap_div = 8.
         elif freq == 100.0e6:
             cdr_clk_period = 10.
+            bootstrap_div = 10.
         else:
             raise NotImplementedError
-         
+        
+        half_period = cdr_clk_period*2
         self.cdr_clk_buf = Signal()
         cdr_clk_div2 = Signal()
 
@@ -88,13 +91,11 @@ class _CRG(Module, AutoCSR):
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
-        chosen_clk = Signal()
-        pll_locked = Signal()
-        pll_fb = Signal()
-        pll_clk200 = Signal()
 
         mmcm_sys_clk125 = Signal()
         mmcm_fb_clk125 = Signal()
+        bootstrap_mmcm_locked = Signal()
+        mmcm_clk200 = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16.0,
@@ -102,16 +103,18 @@ class _CRG(Module, AutoCSR):
 
                 i_CLKFBIN=mmcm_fb_clk125,
                 o_CLKFBOUT=mmcm_fb_clk125,
+                o_LOCKED=bootstrap_mmcm_locked,
 
-                # VCO @ 1GHz with MULT=16 (62.5MHz - Kasli 2.0)
+                # VCO @ 1GHz with MULT=16
                 p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
 
-                # ~125MHz
-                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys_clk125,
+                p_CLKOUT0_DIVIDE_F=bootstrap_div, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys_clk125,
+                p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_clk200,
             ),
             Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=cdr_clk_period*2,
+                p_CLKIN1_PERIOD=half_period,
                 i_CLKIN1=cdr_clk_div2,
+                i_RST=self.mmcm_reset.storage,
 
                 i_CLKFBIN=mmcm_fb_in,
                 o_CLKFBOUT=mmcm_fb_out,
@@ -119,7 +122,7 @@ class _CRG(Module, AutoCSR):
 
                 # VCO @ 1GHz with MULT=16 (62.5MHz - Kasli 2.0)
                 # VCO @ 800MHz (50MHz - Kasli 1.0/1.1)
-                p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
+                p_CLKFBOUT_MULT_F=16., p_DIVCLK_DIVIDE=1,
 
                 # ~125MHz (or 100MHz)
                 p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
@@ -127,20 +130,6 @@ class _CRG(Module, AutoCSR):
                 # ~500MHz (or 400MHz). Must be more than 400MHz as per DDR3 specs.
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
-            ),
-            Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
-
-                i_CLKFBIN=pll_fb,
-                o_CLKFBOUT=pll_fb,
-                o_LOCKED=pll_locked,
-
-                # VCO @ 1GHz (multiplier depends on frequency)
-                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
-
-                # 200MHz for IDELAYCTRL
-                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
             ),
             Instance("BUFGMUX", 
                 i_I0=mmcm_sys_clk125, 
@@ -150,16 +139,14 @@ class _CRG(Module, AutoCSR):
             ),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            Instance("BUFG", i_I=mmcm_clk200, o_O=self.cd_clk200.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            MultiReg(pll_locked, self.pll_locked.status),
             MultiReg(mmcm_locked, self.mmcm_locked.status),
-            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
+            AsyncResetSynchronizer(self.cd_clk200, ~bootstrap_mmcm_locked),
         ]
 
         # reset if MMCM loses lock (after switch)
-        self.submodules += AsyncResetSynchronizerBUFG(
-            self.cd_sys, ~mmcm_locked & self.clock_sel.storage)
+        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~bootstrap_mmcm_locked)
             
 
         platform.add_false_path_constraints(self.clk125_buf,
@@ -183,8 +170,7 @@ class BaseSoC(SoCSDRAM):
             hw_rev = "v1.0"
         platform = kasli.Platform(hw_rev=hw_rev)
 
-        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000,
-                          uart_initial_clk_freq=125e6, **kwargs) 
+        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, **kwargs) 
 
         self.config["HW_REV"] = hw_rev
 
