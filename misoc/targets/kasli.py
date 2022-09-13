@@ -152,6 +152,10 @@ class _CRG(Module, AutoCSR):
         platform.add_false_path_constraints(self.clk125_buf,
             self.cd_sys.clk)
 
+        platform.add_false_path_constraints(self.cdr_clk_buf,
+            self.cd_sys.clk, self.cd_sys4x.clk, self.cd_sys4x_dqs.clk)
+
+
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
         self.sync.clk200 += \
