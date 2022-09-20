@@ -4,7 +4,7 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
-from migen.genlib.cdc import MultiReg
+from migen.genlib.cdc import MultiReg, PulseSynchronizer
 from migen.build.platforms.sinara import kasli
 
 from misoc.cores.sdram_settings import MT41K256M16
@@ -36,6 +36,78 @@ class AsyncResetSynchronizerBUFG(Module):
         ]
 
 
+class ClockSwitchFSM(Module):
+    def __init__(self):
+        self.i_clk_sw = Signal()
+
+        self.o_clk_sw = Signal()
+        self.o_reset = Signal()
+        self.o_done = Signal()
+
+        ###
+
+        done = Signal()
+        i_switch = Signal()
+        o_switch = Signal()
+        reset = Signal()
+
+        # at 62.5MHz bootstrap cd, will get around 1ms
+        # todo: check if can do it faster
+        delay_counter = Signal(16, reset=0xFFFF_FFFF)
+
+        # register to prevent glitches
+        self.sync.bootstrap += [
+            self.o_clk_sw.eq(o_switch),
+            self.o_reset.eq(reset)
+        ]
+
+        clock_switch_sync = PulseSynchronizer("sys", "bootstrap")
+        self.submodules += clock_switch_sync
+
+        self.comb += [
+            clock_switch_sync.i.eq(self.i_clk_sw),
+            i_switch.eq(clock_switch_sync.o)
+        ]
+
+        #2-reg the done signal to prevent glitches
+        done_mid = Signal()
+        self.sync += [
+            done_mid.eq(done),
+            self.o_done.eq(done_mid)
+        ]
+
+        fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
+
+        self.submodules += fsm
+
+        fsm.act("START",
+            If(i_switch == 1,
+                NextState("RESET_START"))
+        )
+        
+        fsm.act("RESET_START",
+            NextValue(reset, 1),
+            If(delay_counter == 0,
+                NextValue(delay_counter, 0xFFFF_FFFF),
+                NextState("CLOCK_SWITCH")
+            ).Else(
+                NextValue(delay_counter, delay_counter-1),
+            )
+        )
+
+        fsm.act("CLOCK_SWITCH",
+            NextValue(o_switch, 1),
+            NextValue(delay_counter, delay_counter-1),
+            If(delay_counter == 0,
+                NextState("DONE"))
+        )
+
+        fsm.act("DONE",
+            NextValue(reset, 0),
+            NextValue(done, 1)
+        )
+
+
 class _CRG(Module, AutoCSR):
     def __init__(self, platform, freq=125.0e6):
         self.clock_domains.cd_sys = ClockDomain()
@@ -43,9 +115,11 @@ class _CRG(Module, AutoCSR):
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
+        # for FSM only
+        self.clock_domains.cd_bootstrap = ClockDomain(reset_less=True)
+
         self.clock_sel = CSRStorage()
-        self.mmcm_reset = CSRStorage(reset=1)
-        self.mmcm_locked = CSRStatus()
+        self.switch_done = CSRStatus()
 
         # bootstrap clock
         clk125 = platform.request("clk125_gtp")
@@ -57,6 +131,8 @@ class _CRG(Module, AutoCSR):
             i_I=clk125.p, i_IB=clk125.n,
             o_O=self.clk125_buf,
             o_ODIV2=self.clk125_div2)
+        
+        self.specials += Instance("BUFG", i_I=self.clk125_div2, o_O=self.cd_bootstrap.clk)
 
         # "rtio" clock (mgt flavor)
         if platform.hw_rev == "v2.0":
@@ -85,6 +161,10 @@ class _CRG(Module, AutoCSR):
             o_O=self.cdr_clk_buf,
             o_ODIV2=cdr_clk_div2)
 
+        clk_sw_fsm = ClockSwitchFSM()
+
+        self.submodules += clk_sw_fsm
+
         mmcm_locked = Signal()
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
@@ -92,69 +172,63 @@ class _CRG(Module, AutoCSR):
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
 
-        mmcm_sys_clk125 = Signal()
-        mmcm_fb_clk125 = Signal()
-        bootstrap_mmcm_locked = Signal()
-        mmcm_clk200 = Signal()
+        pll_clk200 = Signal()
+        pll_fb = Signal()
+        pll_locked = Signal()
         self.specials += [
-            Instance("MMCME2_BASE",
+            Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
-
-                i_CLKFBIN=mmcm_fb_clk125,
-                o_CLKFBOUT=mmcm_fb_clk125,
-                o_LOCKED=bootstrap_mmcm_locked,
-
-                # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
-
-                p_CLKOUT0_DIVIDE_F=bootstrap_div, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys_clk125,
-                p_CLKOUT1_DIVIDE=5, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_clk200,
-            ),
-            Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=half_period,
                 i_CLKIN1=cdr_clk_div2,
-                i_RST=self.mmcm_reset.storage,
+                i_CLKIN2=self.clk125_div2,
+
+                i_CLKINSEL=clk_sw_fsm.o_clk_sw,
+                i_RST=clk_sw_fsm.o_reset,
 
                 i_CLKFBIN=mmcm_fb_in,
                 o_CLKFBOUT=mmcm_fb_out,
                 o_LOCKED=mmcm_locked,
 
-                # VCO @ 1GHz with MULT=16 (62.5MHz - Kasli 2.0)
-                # VCO @ 800MHz (50MHz - Kasli 1.0/1.1)
-                p_CLKFBOUT_MULT_F=16., p_DIVCLK_DIVIDE=1,
+                # VCO @ 1GHz with MULT=16 (or 800MHz w/ Kasli 1.1)
+                p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
 
-                # ~125MHz (or 100MHz)
-                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+                # ~125MHz (or 100MHz after switch)
+                # todo: do something with kasli 1.1
+                p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
 
                 # ~500MHz (or 400MHz). Must be more than 400MHz as per DDR3 specs.
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
-            Instance("BUFGMUX", 
-                i_I0=mmcm_sys_clk125, 
-                i_I1=mmcm_sys, 
-                o_O=self.cd_sys.clk, 
-                i_S=self.clock_sel.storage
+            Instance("PLLE2_BASE",
+                p_CLKIN1_PERIOD=16.0,
+                i_CLKIN1=self.clk125_div2,
+
+                i_CLKFBIN=pll_fb,
+                o_CLKFBOUT=pll_fb,
+                o_LOCKED=pll_locked,
+
+                # VCO @ 1GHz
+                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+
+                # 200MHz for IDELAYCTRL
+                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
             ),
+            Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=mmcm_clk200, o_O=self.cd_clk200.clk),
+            Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            MultiReg(mmcm_locked, self.mmcm_locked.status),
-            AsyncResetSynchronizer(self.cd_clk200, ~bootstrap_mmcm_locked),
+            MultiReg(clk_sw_fsm.o_done, self.switch_done.status),
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
 
         # reset if MMCM loses lock (after switch)
-        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~bootstrap_mmcm_locked)
-            
+        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked | clk_sw_fsm.o_reset)
+
+        self.comb += clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage)
 
         platform.add_false_path_constraints(self.clk125_buf,
             self.cd_sys.clk)
-
-        platform.add_false_path_constraints(self.cdr_clk_buf,
-            self.cd_sys.clk, self.cd_sys4x.clk, self.cd_sys4x_dqs.clk)
-
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
