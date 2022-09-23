@@ -108,8 +108,8 @@ class ClockSwitchFSM(Module):
         )
 
 
-class _CRG(Module, AutoCSR):
-    def __init__(self, platform, freq=125.0e6):
+class _RtioSysCRG(Module, AutoCSR):
+    def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
@@ -139,21 +139,11 @@ class _CRG(Module, AutoCSR):
             cdr_clk_out = platform.request("cdr_clk_clean")
         else:
             cdr_clk_out = platform.request("si5324_clkout")
-
-        if freq == 125.0e6:
-            cdr_clk_period = 8.
-            bootstrap_div = 8.
-        elif freq == 100.0e6:
-            cdr_clk_period = 10.
-            bootstrap_div = 10.
-        else:
-            raise NotImplementedError
         
-        half_period = cdr_clk_period*2
         self.cdr_clk_buf = Signal()
         cdr_clk_div2 = Signal()
 
-        platform.add_period_constraint(cdr_clk_out, cdr_clk_period)
+        platform.add_period_constraint(cdr_clk_out, 8.)
 
         self.specials += Instance("IBUFDS_GTE2",
             i_CEB=0,
@@ -162,7 +152,6 @@ class _CRG(Module, AutoCSR):
             o_ODIV2=cdr_clk_div2)
 
         clk_sw_fsm = ClockSwitchFSM()
-
         self.submodules += clk_sw_fsm
 
         mmcm_locked = Signal()
@@ -175,6 +164,7 @@ class _CRG(Module, AutoCSR):
         pll_clk200 = Signal()
         pll_fb = Signal()
         pll_locked = Signal()
+        #todo: support 100mhz (synthesized from both?)
         self.specials += [
             Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=16.0,
@@ -188,14 +178,14 @@ class _CRG(Module, AutoCSR):
                 o_CLKFBOUT=mmcm_fb_out,
                 o_LOCKED=mmcm_locked,
 
-                # VCO @ 1GHz with MULT=16 (or 800MHz w/ Kasli 1.1)
+                # VCO @ 1GHz with MULT=16
                 p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
 
-                # ~125MHz (or 100MHz after switch)
-                # todo: do something with kasli 1.1
+                # ~125MHz
+                # kasli 1.1 seems to still be within timing on that
                 p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
 
-                # ~500MHz (or 400MHz). Must be more than 400MHz as per DDR3 specs.
+                # ~500MHz. Must be more than 400MHz as per DDR3 specs.
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
@@ -241,20 +231,99 @@ class _CRG(Module, AutoCSR):
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
 
+class _SysCRG(Module):
+    def __init__(self, platform):
+        self.clock_domains.cd_sys = ClockDomain()
+        self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
+        self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
+        self.clock_domains.cd_clk200 = ClockDomain()
+
+        clk125 = platform.request("clk125_gtp")
+        platform.add_period_constraint(clk125, 8.)
+        self.clk125_buf = Signal()
+        self.clk125_div2 = Signal()
+        self.specials += Instance("IBUFDS_GTE2",
+            i_CEB=0,
+            i_I=clk125.p, i_IB=clk125.n,
+            o_O=self.clk125_buf,
+            o_ODIV2=self.clk125_div2)
+
+        mmcm_locked = Signal()
+        mmcm_fb = Signal()
+        mmcm_sys = Signal()
+        mmcm_sys4x = Signal()
+        mmcm_sys4x_dqs = Signal()
+        pll_locked = Signal()
+        pll_fb = Signal()
+        pll_clk200 = Signal()
+        self.specials += [
+            Instance("MMCME2_BASE",
+                p_CLKIN1_PERIOD=16.0,
+                i_CLKIN1=self.clk125_div2,
+
+                i_CLKFBIN=mmcm_fb,
+                o_CLKFBOUT=mmcm_fb,
+                o_LOCKED=mmcm_locked,
+
+                # VCO @ 1GHz with MULT=16
+                p_CLKFBOUT_MULT_F=14.5, p_DIVCLK_DIVIDE=1,
+
+                # ~125MHz
+                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+
+                # ~500MHz. Must be more than 400MHz as per DDR3 specs.
+                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
+            ),
+            Instance("PLLE2_BASE",
+                p_CLKIN1_PERIOD=16.0,
+                i_CLKIN1=self.clk125_div2,
+
+                i_CLKFBIN=pll_fb,
+                o_CLKFBOUT=pll_fb,
+                o_LOCKED=pll_locked,
+
+                # VCO @ 1GHz
+                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+
+                # 200MHz for IDELAYCTRL
+                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
+            ),
+            Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
+            Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
+            Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
+            Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
+        ]
+        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked),
+
+        reset_counter = Signal(4, reset=15)
+        ic_reset = Signal(reset=1)
+        self.sync.clk200 += \
+            If(reset_counter != 0,
+                reset_counter.eq(reset_counter - 1)
+            ).Else(
+                ic_reset.eq(0)
+            )
+        self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
+
+
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram_controller_type="minicon", hw_rev=None,
-                 **kwargs):
+    def __init__(self, sdram_controller_type="minicon", hw_rev=None, rtio_sys_merge=False, 
+                 clk_freq=125e6*14.5/16, **kwargs):
         if hw_rev is None:
             hw_rev = "v1.0"
         platform = kasli.Platform(hw_rev=hw_rev)
 
-        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, **kwargs) 
+        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, clk_freq=clk_freq, **kwargs)
+
+        if rtio_sys_merge:
+            self.submodules.crg = _RtioSysCRG(platform)
+            self.csr_devices.append("crg")
+        else:
+            self.submodules.crg = _SysCRG(platform)
 
         self.config["HW_REV"] = hw_rev
-
-        self.submodules.crg = _CRG(platform, self.clk_freq)
-
-        self.csr_devices.append("crg")
 
         self.platform.add_period_constraint(self.crg.cd_sys.clk, 1e9/self.clk_freq)
 
