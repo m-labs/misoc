@@ -53,13 +53,16 @@ class ClockSwitchFSM(Module):
 
         # at 62.5MHz bootstrap cd, will get around 1ms
         # todo: check if can do it faster
-        delay_counter = Signal(16, reset=0xFFFF_FFFF)
+        delay_counter = Signal(16, reset=0xFFFF)
 
         # register to prevent glitches
         self.sync.bootstrap += [
             self.o_clk_sw.eq(o_switch),
             self.o_reset.eq(reset)
         ]
+
+        self.o_clk_sw.attr.add("no_retiming")
+        self.o_reset.attr.add("no_retiming")
 
         clock_switch_sync = PulseSynchronizer("sys", "bootstrap")
         self.submodules += clock_switch_sync
@@ -69,26 +72,21 @@ class ClockSwitchFSM(Module):
             i_switch.eq(clock_switch_sync.o)
         ]
 
-        #2-reg the done signal to prevent glitches
-        done_mid = Signal()
-        self.sync += [
-            done_mid.eq(done),
-            self.o_done.eq(done_mid)
-        ]
+        self.specials += MultiReg(done, self.o_done)
 
         fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
 
         self.submodules += fsm
 
         fsm.act("START",
-            If(i_switch == 1,
+            If(i_switch,
                 NextState("RESET_START"))
         )
         
         fsm.act("RESET_START",
-            NextValue(reset, 1),
+            reset.eq(1),
             If(delay_counter == 0,
-                NextValue(delay_counter, 0xFFFF_FFFF),
+                NextValue(delay_counter, 0xFFFF),
                 NextState("CLOCK_SWITCH")
             ).Else(
                 NextValue(delay_counter, delay_counter-1),
@@ -96,6 +94,7 @@ class ClockSwitchFSM(Module):
         )
 
         fsm.act("CLOCK_SWITCH",
+            reset.eq(1),
             NextValue(o_switch, 1),
             NextValue(delay_counter, delay_counter-1),
             If(delay_counter == 0,
@@ -103,8 +102,7 @@ class ClockSwitchFSM(Module):
         )
 
         fsm.act("DONE",
-            NextValue(reset, 0),
-            NextValue(done, 1)
+            done.eq(1)
         )
 
 
@@ -208,14 +206,16 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            MultiReg(clk_sw_fsm.o_done, self.switch_done.status),
             AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
         ]
 
-        # reset if MMCM loses lock (after switch)
+        # reset if MMCM loses lock or when switching
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked | clk_sw_fsm.o_reset)
 
-        self.comb += clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage)
+        self.comb += [
+            clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage),
+            self.switch_done.status.eq(clk_sw_fsm.o_done)
+        ]
 
         platform.add_false_path_constraints(self.clk125_buf,
             self.cd_sys.clk)
