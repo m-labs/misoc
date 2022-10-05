@@ -42,23 +42,25 @@ class ClockSwitchFSM(Module):
 
         self.o_clk_sw = Signal()
         self.o_reset = Signal()
-        self.o_done = Signal()
+
+        self.o_state = Signal(3)
 
         ###
 
-        done = Signal()
         i_switch = Signal()
         o_switch = Signal()
         reset = Signal()
 
+        state = Signal(3)
+
         # at 62.5MHz bootstrap cd, will get around 1ms
-        # todo: check if can do it faster
         delay_counter = Signal(16, reset=0xFFFF)
 
         # register to prevent glitches
         self.sync.bootstrap += [
             self.o_clk_sw.eq(o_switch),
-            self.o_reset.eq(reset)
+            self.o_reset.eq(reset),
+            self.o_state.eq(state)
         ]
 
         self.o_clk_sw.attr.add("no_retiming")
@@ -72,18 +74,18 @@ class ClockSwitchFSM(Module):
             i_switch.eq(clock_switch_sync.o)
         ]
 
-        self.specials += MultiReg(done, self.o_done)
-
         fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
 
         self.submodules += fsm
 
         fsm.act("START",
+            state.eq(1),
             If(i_switch,
                 NextState("RESET_START"))
         )
         
         fsm.act("RESET_START",
+            state.eq(2),
             reset.eq(1),
             If(delay_counter == 0,
                 NextValue(delay_counter, 0xFFFF),
@@ -94,16 +96,16 @@ class ClockSwitchFSM(Module):
         )
 
         fsm.act("CLOCK_SWITCH",
+            state.eq(3),
             reset.eq(1),
-            NextValue(o_switch, 1),
+            o_switch.eq(1),
             NextValue(delay_counter, delay_counter-1),
             If(delay_counter == 0,
                 NextState("DONE"))
         )
 
         fsm.act("DONE",
-            done.eq(1)
-        )
+            state.eq(4))
 
 
 class _RtioSysCRG(Module, AutoCSR):
@@ -118,6 +120,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
         self.clock_sel = CSRStorage()
         self.switch_done = CSRStatus()
+        self.state = CSRStatus(3)
 
         # bootstrap clock
         clk125 = platform.request("clk125_gtp")
@@ -162,7 +165,6 @@ class _RtioSysCRG(Module, AutoCSR):
         pll_clk200 = Signal()
         pll_fb = Signal()
         pll_locked = Signal()
-        #todo: support 100mhz (synthesized from both?)
         self.specials += [
             Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=16.0,
@@ -214,7 +216,10 @@ class _RtioSysCRG(Module, AutoCSR):
 
         self.comb += [
             clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage),
-            self.switch_done.status.eq(clk_sw_fsm.o_done)
+        ]
+        self.sync += [
+            self.switch_done.status.eq(clk_sw_fsm.o_clk_sw),
+            self.state.status.eq(clk_sw_fsm.o_state)
         ]
 
         platform.add_false_path_constraints(self.clk125_buf,
@@ -310,10 +315,13 @@ class _SysCRG(Module):
 
 class BaseSoC(SoCSDRAM):
     def __init__(self, sdram_controller_type="minicon", hw_rev=None, rtio_sys_merge=False, 
-                 clk_freq=125e6*14.5/16, **kwargs):
+                 clk_freq=None, **kwargs):
         if hw_rev is None:
             hw_rev = "v1.0"
         platform = kasli.Platform(hw_rev=hw_rev)
+
+        if not clk_freq:
+            clk_freq = 125e6 if rtio_sys_merge else 125e6*14.5/16
 
         SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, clk_freq=clk_freq, **kwargs)
 
