@@ -4,7 +4,6 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
-from migen.genlib.cdc import MultiReg, PulseSynchronizer
 from migen.build.platforms.sinara import kasli
 
 from misoc.cores.sdram_settings import MT41K256M16
@@ -43,15 +42,11 @@ class ClockSwitchFSM(Module):
         self.o_clk_sw = Signal()
         self.o_reset = Signal()
 
-        self.o_state = Signal(3)
-
         ###
 
         i_switch = Signal()
         o_switch = Signal()
         reset = Signal()
-
-        state = Signal(3)
 
         # at 62.5MHz bootstrap cd, will get around 1ms
         delay_counter = Signal(16, reset=0xFFFF)
@@ -60,22 +55,13 @@ class ClockSwitchFSM(Module):
         self.sync.bootstrap += [
             self.o_clk_sw.eq(o_switch),
             self.o_reset.eq(reset),
-            self.o_state.eq(state)
         ]
 
         self.o_clk_sw.attr.add("no_retiming")
         self.o_reset.attr.add("no_retiming")
 
-        clock_switch_sync = PulseSynchronizer("sys", "bootstrap")
-        self.submodules += clock_switch_sync
-
-        self.comb += [
-            clock_switch_sync.i.eq(self.i_clk_sw),
-            i_switch.eq(clock_switch_sync.o),
-            state[0].eq(self.i_clk_sw),
-            state[1].eq(i_switch),
-            state[2].eq(o_switch),
-        ]
+        # latch the clock switch (no going back)
+        self.sync.bootstrap += If(self.i_clk_sw, i_switch.eq(1))
 
         fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
 
@@ -117,7 +103,6 @@ class _RtioSysCRG(Module, AutoCSR):
 
         self.clock_sel = CSRStorage()
         self.switch_done = CSRStatus()
-        self.state = CSRStatus(3)
 
         # bootstrap clock
         clk125 = platform.request("clk125_gtp")
@@ -211,13 +196,8 @@ class _RtioSysCRG(Module, AutoCSR):
         # reset if MMCM loses lock or when switching
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked | clk_sw_fsm.o_reset)
 
-        self.comb += [
-            clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage),
-        ]
-        self.sync += [
-            self.switch_done.status.eq(clk_sw_fsm.o_clk_sw),
-            self.state.status.eq(clk_sw_fsm.o_state)
-        ]
+        self.comb += clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage)
+        self.sync += self.switch_done.status.eq(clk_sw_fsm.o_clk_sw)
 
         platform.add_false_path_constraints(self.clk125_buf,
             self.cd_sys.clk)
