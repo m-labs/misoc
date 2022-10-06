@@ -71,7 +71,10 @@ class ClockSwitchFSM(Module):
 
         self.comb += [
             clock_switch_sync.i.eq(self.i_clk_sw),
-            i_switch.eq(clock_switch_sync.o)
+            i_switch.eq(clock_switch_sync.o),
+            state[0].eq(self.i_clk_sw),
+            state[1].eq(i_switch),
+            state[2].eq(o_switch),
         ]
 
         fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
@@ -79,13 +82,11 @@ class ClockSwitchFSM(Module):
         self.submodules += fsm
 
         fsm.act("START",
-            state.eq(1),
-            If(i_switch,
+            If(i_switch & ~o_switch,
                 NextState("RESET_START"))
         )
         
         fsm.act("RESET_START",
-            state.eq(2),
             reset.eq(1),
             If(delay_counter == 0,
                 NextValue(delay_counter, 0xFFFF),
@@ -96,16 +97,12 @@ class ClockSwitchFSM(Module):
         )
 
         fsm.act("CLOCK_SWITCH",
-            state.eq(3),
             reset.eq(1),
-            o_switch.eq(1),
+            NextValue(o_switch, 1),
             NextValue(delay_counter, delay_counter-1),
             If(delay_counter == 0,
-                NextState("DONE"))
+                NextState("START"))
         )
-
-        fsm.act("DONE",
-            state.eq(4))
 
 
 class _RtioSysCRG(Module, AutoCSR):
