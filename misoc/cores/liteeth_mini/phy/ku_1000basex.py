@@ -1,7 +1,6 @@
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
 from migen.genlib.cdc import PulseSynchronizer
-from microscope import *
 
 from misoc.cores.liteeth_mini.phy.pcs_1000basex import *
 
@@ -810,14 +809,6 @@ class KU_1000BASEX(Module):
             Instance("BUFG_GT", i_I=self.rxoutclk, o_O=self.cd_eth_rx_half.clk, i_DIV=1),
             AsyncResetSynchronizer(self.cd_eth_tx, ~tx_reset_done),
             AsyncResetSynchronizer(self.cd_eth_rx, ~rx_reset_done),
-        ]
-
-        self.submodules += [
-            add_probe_async("ku_1000basex", "pll_lock", pll_locked),
-            add_probe_async("ku_1000basex", "tx_reset_done", tx_reset_done),
-            add_probe_async("ku_1000basex", "rx_reset_done", rx_reset_done),
-            add_probe_buffer("ku_1000basex", "txdata", tx_data, clock_domain="eth_tx_half"),
-            add_probe_buffer("ku_1000basex", "rxdata", rx_data, clock_domain="eth_rx_half"),
         ]
 
         # Transceiver reset
