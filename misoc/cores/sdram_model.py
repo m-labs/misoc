@@ -9,7 +9,6 @@
 from migen import *
 from migen.fhdl.specials import *
 from misoc.interconnect import dfi
-from misoc.mem import sdram
 
 
 class Bank(Module):
