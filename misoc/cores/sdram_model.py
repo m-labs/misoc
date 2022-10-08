@@ -8,7 +8,7 @@
 
 from migen import *
 from migen.fhdl.specials import *
-from misoc.mem.sdram.phy.dfi import *
+from misoc.interconnect import dfi
 from misoc.mem import sdram
 
 
@@ -102,7 +102,7 @@ class SDRAMPHYSim(Module):
         self.settings = settings
         self.module = module
 
-        self.dfi = Interface(addressbits, bankbits, self.settings.dfi_databits, self.settings.nphases)
+        self.dfi = dfi.Interface(addressbits, bankbits, self.settings.dfi_databits, self.settings.nphases)
 
         ###
         nbanks = 2**bankbits
