@@ -3,24 +3,21 @@
               / /|_/ / / / _\ \/ _ \/ /__
              /_/  /_/ /_/ /___/\___/\___/
 
-            Copyright 2007-2020 / M-Labs Ltd
+            Copyright 2007-2022 / M-Labs Ltd
             Copyright 2012-2015 / Enjoy-Digital
 
-    a high performance and small footprint SoC based on Migen
+ the original high performance and small footprint SoC based on Migen
 
 [> Features
 -----------
- * LatticeMico32 CPU, modified to include an optional MMU (experimental).
- * mor1kx (a better OpenRISC implementation) as alternative CPU option.
- * High performance memory controller capable of issuing several SDRAM commands
-   per FPGA cycle.
+ * Multiple CPU options:
+   * VexRiscV.
+   * mor1kx (a better OpenRISC implementation).
+   * LatticeMico32, modified to include an optional MMU (experimental).  
  * Supports SDR, DDR, LPDDR, DDR2 and DDR3.
  * Provided peripherals: UART, GPIO, timer, NOR flash controller, SPI flash
    controller, Ethernet MAC, and more.
- * High performance:
-   - on Spartan-6, 83MHz system clock frequencies, 10+Gbps DDR
-   SDRAM bandwidth, 1080p 32bpp framebuffer, etc.
-   - on Kintex-7, 125MHz system clock frequencies (up to 200MHz without DDR3),
+ * High performance: on Kintex-7, 125MHz system clock frequencies,
    64Gbps DDR3 SDRAM bandwidth.
  * Low resource usage: basic implementation fits easily in Spartan-6 LX9.
  * Portable and easy to customize thanks to Python- and Migen-based
@@ -29,62 +26,8 @@
    and logic, etc.
  * Possibility to encapsulate legacy Verilog/VHDL code.
 
-MiSoC comes with built-in targets for a few boards containing devices from all
-major FPGA vendors. Support for other boards can easily be added as external
-modules.
-
-[> Quick start guide
---------------------
-0. If cloned from Git without the --recursive option, get the submodules:
-   git submodule update --init
-
-1. Install Python 3.5, Migen and FPGA vendor's development tools.
-   Get Migen from: https://github.com/m-labs/migen
-   For flterm, you will also need asyncserial and pyserial:
-   https://github.com/m-labs/asyncserial
-   https://github.com/pyserial/pyserial
-
-2. Install JTAG tools. We recommend using OpenOCD, but other tools (e.g. from
-   the FPGA vendor) may be used as well.
-
-3. Compile and install binutils. Take the latest version from GNU.
-   mkdir build && cd build
-   ../configure --target=lm32-elf
-   make
-   make install
-
-4. Compile and install GCC. Take gcc-core and gcc-g++ from GNU
-   (version 4.5 or >=4.9).
-   rm -rf libstdc++-v3
-   mkdir build && cd build
-   ../configure --target=lm32-elf --enable-languages="c,c++" --disable-libgcc \
-     --disable-libssp
-   make
-   make install
-
-5. Install MiSoC with:
-   python3 setup.py install
-
-6. Build the bitstream and BIOS for your board by executing the corresponding
-   target file (see misoc/targets), e.g.
-   python3 -m misoc.targets.kc705
-
-   Use the -h flag to see options. This will create a folder named e.g.
-   misoc_basesoc_kc705 and build the BIOS and bitstream there.
-
-   If your target uses BIOS execute-in-place, flash it.
-
-   Load the bitstream.
-
-7. Run a terminal program on the board's serial port at 115200 8-N-1.
-   You should get the BIOS prompt.
-
-8. Read and experiment with the source!
-   Come to our IRC channel and mailing list!
-
-9. Contribute a patch!
-   Once you have experimented with stuff, please send your results back.
-   For more details on how to do so, you can see the CONTRIBUTING.rst file.
+MiSoC comes with built-in targets for a few boards. Support for other boards can 
+easily be added as external modules.
 
 [> License
 ----------
@@ -98,9 +41,6 @@ do them if possible:
  * send us feedback and suggestions for improvements
  * send us bug reports when something goes wrong
  * send us the modifications and improvements you have done to MiSoC.
-   The use of "git format-patch" is recommended. If your submission is large
-   and complex and/or you are not sure how to proceed, feel free to discuss it
-   on the mailing list or IRC (#m-labs on Freenode) beforehand.
 
 See LICENSE file for full copyright and license info.
 
@@ -108,9 +48,6 @@ See LICENSE file for full copyright and license info.
 --------
 Web:
   https://m-labs.hk
-  http://enjoy-digital.fr
 
-Code repository:
-  https://github.com/m-labs/misoc
-
-You can contact us on the public mailing list devel [AT] lists.m-labs.hk.
+Public forum:
+  https://forum.m-labs.hk
