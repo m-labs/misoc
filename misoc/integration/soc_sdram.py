@@ -3,7 +3,7 @@ from migen.genlib.record import *
 
 from misoc.interconnect import wishbone, wishbone2lasmi, lasmi_bus
 from misoc.interconnect.csr import AutoCSR
-from misoc.cores import dfii, minicon, lasmicon
+from misoc.cores import dfii, minicon
 from misoc.integration.soc_core import *
 
 
@@ -44,8 +44,6 @@ class SoCSDRAM(SoCCore):
             bus = wishbone.Interface(len(self.sdram_controller.bus.dat_w), adr_width=32-log2_int(self.cpu_dw//8))
             self._native_sdram_ifs.append(bus)
             return bus
-        elif isinstance(self.sdram_controller, lasmicon.LASMIcon):
-            return self.lasmi_crossbar.get_master()
         else:
             raise TypeError
 
@@ -95,31 +93,6 @@ class SoCSDRAM(SoCCore):
             else:
                 self.submodules.converter = wishbone.Converter(
                     self._cpulevel_sdram_if_arbitrated, bridge_if)
-        elif sdram_controller_type == "lasmicon":
-            self.submodules.sdram_controller = lasmicon.LASMIcon(
-                phy.settings, geom_settings, timing_settings)
-            self.submodules.lasmi_crossbar = lasmi_bus.LASMIxbar(
-                [self.sdram_controller.lasmic],
-                self.sdram_controller.nrowbits)
-
-            bridge_if = self.get_native_sdram_if()
-            if self.l2_size:
-                l2_cache = wishbone.Cache(self.l2_size//4,
-                    self._cpulevel_sdram_if_arbitrated,
-                    wishbone.Interface(bridge_if.dw))
-                # XXX Vivado ->2015.1 workaround, Vivado is not able to map correctly our L2 cache.
-                # Issue is reported to Xilinx and should be fixed in next releases (> 2017.2).
-                # Remove this workaround when fixed by Xilinx.
-                from migen.build.xilinx.vivado import XilinxVivadoToolchain
-                if isinstance(self.platform.toolchain, XilinxVivadoToolchain):
-                    from migen.fhdl.simplify import FullMemoryWE
-                    self.submodules.l2_cache = FullMemoryWE()(l2_cache)
-                else:
-                    self.submodules.l2_cache = l2_cache
-                self.submodules.wishbone2lasmi = wishbone2lasmi.WB2LASMI(
-                    self.l2_cache.slave, bridge_if)
-            else:
-                raise NotImplementedError
         else:
             raise ValueError("Incorrect SDRAM controller type specified")
         self.comb += self.sdram_controller.dfi.connect(self.dfii.slave)
@@ -133,8 +106,6 @@ class SoCSDRAM(SoCCore):
             self._cpulevel_sdram_ifs, self._cpulevel_sdram_if_arbitrated)
 
         # arbitrate native interfaces
-        # with LASMI, the crossbar is integrated in the controller, we do not
-        # do anything here.
         if hasattr(self, "_native_sdram_ifs"):
             self.submodules.sdram_native_arbiter = wishbone.Arbiter(
                 self._native_sdram_ifs, self.sdram_controller.bus)
