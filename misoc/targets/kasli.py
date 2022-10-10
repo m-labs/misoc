@@ -60,8 +60,16 @@ class ClockSwitchFSM(Module):
         self.o_clk_sw.attr.add("no_retiming")
         self.o_reset.attr.add("no_retiming")
 
-        # latch the clock switch (no going back)
-        self.sync.bootstrap += If(self.i_clk_sw, i_switch.eq(1))
+        i_switch.attr.add("no_retiming")
+
+        # latch the clock switch
+        fdpe_out = Signal()
+        self.specials += Instance("FDPE",
+            p_INIT=0,
+            i_PRE=self.i_clk_sw,
+            o_Q=fdpe_out
+        )
+        self.sync.bootstrap += i_switch.eq(fdpe_out)
 
         fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
 
