@@ -4,6 +4,7 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
+from migen.genlib.cdc import MultiReg
 from migen.build.platforms.sinara import kasli
 
 from misoc.cores.sdram_settings import MT41K256M16
@@ -59,17 +60,10 @@ class ClockSwitchFSM(Module):
 
         self.o_clk_sw.attr.add("no_retiming")
         self.o_reset.attr.add("no_retiming")
-
+        self.i_clk_sw.attr.add("no_retiming")
         i_switch.attr.add("no_retiming")
 
-        # latch the clock switch
-        fdpe_out = Signal()
-        self.specials += Instance("FDPE",
-            p_INIT=0,
-            i_PRE=self.i_clk_sw,
-            o_Q=fdpe_out
-        )
-        self.sync.bootstrap += i_switch.eq(fdpe_out)
+        self.specials += MultiReg(self.i_clk_sw, i_switch, "bootstrap")
 
         fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
 
