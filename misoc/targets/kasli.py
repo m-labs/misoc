@@ -120,8 +120,7 @@ class _RtioSysCRG(Module, AutoCSR):
         # used internally in case main clock output is 125MHz
         self._clk125_mult = Signal()
 
-        self.clk_sw_fsm = ClockSwitchFSM()
-        self.submodules += self.clk_sw_fsm
+        self.submodules.clk_sw_fsm = ClockSwitchFSM()
 
         pll_clk200 = Signal()
         pll_clk125 = Signal()
@@ -190,11 +189,10 @@ class _RtioSysCRG(Module, AutoCSR):
                 # VCO @ 1GHz with MULT=16
                 p_CLKFBOUT_MULT_F=16 if div2 else 8, p_DIVCLK_DIVIDE=1,
 
-                # ~125MHz
-                # kasli 1.1 seems to still be within timing on that
+                # 125MHz
                 p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
 
-                # ~500MHz. Must be more than 400MHz as per DDR3 specs.
+                # 500MHz. Must be more than 400MHz as per DDR3 specs.
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
