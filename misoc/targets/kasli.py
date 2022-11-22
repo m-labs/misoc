@@ -115,8 +115,6 @@ class _RtioSysCRG(Module, AutoCSR):
             o_O=self.clk125_buf,
             o_ODIV2=self.clk125_div2)
 
-        self.specials += Instance("BUFG", i_I=self.clk125_div2, o_O=self.cd_bootstrap.clk)
-
         # used internally in case main clock output is 125MHz
         self._clk125_mult = Signal()
 
@@ -145,8 +143,11 @@ class _RtioSysCRG(Module, AutoCSR):
             ),
             Instance("BUFG", i_I=pll_clk125, o_O=self._clk125_mult),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            AsyncResetSynchronizer(self.cd_bootstrap, ~self.pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~self.pll_locked),
         ]
+
+        self.comb += self.cd_bootstrap.clk.eq(self._clk125_mult)
 
         self.sync += self.switch_done.status.eq(self.clk_sw_fsm.o_clk_sw)
 
@@ -163,7 +164,7 @@ class _RtioSysCRG(Module, AutoCSR):
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
-    def configure(self, clock_signal, div2=True, clk_sw=None):
+    def configure(self, clock_signal, clk_sw=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
         mmcm_fb_in = Signal()
@@ -174,10 +175,10 @@ class _RtioSysCRG(Module, AutoCSR):
         mmcm_sys4x_dqs = Signal()
         self.specials += [
             Instance("MMCME2_ADV",
-                p_CLKIN1_PERIOD=16.0 if div2 else 8.0,
+                p_CLKIN1_PERIOD=8.0,
                 i_CLKIN1=clock_signal,
-                p_CLKIN2_PERIOD=16.0 if div2 else 8.0,
-                i_CLKIN2=self._clk125_mult if not div2 else self.clk125_div2,
+                p_CLKIN2_PERIOD=8.0,
+                i_CLKIN2=self._clk125_mult,
 
                 i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
                 i_RST=self.clk_sw_fsm.o_reset,
@@ -186,8 +187,8 @@ class _RtioSysCRG(Module, AutoCSR):
                 o_CLKFBOUT=mmcm_fb_out,
                 o_LOCKED=mmcm_locked,
 
-                # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=16 if div2 else 8, p_DIVCLK_DIVIDE=1,
+                # VCO @ 1GHz with MULT=8
+                p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
 
                 # 125MHz
                 p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
