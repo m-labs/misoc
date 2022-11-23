@@ -115,6 +115,8 @@ class _RtioSysCRG(Module, AutoCSR):
             o_O=self.clk125_buf,
             o_ODIV2=self.clk125_div2)
 
+        self._clk125 = Signal()
+
         self.submodules.clk_sw_fsm = ClockSwitchFSM()
 
         pll_clk200 = Signal()
@@ -138,23 +140,12 @@ class _RtioSysCRG(Module, AutoCSR):
                 # 125MHz for non-div2 MMCM
                 p_CLKOUT1_DIVIDE=8, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk125
             ),
+            Instance("BUFG", i_I=self.clk125_div2, o_O=self.cd_bootstrap.clk),
+            Instance("BUFG", i_I=pll_clk125, o_O=self._clk125),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
-            AsyncResetSynchronizer(self.cd_bootstrap, ~self.pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~self.pll_locked),
             MultiReg(self.clk_sw_fsm.o_clk_sw, self.switch_done.status)
         ]
-
-        self._clk_125 = Signal()
-        if platform.hw_rev == "v2.0":
-            self.specials += [
-                Instance("BUFG", i_I=pll_clk125, o_O=self.cd_bootstrap.clk),
-            ]
-            self._clk_125 = self.cd_bootstrap.clk
-        else:
-            self.specials += [
-                Instance("BUFG", i_I=self.clk125_div2, o_O=self.cd_bootstrap.clk),
-                Instance("BUFG", i_I=pll_clk125, o_O=self._clk_125),
-            ]
 
         platform.add_false_path_constraints(self.clk125_buf,
             self.cd_sys.clk)
@@ -185,7 +176,7 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKIN1_PERIOD=8.0,
                 i_CLKIN1=clock_signal,
                 p_CLKIN2_PERIOD=8.0,
-                i_CLKIN2=self._clk_125,
+                i_CLKIN2=self._clk125,
 
                 i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
                 i_RST=self.clk_sw_fsm.o_reset,
