@@ -49,7 +49,7 @@ class ClockSwitchFSM(Module):
         o_switch = Signal()
         reset = Signal()
 
-        # at 62.5MHz bootstrap cd, will get around 1ms
+        # at 125MHz bootstrap cd, will get around 0.5ms
         delay_counter = Signal(16, reset=0xFFFF)
 
         # register to prevent glitches
@@ -115,9 +115,6 @@ class _RtioSysCRG(Module, AutoCSR):
             o_O=self.clk125_buf,
             o_ODIV2=self.clk125_div2)
 
-        # used internally in case main clock output is 125MHz
-        self._clk125_mult = Signal()
-
         self.submodules.clk_sw_fsm = ClockSwitchFSM()
 
         pll_clk200 = Signal()
@@ -141,17 +138,17 @@ class _RtioSysCRG(Module, AutoCSR):
                 # 125MHz for non-div2 MMCM
                 p_CLKOUT1_DIVIDE=8, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk125
             ),
-            Instance("BUFG", i_I=pll_clk125, o_O=self._clk125_mult),
+            Instance("BUFG", i_I=pll_clk125, o_O=self.cd_bootstrap.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_bootstrap, ~self.pll_locked),
             AsyncResetSynchronizer(self.cd_clk200, ~self.pll_locked),
+            MultiReg(self.clk_sw_fsm.o_clk_sw, self.switch_done.status)
         ]
-
-        self.comb += self.cd_bootstrap.clk.eq(self._clk125_mult)
-
-        self.sync += self.switch_done.status.eq(self.clk_sw_fsm.o_clk_sw)
+        self.switch_done.status.attr.add("no_retiming")
 
         platform.add_false_path_constraints(self.clk125_buf,
+            self.cd_sys.clk)
+        platform.add_false_path_constraints(self.cd_bootstrap.clk,
             self.cd_sys.clk)
 
         reset_counter = Signal(4, reset=15)
@@ -178,7 +175,7 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKIN1_PERIOD=8.0,
                 i_CLKIN1=clock_signal,
                 p_CLKIN2_PERIOD=8.0,
-                i_CLKIN2=self._clk125_mult,
+                i_CLKIN2=self.cd_bootstrap.clk,
 
                 i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
                 i_RST=self.clk_sw_fsm.o_reset,
