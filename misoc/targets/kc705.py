@@ -4,6 +4,7 @@ import argparse
 
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
+from migen.genlib.cdc import MultiReg
 from migen.build.platforms import kc705
 
 from misoc.cores.sdram_settings import MT8JTF12864
@@ -13,9 +14,173 @@ from misoc.cores.liteeth_mini.phy import LiteEthPHY
 from misoc.cores.liteeth_mini.mac import LiteEthMAC
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
+from misoc.interconnect.csr import *
 
 
-class _CRG(Module):
+class ClockSwitchFSM(Module):
+    def __init__(self):
+        self.i_clk_sw = Signal()
+
+        self.o_clk_sw = Signal()
+        self.o_reset = Signal()
+
+        ###
+
+        i_switch = Signal()
+        o_switch = Signal()
+        reset = Signal()
+
+        delay_counter = Signal(16, reset=0xFFFF)
+
+        self.sync.bootstrap += [
+            self.o_clk_sw.eq(o_switch),
+            self.o_reset.eq(reset),
+        ]
+
+        self.o_clk_sw.attr.add("no_retiming")
+        self.o_reset.attr.add("no_retiming")
+        self.i_clk_sw.attr.add("no_retiming")
+        i_switch.attr.add("no_retiming")
+
+        self.specials += MultiReg(self.i_clk_sw, i_switch, "bootstrap")
+
+        fsm = ClockDomainsRenamer("bootstrap")(FSM(reset_state="START"))
+
+        self.submodules += fsm
+
+        fsm.act("START",
+            If(i_switch & ~o_switch,
+                NextState("RESET_START"))
+        )
+        fsm.act("RESET_START",
+            reset.eq(1),
+            If(delay_counter == 0,
+                NextValue(delay_counter, 0xFFFF),
+                NextState("CLOCK_SWITCH")
+            ).Else(
+                NextValue(delay_counter, delay_counter-1),
+            )
+        )
+        fsm.act("CLOCK_SWITCH",
+            reset.eq(1),
+            NextValue(o_switch, 1),
+            NextValue(delay_counter, delay_counter-1),
+            If(delay_counter == 0,
+                NextState("START"))
+        )
+
+
+class _RtioSysCRG(Module, AutoCSR):
+    def __init__(self, platform):
+        self.clock_domains.cd_sys = ClockDomain()
+        self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
+        self.clock_domains.cd_clk200 = ClockDomain()
+
+        # for FSM only
+        self.clock_domains.cd_bootstrap = ClockDomain(reset_less=True)
+        self.switch_done = CSRStatus()
+
+        # bootstrap clock
+        clk200 = platform.request("clk200")
+        clk200_se = Signal()
+        self.specials += Instance("IBUFDS", i_I=clk200.p, i_IB=clk200.n, o_O=clk200_se)
+
+        self.rst = platform.request("cpu_reset")
+        self.platform = platform
+
+        self.submodules.clk_sw_fsm = ClockSwitchFSM()
+
+        pll_clk200 = Signal()
+        pll_clk125 = Signal()
+        pll_fb = Signal()
+        self.pll_locked = Signal()
+        self.specials += [
+            Instance("PLLE2_BASE",
+                p_CLKIN1_PERIOD=5.0,
+                i_CLKIN1=clk200_se,
+
+                i_CLKFBIN=pll_fb,
+                o_CLKFBOUT=pll_fb,
+                o_LOCKED=self.pll_locked,
+
+                # VCO @ 1GHz
+                p_CLKFBOUT_MULT=5, p_DIVCLK_DIVIDE=1,
+
+                # 200MHz for IDELAYCTRL
+                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
+                # 125MHz for bootstrap
+                p_CLKOUT1_DIVIDE=8, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk125,
+            ),
+            Instance("BUFG", i_I=pll_clk125, o_O=self.cd_bootstrap.clk),
+            Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
+            MultiReg(self.clk_sw_fsm.o_clk_sw, self.switch_done.status),
+            AsyncResetSynchronizer(self.cd_clk200, ~self.pll_locked | self.rst),
+            AsyncResetSynchronizer(self.cd_bootstrap, ~self.pll_locked | self.rst)
+        ]
+
+        self.platform.add_false_path_constraints(self.cd_sys.clk, 
+            clk200_se, self.cd_bootstrap.clk)
+
+        reset_counter = Signal(4, reset=15)
+        ic_reset = Signal(reset=1)
+        self.sync.clk200 += \
+            If(reset_counter != 0,
+                reset_counter.eq(reset_counter - 1)
+            ).Else(
+                ic_reset.eq(0)
+            )
+        self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
+
+    def configure(self, clock_signal, clk_sw=None):
+        # allow configuration of the MMCME2, depending on clock source
+        # if using RtioSysCRG, this function *must* be called
+        mmcm_fb_in = Signal()
+        mmcm_fb_out = Signal()
+        mmcm_locked = Signal()
+        mmcm_sys = Signal()
+        mmcm_sys4x = Signal()
+        self.specials += [
+            Instance("MMCME2_ADV",
+                p_CLKIN1_PERIOD=8.0,
+                i_CLKIN1=clock_signal,
+                p_CLKIN2_PERIOD=8.0,
+                i_CLKIN2=self.cd_bootstrap.clk,
+
+                i_CLKINSEL=1, #self.clk_sw_fsm.o_clk_sw,
+                i_RST=self.clk_sw_fsm.o_reset,
+
+                i_CLKFBIN=mmcm_fb_in,
+                o_CLKFBOUT=mmcm_fb_out,
+                o_LOCKED=mmcm_locked,
+
+                # VCO @ 1GHz with MULT=8
+                p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
+
+                # 125MHz
+                p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+
+                # 500MHz
+                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+            ),
+            Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
+            Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
+            Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
+            AsyncResetSynchronizer(self.cd_sys, ~self.pll_locked | self.rst | ~mmcm_locked | self.clk_sw_fsm.o_reset),
+        ]
+
+        self.platform.add_false_path_constraints(self.cd_sys.clk, clock_signal)
+        self.platform.add_false_path_constraints(self.cd_bootstrap.clk, clock_signal)
+
+        # allow triggering the clock switch through either CSR,
+        # or a different event, e.g. tx_init.done
+        if clk_sw is not None:
+            self.comb += self.clk_sw_fsm.i_clk_sw.eq(clk_sw)
+        else:
+            self.clock_sel = CSRStorage()
+            self.comb += self.clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage)
+
+
+class _SysCRG(Module):
     def __init__(self, platform):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
@@ -73,13 +238,17 @@ class _CRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, toolchain="vivado", sdram_controller_type="minicon", **kwargs):
+    def __init__(self, toolchain="vivado", sdram_controller_type="minicon", clk_freq=125e6, rtio_sys_merge=False, **kwargs):
         platform = kc705.Platform(toolchain=toolchain)
         SoCSDRAM.__init__(self, platform,
-                          clk_freq=125*1000000, cpu_reset_address=0xaf0000,
+                          clk_freq=clk_freq, cpu_reset_address=0xaf0000,
                           **kwargs)
 
-        self.submodules.crg = _CRG(platform)
+        if rtio_sys_merge:
+            self.submodules.crg = _RtioSysCRG(platform)
+            self.csr_devices.append("crg")
+        else:
+            self.submodules.crg = _SysCRG(platform)
 
         self.submodules.ddrphy = k7ddrphy.K7DDRPHY(platform.request("ddram"))
         self.config["DDRPHY_WLEVEL"] = None
