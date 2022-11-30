@@ -104,6 +104,8 @@ class _RtioSysCRG(Module, AutoCSR):
         self.clock_domains.cd_bootstrap = ClockDomain(reset_less=True)
         self.switch_done = CSRStatus()
 
+        self._configured = False
+
         # bootstrap clock
         clk125 = platform.request("clk125_gtp")
         platform.add_period_constraint(clk125, 8.)
@@ -160,6 +162,8 @@ class _RtioSysCRG(Module, AutoCSR):
     def configure(self, clock_signal, clk_sw=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
+        self._configured = True
+
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
         mmcm_locked = Signal()
@@ -206,6 +210,11 @@ class _RtioSysCRG(Module, AutoCSR):
         else:
             self.clock_sel = CSRStorage()
             self.comb += self.clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage)
+
+    def do_finalize(self):
+        if not self._configured:
+            raise FinalizeError("RtioSysCRG must be configured")
+        
 
 class _SysCRG(Module):
     def __init__(self, platform):
