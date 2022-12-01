@@ -3,6 +3,7 @@
 import argparse
 
 from migen import *
+from migen.build.generic_platform import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
 from migen.genlib.cdc import MultiReg
 from migen.build.platforms import kc705
@@ -66,7 +67,11 @@ class ClockSwitchFSM(Module):
             NextValue(o_switch, 1),
             NextValue(delay_counter, delay_counter-1),
             If(delay_counter == 0,
-                NextState("START"))
+                NextValue(delay_counter, 0xFFFF),
+                NextState("START")
+            ).Else(
+                NextValue(delay_counter, delay_counter-1),
+            )
         )
 
 
@@ -79,6 +84,8 @@ class _RtioSysCRG(Module, AutoCSR):
         # for FSM only
         self.clock_domains.cd_bootstrap = ClockDomain(reset_less=True)
         self.switch_done = CSRStatus()
+
+        self._configured = False
 
         # bootstrap clock
         clk200 = platform.request("clk200")
@@ -93,7 +100,7 @@ class _RtioSysCRG(Module, AutoCSR):
         pll_clk200 = Signal()
         pll_clk125 = Signal()
         pll_fb = Signal()
-        self.pll_locked = Signal()
+        pll_locked = Signal()
         self.specials += [
             Instance("PLLE2_BASE",
                 p_CLKIN1_PERIOD=5.0,
@@ -101,7 +108,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
                 i_CLKFBIN=pll_fb,
                 o_CLKFBOUT=pll_fb,
-                o_LOCKED=self.pll_locked,
+                o_LOCKED=pll_locked,
 
                 # VCO @ 1GHz
                 p_CLKFBOUT_MULT=5, p_DIVCLK_DIVIDE=1,
@@ -114,12 +121,11 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=pll_clk125, o_O=self.cd_bootstrap.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             MultiReg(self.clk_sw_fsm.o_clk_sw, self.switch_done.status),
-            AsyncResetSynchronizer(self.cd_clk200, ~self.pll_locked | self.rst),
-            AsyncResetSynchronizer(self.cd_bootstrap, ~self.pll_locked | self.rst)
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked | self.rst),
+            AsyncResetSynchronizer(self.cd_bootstrap, ~pll_locked | self.rst),
         ]
 
-        self.platform.add_false_path_constraints(self.cd_sys.clk, 
-            clk200_se, self.cd_bootstrap.clk)
+        self.platform.add_false_path_constraints(self.cd_sys.clk, clk200_se)
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
@@ -134,9 +140,13 @@ class _RtioSysCRG(Module, AutoCSR):
     def configure(self, clock_signal, clk_sw=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
+        self._configured = True
+
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
+        mmcm_fb = Signal()
         mmcm_locked = Signal()
+
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         self.specials += [
@@ -146,7 +156,7 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKIN2_PERIOD=8.0,
                 i_CLKIN2=self.cd_bootstrap.clk,
 
-                i_CLKINSEL=1, #self.clk_sw_fsm.o_clk_sw,
+                i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
                 i_RST=self.clk_sw_fsm.o_reset,
 
                 i_CLKFBIN=mmcm_fb_in,
@@ -158,18 +168,24 @@ class _RtioSysCRG(Module, AutoCSR):
 
                 # 125MHz
                 p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
-
                 # 500MHz
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
             ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            AsyncResetSynchronizer(self.cd_sys, ~self.pll_locked | self.rst | ~mmcm_locked | self.clk_sw_fsm.o_reset),
+            AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked | self.rst)
         ]
 
-        self.platform.add_false_path_constraints(self.cd_sys.clk, clock_signal)
-        self.platform.add_false_path_constraints(self.cd_bootstrap.clk, clock_signal)
+        self.platform.add_false_path_constraints(self.cd_sys.clk, 
+            clock_signal, self.cd_bootstrap.clk)
+
+        led_6 = self.platform.request("user_led", 0)
+        self.comb += led_6.eq(mmcm_locked)
+        led_5 = self.platform.request("user_led", 1)
+        self.comb += led_5.eq(self.clk_sw_fsm.o_reset)
+        led_4 = self.platform.request("user_led", 2)
+        self.comb += led_4.eq(self.clk_sw_fsm.o_clk_sw)
 
         # allow triggering the clock switch through either CSR,
         # or a different event, e.g. tx_init.done
@@ -178,6 +194,10 @@ class _RtioSysCRG(Module, AutoCSR):
         else:
             self.clock_sel = CSRStorage()
             self.comb += self.clk_sw_fsm.i_clk_sw.eq(self.clock_sel.storage)
+
+    def do_finalize(self):
+        if not self._configured:
+            raise FinalizeError("RtioSysCRG must be configured")
 
 
 class _SysCRG(Module):
