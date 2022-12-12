@@ -124,7 +124,8 @@ class _RtioSysCRG(Module, AutoCSR):
             AsyncResetSynchronizer(self.cd_bootstrap, ~pll_locked),
         ]
 
-        self.platform.add_false_path_constraints(self.cd_sys.clk, clk200_se)
+        self.platform.add_false_path_constraints(self.cd_sys.clk, 
+            clk200_se, self.cd_bootstrap.clk, pll_clk125)
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
@@ -136,7 +137,7 @@ class _RtioSysCRG(Module, AutoCSR):
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
-    def configure(self, clock_signal, clk_sw=None):
+    def configure(self, main_clk, clk_sw=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
         self._configured = True
@@ -151,7 +152,7 @@ class _RtioSysCRG(Module, AutoCSR):
         self.specials += [
             Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=8.0,
-                i_CLKIN1=clock_signal,
+                i_CLKIN1=main_clk,
                 p_CLKIN2_PERIOD=8.0,
                 i_CLKIN2=self.cd_bootstrap.clk,
 
@@ -176,8 +177,7 @@ class _RtioSysCRG(Module, AutoCSR):
             AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked)
         ]
 
-        self.platform.add_false_path_constraints(self.cd_sys.clk, 
-            clock_signal, self.cd_bootstrap.clk)
+        self.platform.add_false_path_constraints(self.cd_sys.clk, main_clk)
 
         # allow triggering the clock switch through either CSR,
         # or a different event, e.g. tx_init.done

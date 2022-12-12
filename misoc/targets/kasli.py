@@ -159,7 +159,7 @@ class _RtioSysCRG(Module, AutoCSR):
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
-    def configure(self, clock_signal, clk_sw=None):
+    def configure(self, main_clk, clk_sw=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
         self._configured = True
@@ -173,7 +173,7 @@ class _RtioSysCRG(Module, AutoCSR):
         self.specials += [
             Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=8.0,
-                i_CLKIN1=clock_signal,
+                i_CLKIN1=main_clk,
                 p_CLKIN2_PERIOD=8.0,
                 i_CLKIN2=self.cd_bootstrap.clk,
 
