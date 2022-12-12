@@ -92,7 +92,6 @@ class _RtioSysCRG(Module, AutoCSR):
         clk200_se = Signal()
         self.specials += Instance("IBUFDS", i_I=clk200.p, i_IB=clk200.n, o_O=clk200_se)
 
-        self.rst = platform.request("cpu_reset")
         self.platform = platform
 
         self.submodules.clk_sw_fsm = ClockSwitchFSM()
@@ -121,8 +120,8 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=pll_clk125, o_O=self.cd_bootstrap.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             MultiReg(self.clk_sw_fsm.o_clk_sw, self.switch_done.status),
-            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked | self.rst),
-            AsyncResetSynchronizer(self.cd_bootstrap, ~pll_locked | self.rst),
+            AsyncResetSynchronizer(self.cd_clk200, ~pll_locked),
+            AsyncResetSynchronizer(self.cd_bootstrap, ~pll_locked),
         ]
 
         self.platform.add_false_path_constraints(self.cd_sys.clk, clk200_se)
@@ -174,18 +173,11 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked | self.rst)
+            AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked)
         ]
 
         self.platform.add_false_path_constraints(self.cd_sys.clk, 
             clock_signal, self.cd_bootstrap.clk)
-
-        led_6 = self.platform.request("user_led", 0)
-        self.comb += led_6.eq(mmcm_locked)
-        led_5 = self.platform.request("user_led", 1)
-        self.comb += led_5.eq(self.clk_sw_fsm.o_reset)
-        led_4 = self.platform.request("user_led", 2)
-        self.comb += led_4.eq(self.clk_sw_fsm.o_clk_sw)
 
         # allow triggering the clock switch through either CSR,
         # or a different event, e.g. tx_init.done
