@@ -12,7 +12,6 @@ import argparse
 from migen import *
 from migen.genlib.resetsync import AsyncResetSynchronizer
 from migen.build.platforms import digilent_genesys2
-from migen.genlib.cdc import MultiReg
 
 from misoc.cores.sdram_settings import MT41J256M16
 from misoc.cores.sdram_phy import k7ddrphy
@@ -82,8 +81,8 @@ class _SysCRG(Module):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram_controller_type="minicon", clk_freq=125e6, **kwargs):
-        platform = digilent_genesys2.Platform()
+    def __init__(self, fmc1_vadj, sdram_controller_type="minicon", clk_freq=125e6, **kwargs):
+        platform = digilent_genesys2.Platform(fmc1_vadj)
         SoCSDRAM.__init__(self, platform,
                           clk_freq=clk_freq, cpu_reset_address=0xaf0000,
                           **kwargs)
