@@ -8,35 +8,37 @@ COMMONFLAGS += -integrated-as -I. \
 	-D__ELF__ -D__linux__ \
 	-D_LIBUNWIND_NO_HEAP -DNDEBUG
 
+ifeq ($(CPU),or1k)
+COMMONFLAGS += -D_LIBUNWIND_BUILD_ZERO_COST_APIS
+endif
+
 CFLAGS += -funwind-tables
 CXXFLAGS += -fno-exceptions -funwind-tables
 
-ifeq ($(CPU),or1k)
-all:: libunwind-bare.a libunwind-or1k-elf.a
-COMMONFLAGS += -D_LIBUNWIND_BUILD_ZERO_COST_APIS
-endif
-ifeq ($(CPU),vexriscv)
-all:: libunwind-bare.a libunwind-vexriscv-elf.a
-endif
-ifeq ($(CPU),vexriscv-g)
-all:: libunwind-vexriscv-g-elf.a
-endif
 
-libunwind-%.a: UnwindRegistersSave.o UnwindRegistersRestore.o \
-		UnwindLevel1-%.o UnwindLevel1-gcc-ext-%.o libunwind-%.o
+all:: libunwind-$(CPU)-bare.a libunwind-$(CPU)-libc.a
+
+libunwind-$(CPU)-%.a: UnwindRegistersSave-$(CPU)-%.o UnwindRegistersRestore-$(CPU)-%.o \
+		UnwindLevel1-$(CPU)-%.o UnwindLevel1-gcc-ext-$(CPU)-%.o libunwind-$(CPU)-%.o
 	$(archive)
 
-%.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
+
+%-$(CPU)-libc.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
 	$(assemble)
 
-%-$(CPU)-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
-	$(compilexx)
-
-%-$(CPU)-elf.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
+%-$(CPU)-libc.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
 	$(compile)
 
-%-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
-	$(compilexx) -D_LIBUNWIND_IS_BAREMETAL
 
-%-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
+%-$(CPU)-libc.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
+	$(compilexx)
+
+
+%-$(CPU)-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.S
+	$(assemble)
+
+%-$(CPU)-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.c
 	$(compile) -D_LIBUNWIND_IS_BAREMETAL
+
+%-$(CPU)-bare.o: $(MISOC_DIRECTORY)/software/unwinder/src/%.cpp
+	$(compilexx) -D_LIBUNWIND_IS_BAREMETAL
