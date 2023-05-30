@@ -29,7 +29,10 @@ class CRG(Module):
             self.specials += Instance("IBUFDS_GTE2",
                 i_CEB=0,
                 i_I=clk125.p, i_IB=clk125.n,
-                o_ODIV2=clkin1)
+                o_ODIV2=clkin1,
+                p_CLKCM_CFG="TRUE",
+                p_CLKRCV_TRST="TRUE",
+                p_CLKSWING_CFG=3)
         else:
             raise ValueError
         self.specials += [
