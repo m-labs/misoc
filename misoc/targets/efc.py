@@ -39,8 +39,6 @@ class _RtioSysCRG(Module, AutoCSR):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
-        self.clock_domains.cd_eem_sys = ClockDomain()
-        self.clock_domains.cd_eem_sys5x = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
         clk125 = platform.request("gtp_clk")
@@ -96,22 +94,20 @@ class _RtioSysCRG(Module, AutoCSR):
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
-        mmcm_fb_in = [ Signal() for _ in range(2) ]
-        mmcm_fb_out = [ Signal() for _ in range(2) ]
-        mmcm_locked = [ Signal() for _ in range(2) ]
+        mmcm_fb_in = Signal()
+        mmcm_fb_out = Signal()
+        mmcm_locked = Signal()
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
-        mmcm_eem_sys = Signal()
-        mmcm_eem_sys5x = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16.0,
                 i_CLKIN1=self.clk125_div2,
 
-                i_CLKFBIN=mmcm_fb_in[0],
-                o_CLKFBOUT=mmcm_fb_out[0],
-                o_LOCKED=mmcm_locked[0],
+                i_CLKFBIN=mmcm_fb_in,
+                o_CLKFBOUT=mmcm_fb_out,
+                o_LOCKED=mmcm_locked,
 
                 # VCO @ 1GHz with MULT=16
                 p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
@@ -123,34 +119,13 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
-            Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
-
-                i_CLKFBIN=mmcm_fb_in[1],
-                o_CLKFBOUT=mmcm_fb_out[1],
-                o_LOCKED=mmcm_locked[1],
-
-                # VCO @ 1.25 GHz with MULT=20
-                p_CLKFBOUT_MULT_F=20, p_DIVCLK_DIVIDE=1,
-
-                # 125MHz
-                p_CLKOUT0_DIVIDE_F=10, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_eem_sys,
-
-                # 625MHz
-                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_eem_sys5x,
-            ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=mmcm_eem_sys, o_O=self.cd_eem_sys.clk),
-            Instance("BUFG", i_I=mmcm_eem_sys5x, o_O=self.cd_eem_sys5x.clk),
-            Instance("BUFG", i_I=mmcm_fb_out[0], o_O=mmcm_fb_in[0]),
-            Instance("BUFG", i_I=mmcm_fb_out[1], o_O=mmcm_fb_in[1]),
+            Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
         ]
 
-        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked[0])
-        self.submodules += AsyncResetSynchronizerBUFG(self.cd_eem_sys, ~mmcm_locked[1])
+        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked)
 
 
 class BaseSoC(SoCSDRAM):

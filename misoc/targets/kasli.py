@@ -98,8 +98,6 @@ class _RtioSysCRG(Module, AutoCSR):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
-        self.clock_domains.cd_eem_sys = ClockDomain()
-        self.clock_domains.cd_eem_sys5x = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
         # for FSM only
@@ -152,7 +150,7 @@ class _RtioSysCRG(Module, AutoCSR):
         ]
 
         platform.add_false_path_constraints(self.cd_sys.clk, 
-            self.clk125_buf, self.cd_bootstrap.clk, pll_clk125, self.cd_eem_sys.clk)
+            self.clk125_buf, self.cd_bootstrap.clk, pll_clk125)
 
         reset_counter = Signal(4, reset=15)
         ic_reset = Signal(reset=1)
@@ -169,14 +167,12 @@ class _RtioSysCRG(Module, AutoCSR):
         # if using RtioSysCRG, this function *must* be called
         self._configured = True
 
-        mmcm_fb_in = [ Signal() for _ in range(2) ]
-        mmcm_fb_out = [ Signal() for _ in range(2) ]
-        mmcm_locked = [ Signal() for _ in range(2) ]
+        mmcm_fb_in = Signal()
+        mmcm_fb_out = Signal()
+        mmcm_locked = Signal()
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
-        mmcm_eem_sys = Signal()
-        mmcm_eem_sys5x = Signal()
         self.specials += [
             Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=8.0,
@@ -187,9 +183,9 @@ class _RtioSysCRG(Module, AutoCSR):
                 i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
                 i_RST=self.clk_sw_fsm.o_reset,
 
-                i_CLKFBIN=mmcm_fb_in[0],
-                o_CLKFBOUT=mmcm_fb_out[0],
-                o_LOCKED=mmcm_locked[0],
+                i_CLKFBIN=mmcm_fb_in,
+                o_CLKFBOUT=mmcm_fb_out,
+                o_LOCKED=mmcm_locked,
 
                 # VCO @ 1GHz with MULT=8
                 p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
@@ -201,38 +197,14 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
             ),
-            Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=8.0,
-                i_CLKIN1=main_clk,
-
-                i_RST=self.clk_sw_fsm.o_reset,
-
-                i_CLKFBIN=mmcm_fb_in[1],
-                o_CLKFBOUT=mmcm_fb_out[1],
-                o_LOCKED=mmcm_locked[1],
-
-                # VCO @ 1.25 GHz with MULT=10
-                p_CLKFBOUT_MULT_F=10, p_DIVCLK_DIVIDE=1,
-
-                # 125MHz
-                p_CLKOUT0_DIVIDE_F=10, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_eem_sys,
-
-                # 625MHz
-                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_eem_sys5x,
-            ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=mmcm_eem_sys, o_O=self.cd_eem_sys.clk),
-            Instance("BUFG", i_I=mmcm_eem_sys5x, o_O=self.cd_eem_sys5x.clk),
-            Instance("BUFG", i_I=mmcm_fb_out[0], o_O=mmcm_fb_in[0]),
-            Instance("BUFG", i_I=mmcm_fb_out[1], o_O=mmcm_fb_in[1]),
+            Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
         ]
         # reset if MMCM or PLL loses lock or when switching
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
-            ~self.pll_locked | ~mmcm_locked[0] | self.clk_sw_fsm.o_reset)
-        self.submodules += AsyncResetSynchronizerBUFG(self.cd_eem_sys, 
-            ~self.pll_locked | ~mmcm_locked[1] | self.clk_sw_fsm.o_reset)
+            ~self.pll_locked | ~mmcm_locked | self.clk_sw_fsm.o_reset)
 
         # allow triggering the clock switch through either CSR,
         # or a different event, e.g. tx_init.done
