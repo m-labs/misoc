@@ -54,13 +54,6 @@ class _RtioSysCRG(Module, AutoCSR):
             p_CLKRCV_TRST="TRUE",
             p_CLKSWING_CFG=3)
 
-        self.switched_clk = CSR()
-        switched_clk_r = Signal(reset_less=True)
-        self.sync += If(self.switched_clk.re, switched_clk_r.eq(1))
-
-        self.had_clk_switch = CSRStatus()
-        self.comb += self.had_clk_switch.status.eq(switched_clk_r)
-
         pll_clk200 = Signal()
         pll_clk125 = Signal()
         pll_fb = Signal()
