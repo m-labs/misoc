@@ -39,6 +39,7 @@ class _RtioSysCRG(Module, AutoCSR):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
+        self.clock_domains.cd_sys5x = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
 
         clk125 = platform.request("gtp_clk")
@@ -90,9 +91,12 @@ class _RtioSysCRG(Module, AutoCSR):
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
         mmcm_locked = Signal()
+        sys4x_fb_in = Signal()
+        sys4x_fb_out = Signal()
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
+        mmcm_sys5x = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16.0,
@@ -102,20 +106,38 @@ class _RtioSysCRG(Module, AutoCSR):
                 o_CLKFBOUT=mmcm_fb_out,
                 o_LOCKED=mmcm_locked,
 
-                # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
-
-                # 125MHz
-                p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+                # VCO @ 1.25GHz with MULT=20
+                p_CLKFBOUT_MULT_F=20, p_DIVCLK_DIVIDE=1,
 
                 # 500MHz. Must be more than 400MHz as per DDR3 specs.
-                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
-                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
+                p_CLKOUT0_DIVIDE_F=2.5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys4x,
+
+                # 125MHz
+                p_CLKOUT1_DIVIDE=10, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys,
+
+                # 625MHz
+                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_sys5x,
             ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
-            Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
+            Instance("BUFG", i_I=mmcm_sys5x, o_O=self.cd_sys5x.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
+
+            Instance("MMCME2_BASE",
+                p_CLKIN1_PERIOD=2.0,
+                i_CLKIN1=self.cd_sys4x.clk,
+
+                i_CLKFBIN=sys4x_fb_in,
+                o_CLKFBOUT=sys4x_fb_out,
+
+                # VCO @ 1GHz with MULT=2
+                p_CLKFBOUT_MULT_F=2, p_DIVCLK_DIVIDE=1,
+
+                # 500MHz
+                p_CLKOUT0_DIVIDE_F=2, p_CLKOUT0_PHASE=90.0, o_CLKOUT0=mmcm_sys4x_dqs,
+            ),
+            Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
+            Instance("BUFG", i_I=sys4x_fb_out, o_O=sys4x_fb_in),
         ]
 
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, ~mmcm_locked)
