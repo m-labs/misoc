@@ -179,9 +179,55 @@ class _RtioSysCRG(Module, AutoCSR):
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
-        mmcm_sys5x = Signal()
-        self.specials += [
-            Instance("MMCME2_ADV",
+
+        if self.enable_sys5x:
+            mmcm_sys5x = Signal()
+            self.specials += [
+                Instance("MMCME2_ADV",
+                    p_CLKIN1_PERIOD=8.0,
+                    i_CLKIN1=main_clk,
+                    p_CLKIN2_PERIOD=8.0,
+                    i_CLKIN2=self.cd_bootstrap.clk,
+
+                    i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
+                    i_RST=self.clk_sw_fsm.o_reset,
+
+                    i_CLKFBIN=mmcm_fb_in,
+                    o_CLKFBOUT=mmcm_fb_out,
+                    o_LOCKED=mmcm_locked,
+
+                    # VCO @ 1.25GHz with MULT=10
+                    p_CLKFBOUT_MULT_F=10, p_DIVCLK_DIVIDE=1,
+
+                    # 500MHz. Must be more than 400MHz as per DDR3 specs.
+                    p_CLKOUT0_DIVIDE_F=2.5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys4x,
+
+                    # 125MHz
+                    p_CLKOUT1_DIVIDE=10, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys,
+
+                    # 625MHz
+                    p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_sys5x,
+                ),
+                Instance("MMCME2_BASE",
+                    p_CLKIN1_PERIOD=2.0,
+                    i_CLKIN1=self.cd_sys4x.clk,
+
+                    i_RST=self.clk_sw_fsm.o_reset | ~mmcm_locked[0],
+
+                    i_CLKFBIN=sys4x_fb_in,
+                    o_CLKFBOUT=sys4x_fb_out,
+
+                    # VCO @ 1GHz with MULT=2
+                    p_CLKFBOUT_MULT_F=2, p_DIVCLK_DIVIDE=1,
+
+                    # 500MHz. 90.0 phase offset from cd_sys4x.
+                    p_CLKOUT0_DIVIDE_F=2, p_CLKOUT0_PHASE=90.0, o_CLKOUT0=mmcm_sys4x_dqs,
+                ),
+                Instance("BUFG", i_I=sys4x_fb_out, o_O=sys4x_fb_in),
+                Instance("BUFG", i_I=mmcm_sys5x, o_O=self.cd_sys5x.clk),
+            ]
+        else:
+            self.specials += Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=8.0,
                 i_CLKIN1=main_clk,
                 p_CLKIN2_PERIOD=8.0,
@@ -194,43 +240,23 @@ class _RtioSysCRG(Module, AutoCSR):
                 o_CLKFBOUT=mmcm_fb_out,
                 o_LOCKED=mmcm_locked,
 
-                # VCO @ 1.25GHz with MULT=10
-                p_CLKFBOUT_MULT_F=10, p_DIVCLK_DIVIDE=1,
-
-                # 500MHz. Must be more than 400MHz as per DDR3 specs.
-                p_CLKOUT0_DIVIDE_F=2.5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys4x,
+                # VCO @ 1GHz with MULT=8
+                p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
 
                 # 125MHz
-                p_CLKOUT1_DIVIDE=10, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys,
+                p_CLKOUT0_DIVIDE_F=8, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
 
-                # 625MHz
-                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_sys5x,
-            ),
+                # 500MHz. Must be more than 400MHz as per DDR3 specs.
+                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
+            )
+
+        self.specials += [
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-
-            Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=2.0,
-                i_CLKIN1=self.cd_sys4x.clk,
-
-                i_RST=self.clk_sw_fsm.o_reset | ~mmcm_locked[0],
-
-                i_CLKFBIN=sys4x_fb_in,
-                o_CLKFBOUT=sys4x_fb_out,
-
-                # VCO @ 1GHz with MULT=2
-                p_CLKFBOUT_MULT_F=2, p_DIVCLK_DIVIDE=1,
-
-                # 500MHz. 90.0 phase offset from cd_sys4x.
-                p_CLKOUT0_DIVIDE_F=2, p_CLKOUT0_PHASE=90.0, o_CLKOUT0=mmcm_sys4x_dqs,
-            ),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
-            Instance("BUFG", i_I=sys4x_fb_out, o_O=sys4x_fb_in),
         ]
-
-        if self.enable_sys5x:
-            self.specials += Instance("BUFG", i_I=mmcm_sys5x, o_O=self.cd_sys5x.clk)
 
         # reset if MMCM or PLL loses lock or when switching
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
