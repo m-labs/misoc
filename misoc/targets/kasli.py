@@ -94,11 +94,15 @@ class ClockSwitchFSM(Module):
 
 
 class _RtioSysCRG(Module, AutoCSR):
-    def __init__(self, platform):
+    def __init__(self, platform, enable_sys5x=False):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
+
+        self.enable_sys5x = enable_sys5x
+        if enable_sys5x:
+            self.clock_domains.cd_sys5x = ClockDomain(reset_less=True)
 
         # for FSM only
         self.clock_domains.cd_bootstrap = ClockDomain(reset_less=True)
@@ -170,11 +174,60 @@ class _RtioSysCRG(Module, AutoCSR):
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
         mmcm_locked = Signal()
+        sys4x_fb_in = Signal()
+        sys4x_fb_out = Signal()
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
-        self.specials += [
-            Instance("MMCME2_ADV",
+
+        if self.enable_sys5x:
+            mmcm_sys5x = Signal()
+            self.specials += [
+                Instance("MMCME2_ADV",
+                    p_CLKIN1_PERIOD=8.0,
+                    i_CLKIN1=main_clk,
+                    p_CLKIN2_PERIOD=8.0,
+                    i_CLKIN2=self.cd_bootstrap.clk,
+
+                    i_CLKINSEL=self.clk_sw_fsm.o_clk_sw,
+                    i_RST=self.clk_sw_fsm.o_reset,
+
+                    i_CLKFBIN=mmcm_fb_in,
+                    o_CLKFBOUT=mmcm_fb_out,
+                    o_LOCKED=mmcm_locked,
+
+                    # VCO @ 1.25GHz with MULT=10
+                    p_CLKFBOUT_MULT_F=10, p_DIVCLK_DIVIDE=1,
+
+                    # 500MHz. Must be more than 400MHz as per DDR3 specs.
+                    p_CLKOUT0_DIVIDE_F=2.5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys4x,
+
+                    # 125MHz
+                    p_CLKOUT1_DIVIDE=10, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys,
+
+                    # 625MHz
+                    p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_sys5x,
+                ),
+                Instance("MMCME2_BASE",
+                    p_CLKIN1_PERIOD=2.0,
+                    i_CLKIN1=self.cd_sys4x.clk,
+
+                    i_RST=self.clk_sw_fsm.o_reset | ~mmcm_locked[0],
+
+                    i_CLKFBIN=sys4x_fb_in,
+                    o_CLKFBOUT=sys4x_fb_out,
+
+                    # VCO @ 1GHz with MULT=2
+                    p_CLKFBOUT_MULT_F=2, p_DIVCLK_DIVIDE=1,
+
+                    # 500MHz. 90.0 phase offset from cd_sys4x.
+                    p_CLKOUT0_DIVIDE_F=2, p_CLKOUT0_PHASE=90.0, o_CLKOUT0=mmcm_sys4x_dqs,
+                ),
+                Instance("BUFG", i_I=sys4x_fb_out, o_O=sys4x_fb_in),
+                Instance("BUFG", i_I=mmcm_sys5x, o_O=self.cd_sys5x.clk),
+            ]
+        else:
+            self.specials += Instance("MMCME2_ADV",
                 p_CLKIN1_PERIOD=8.0,
                 i_CLKIN1=main_clk,
                 p_CLKIN2_PERIOD=8.0,
@@ -196,12 +249,15 @@ class _RtioSysCRG(Module, AutoCSR):
                 # 500MHz. Must be more than 400MHz as per DDR3 specs.
                 p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
                 p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
-            ),
+            )
+
+        self.specials += [
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
-            Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
+            Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
         ]
+
         # reset if MMCM or PLL loses lock or when switching
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
             ~self.pll_locked | ~mmcm_locked | self.clk_sw_fsm.o_reset)
@@ -301,7 +357,7 @@ class _SysCRG(Module):
 
 class BaseSoC(SoCSDRAM):
     def __init__(self, sdram_controller_type="minicon", hw_rev=None, rtio_sys_merge=False, 
-                 clk_freq=None, **kwargs):
+                 clk_freq=None, enable_sys5x=False, **kwargs):
         if hw_rev is None:
             hw_rev = "v1.0"
         platform = kasli.Platform(hw_rev=hw_rev)
@@ -312,7 +368,7 @@ class BaseSoC(SoCSDRAM):
         SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, clk_freq=clk_freq, **kwargs)
 
         if rtio_sys_merge:
-            self.submodules.crg = _RtioSysCRG(platform)
+            self.submodules.crg = _RtioSysCRG(platform, enable_sys5x)
             self.csr_devices.append("crg")
         else:
             self.submodules.crg = _SysCRG(platform)
