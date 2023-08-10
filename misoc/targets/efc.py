@@ -9,7 +9,7 @@ from migen.build.platforms.sinara import efc
 
 from misoc.cores.sdram_settings import MT41K256M16
 from misoc.cores.sdram_phy import a7ddrphy
-from misoc.cores import spi_flash, icap
+from misoc.cores import virtual_leds, spi_flash, icap
 from misoc.cores.a7_gtp import *
 from misoc.integration.soc_sdram import *
 from misoc.integration.builder import *
@@ -162,6 +162,9 @@ class BaseSoC(SoCSDRAM):
         self.register_sdram(self.ddrphy, sdram_controller_type,
                             sdram_module.geom_settings, sdram_module.timing_settings)
         self.csr_devices.append("ddrphy")
+
+        self.submodules.virtual_leds = virtual_leds.VirtualLeds()
+        self.csr_devices.append("virtual_leds")
 
         if not self.integrated_rom_size:
             spiflash_pads = platform.request("spiflash2x")
