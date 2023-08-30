@@ -56,7 +56,6 @@ class _RtioSysCRG(Module, AutoCSR):
             p_CLKSWING_CFG=3)
 
         pll_clk200 = Signal()
-        pll_clk125 = Signal()
         pll_fb = Signal()
         self.pll_locked = Signal()
         self.specials += [
