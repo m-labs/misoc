@@ -96,10 +96,13 @@ class _RtioSysCRG(Module, AutoCSR):
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
         mmcm_sys5x = Signal()
+        self.reset = Signal()
         self.specials += [
             Instance("MMCME2_BASE",
                 p_CLKIN1_PERIOD=16.0,
                 i_CLKIN1=self.clk125_div2,
+
+                i_RST=self.reset,
 
                 i_CLKFBIN=mmcm_fb_in,
                 o_CLKFBOUT=mmcm_fb_out,
