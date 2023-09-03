@@ -129,6 +129,8 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKIN1_PERIOD=2.0,
                 i_CLKIN1=self.cd_sys4x.clk,
 
+                i_RST=~mmcm_locked,
+
                 i_CLKFBIN=sys4x_fb_in,
                 o_CLKFBOUT=sys4x_fb_out,
 
