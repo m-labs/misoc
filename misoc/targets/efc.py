@@ -151,8 +151,8 @@ class _RtioSysCRG(Module, AutoCSR):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram_controller_type="minicon", clk_freq=None, **kwargs):
-        platform = efc.Platform()
+    def __init__(self, sdram_controller_type="minicon", clk_freq=None, platform_name=None, **kwargs):
+        platform = efc.Platform(name=platform_name)
 
         if not clk_freq:
             clk_freq = 125e6
