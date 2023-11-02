@@ -173,7 +173,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
-        mmcm_locked = Signal()
+        self.mmcm_locked = Signal()
         sys4x_fb_in = Signal()
         sys4x_fb_out = Signal()
         mmcm_sys = Signal()
@@ -194,7 +194,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
                     i_CLKFBIN=mmcm_fb_in,
                     o_CLKFBOUT=mmcm_fb_out,
-                    o_LOCKED=mmcm_locked,
+                    o_LOCKED=self.mmcm_locked,
 
                     # VCO @ 1.25GHz with MULT=10
                     p_CLKFBOUT_MULT_F=10, p_DIVCLK_DIVIDE=1,
@@ -212,7 +212,7 @@ class _RtioSysCRG(Module, AutoCSR):
                     p_CLKIN1_PERIOD=2.0,
                     i_CLKIN1=self.cd_sys4x.clk,
 
-                    i_RST=self.clk_sw_fsm.o_reset | ~mmcm_locked[0],
+                    i_RST=self.clk_sw_fsm.o_reset | ~self.mmcm_locked[0],
 
                     i_CLKFBIN=sys4x_fb_in,
                     o_CLKFBOUT=sys4x_fb_out,
@@ -238,7 +238,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
                 i_CLKFBIN=mmcm_fb_in,
                 o_CLKFBOUT=mmcm_fb_out,
-                o_LOCKED=mmcm_locked,
+                o_LOCKED=self.mmcm_locked,
 
                 # VCO @ 1GHz with MULT=8
                 p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
@@ -260,7 +260,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
         # reset if MMCM or PLL loses lock or when switching
         self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
-            ~self.pll_locked | ~mmcm_locked | self.clk_sw_fsm.o_reset)
+            ~self.pll_locked | ~self.mmcm_locked | self.clk_sw_fsm.o_reset)
 
         # allow triggering the clock switch through either CSR,
         # or a different event, e.g. tx_init.done
