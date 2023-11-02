@@ -145,7 +145,7 @@ class _RtioSysCRG(Module, AutoCSR):
         mmcm_fb_in = Signal()
         mmcm_fb_out = Signal()
         mmcm_fb = Signal()
-        mmcm_locked = Signal()
+        self.mmcm_locked = Signal()
 
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
@@ -161,7 +161,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
                 i_CLKFBIN=mmcm_fb_in,
                 o_CLKFBOUT=mmcm_fb_out,
-                o_LOCKED=mmcm_locked,
+                o_LOCKED=self.mmcm_locked,
 
                 # VCO @ 1GHz with MULT=8
                 p_CLKFBOUT_MULT_F=8, p_DIVCLK_DIVIDE=1,
@@ -174,7 +174,7 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            AsyncResetSynchronizer(self.cd_sys, ~mmcm_locked)
+            AsyncResetSynchronizer(self.cd_sys, ~self.mmcm_locked)
         ]
 
         self.platform.add_false_path_constraints(self.cd_sys.clk, main_clk)
