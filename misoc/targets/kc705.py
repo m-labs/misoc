@@ -137,7 +137,7 @@ class _RtioSysCRG(Module, AutoCSR):
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
-    def configure(self, main_clk, clk_sw=None):
+    def configure(self, main_clk, clk_sw=None, ext_async_rst=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
         self._configured = True
@@ -174,8 +174,12 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
-            AsyncResetSynchronizer(self.cd_sys, ~self.mmcm_locked)
         ]
+
+        if ext_async_rst is not None:
+            self.specials += AsyncResetSynchronizer(self.cd_sys, ~self.mmcm_locked | ext_async_rst)
+        else:
+            self.specials += AsyncResetSynchronizer(self.cd_sys, ~self.mmcm_locked)
 
         self.platform.add_false_path_constraints(self.cd_sys.clk, main_clk)
 
