@@ -166,7 +166,7 @@ class _RtioSysCRG(Module, AutoCSR):
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
 
-    def configure(self, main_clk, clk_sw=None):
+    def configure(self, main_clk, clk_sw=None, ext_async_rst=None):
         # allow configuration of the MMCME2, depending on clock source
         # if using RtioSysCRG, this function *must* be called
         self._configured = True
@@ -258,9 +258,13 @@ class _RtioSysCRG(Module, AutoCSR):
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
         ]
 
-        # reset if MMCM or PLL loses lock or when switching
-        self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
-            ~self.pll_locked | ~self.mmcm_locked | self.clk_sw_fsm.o_reset)
+        # reset if MMCM or PLL loses lock or when switching or ext_async_rst is asserted
+        if ext_async_rst is not None:
+            self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
+                ~self.pll_locked | ~self.mmcm_locked | self.clk_sw_fsm.o_reset | ext_async_rst)
+        else:
+            self.submodules += AsyncResetSynchronizerBUFG(self.cd_sys, 
+                ~self.pll_locked | ~self.mmcm_locked | self.clk_sw_fsm.o_reset)
 
         # allow triggering the clock switch through either CSR,
         # or a different event, e.g. tx_init.done
