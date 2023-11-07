@@ -148,9 +148,11 @@ class SoCCore(Module):
 
     def register_rom(self, interface, rom_size=0xa000):
         self.add_wb_slave(self.mem_map["rom"], rom_size, interface)
-        assert self.cpu_reset_address < rom_size
-        self.add_memory_region("rom", self.cpu_reset_address,
-                               rom_size-self.cpu_reset_address)
+        if not self.mem_map["rom"] == self.cpu_reset_address:
+            raise ValueError(
+                "CPU reset address 0x{:x} is not equal to the rom start addres 0x{:x}"
+                .format(self.cpu_reset_address,self.mem_map["rom"]))
+        self.add_memory_region("rom", self.mem_map["rom"],rom_size)
 
     def get_memory_regions(self):
         return self._memory_regions
