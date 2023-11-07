@@ -40,7 +40,10 @@ class SpiFlash(Module, AutoCSR):
         """
         adr_width = 32-log2_int(dw//8)
         self.bus = bus = wishbone.Interface(data_width=dw, adr_width=adr_width)
-        spi_width = len(pads.dq)
+        if hasattr(pads, "dq"):
+            spi_width = len(pads.dq)
+        else:
+            spi_width = 1
         if with_bitbang:
             self.bitbang = CSRStorage(4)
             self.miso = CSRStatus()
@@ -62,8 +65,16 @@ class SpiFlash(Module, AutoCSR):
 
         pads.cs_n.reset = 1
 
-        dq = TSTriple(spi_width)
-        self.specials.dq = dq.get_tristate(pads.dq)
+        if spi_width > 1:
+            dq = TSTriple(spi_width)
+            self.specials.dq = dq.get_tristate(pads.dq)
+        else:
+            class TripleMock:
+                def __init__(self):
+                    self.i = pads.miso
+                    self.o = pads.mosi
+                    self.oe = Signal()
+            dq = TripleMock()
 
         sr = Signal(max(cmd_width, addr_width, dw))
         if endianness == "big":
@@ -88,7 +99,8 @@ class SpiFlash(Module, AutoCSR):
                     dq.oe.eq(1)
                 ),
                 If(self.bitbang.storage[1],
-                    self.miso.status.eq(dq.i[1])
+                    self.miso.status.eq(dq.i) if spi_width == 1 \
+                        else self.miso.status.eq(dq.i[1])
                 )
             ]
             if spi_width > 1:
