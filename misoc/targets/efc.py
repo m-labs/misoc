@@ -151,13 +151,15 @@ class _RtioSysCRG(Module, AutoCSR):
 
 
 class BaseSoC(SoCSDRAM):
-    def __init__(self, sdram_controller_type="minicon", clk_freq=None, **kwargs):
-        platform = efc.Platform()
+    def __init__(self, sdram_controller_type="minicon", hw_rev="v1.1", clk_freq=None, **kwargs):
+        platform = efc.Platform(hw_rev)
 
         if not clk_freq:
             clk_freq = 125e6
 
-        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x400000, clk_freq=clk_freq, **kwargs)
+        SoCSDRAM.__init__(self, platform, cpu_reset_address=0x600000, clk_freq=clk_freq, **kwargs)
+
+        self.config["HW_REV"] = hw_rev
 
         self.submodules.crg = _RtioSysCRG(platform)
         self.csr_devices.append("crg")
@@ -184,7 +186,7 @@ class BaseSoC(SoCSDRAM):
                 endianness=self.cpu.endianness, dw=self.cpu_dw)
             self.config["SPIFLASH_PAGE_SIZE"] = 256
             self.config["SPIFLASH_SECTOR_SIZE"] = 0x10000
-            self.flash_boot_address = 0x450000
+            self.flash_boot_address = 0x650000
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
         
