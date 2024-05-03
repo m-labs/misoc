@@ -266,7 +266,7 @@ pub mod sdram_phy {
         while cycles > 0 {
             unsafe {
                 #[cfg(not(target_arch = "or1k"))]
-                llvm_asm!(""::::"volatile");
+                asm!("");
 
                 #[cfg(target_arch = "or1k")]
                 asm!(""::::"volatile")
