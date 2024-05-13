@@ -37,10 +37,10 @@ ifeq ($(CPU),or1k)
 CARGO_normal   := env CARGO_TARGET_DIR=$(realpath .)/cargo TARGET_AR=$(AR_normal) cargo rustc --target $(CARGO_TRIPLE)
 endif
 ifeq ($(CPU),vexriscv)
-CARGO_normal   := env TARGET_AR=$(AR_normal) cargo xbuild
+CARGO_normal   := env TARGET_AR=$(AR_normal) cargo build -Z build-std=core,compiler_builtins,alloc
 endif
 ifeq ($(CPU),vexriscv-g)
-CARGO_normal   := env TARGET_AR=$(AR_normal) cargo xbuild
+CARGO_normal   := env TARGET_AR=$(AR_normal) cargo build -Z build-std=core,compiler_builtins,alloc
 endif
 
 CC_quiet      = @echo " CC      " $@ && $(CC_normal)
