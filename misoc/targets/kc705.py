@@ -79,6 +79,7 @@ class _RtioSysCRG(Module, AutoCSR):
     def __init__(self, platform, bootstrap_freq=125e6):
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
+        self.clock_domains.cd_sys4x_ddr_read = ClockDomain(reset_less=True)
         self.clock_domains.cd_clk200 = ClockDomain()
         self.bootstrap_freq = bootstrap_freq
 
@@ -154,6 +155,7 @@ class _RtioSysCRG(Module, AutoCSR):
 
         mmcm_sys = Signal()
         mmcm_sys4x = Signal()
+        mmcm_sys4x_ddr_read = Signal()
         clkin_period = 1e9/self.bootstrap_freq
         mult = 8 if self.bootstrap_freq == 125e6 else 12
         self.specials += [
@@ -177,9 +179,11 @@ class _RtioSysCRG(Module, AutoCSR):
                 p_CLKOUT0_DIVIDE_F=mult, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
                 # 500MHz/400MHz
                 p_CLKOUT1_DIVIDE=mult/4, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+                p_CLKOUT2_DIVIDE=mult/4, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_ddr_read
             ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
+            Instance("BUFG", i_I=mmcm_sys4x_ddr_read, o_O=self.cd_sys4x_ddr_read.clk),
             Instance("BUFG", i_I=mmcm_fb_out, o_O=mmcm_fb_in),
         ]
 
@@ -270,10 +274,12 @@ class BaseSoC(SoCSDRAM):
         if rtio_sys_merge:
             self.submodules.crg = _RtioSysCRG(platform, bootstrap_freq=clk_freq)
             self.csr_devices.append("crg")
+            ddr_read_cd = "sys4x_ddr_read" if clk_freq == 100e6 else "sys4x"
         else:
             self.submodules.crg = _SysCRG(platform)
+            ddr_read_cd = "sys4x"
 
-        self.submodules.ddrphy = k7ddrphy.K7DDRPHY(platform.request("ddram"))
+        self.submodules.ddrphy = k7ddrphy.K7DDRPHY(platform.request("ddram"), ddr_read_cd)
         self.config["DDRPHY_WLEVEL"] = None
         sdram_module = MT8JTF12864(self.clk_freq, "1:4")
         self.register_sdram(self.ddrphy, sdram_controller_type,
