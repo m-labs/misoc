@@ -50,6 +50,7 @@ class TestPhasedAccu(unittest.TestCase):
 
     def test_seq(self):
         def gen():
+            # latency = 2
             yield self.dut.clr.eq(0)
             yield self.dut.p.eq(0x01)
             yield
@@ -104,6 +105,97 @@ class TestPhasedAccu(unittest.TestCase):
             self.assertEqual((yield self.dut.z[1]), 0xa1)
         run_simulation(self.dut, gen())
 
+class TestPhasedAccuNonLog(unittest.TestCase):
+    def setUp(self):
+        self.dut = duc.PhasedAccu(n=12, fwidth=32, pwidth=16)
+
+    def test_init(self):
+        self.assertEqual(len(self.dut.f), 32)
+        self.assertEqual(len(self.dut.p), 16)
+        self.assertEqual(len(self.dut.z), 12)
+        self.assertEqual(len(self.dut.z[0]), 16)
+
+    def test_seq(self):
+        def gen():
+            # latency = 4
+            n=12
+            yield self.dut.clr.eq(0)
+            yield self.dut.p.eq(0x01)
+            yield
+            yield
+            yield
+            yield
+            # check phase offset with f=0
+            self.assertEqual((yield self.dut.z[0]), 0x01)
+            self.assertEqual((yield self.dut.z[1]), 0x01)
+            yield self.dut.f.eq(0x10 << 16)
+            yield
+            yield
+            yield
+            yield
+            yield
+            # check first cycle f increments
+            for i in range(n):
+                expected_value = (i << 4) | 0x01
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield
+            # second cycle f increments
+            for i in range(n):
+                expected_value += 0x10
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield self.dut.clr.eq(1)
+            yield
+            for i in range(n):
+                expected_value += 0x10
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield
+            for i in range(n):
+                expected_value += 0x10
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield self.dut.clr.eq(0)
+            yield
+            for i in range(n):
+                expected_value += 0x10
+            yield
+            for i in range(n):
+                expected_value += 0x10
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield
+            # first clr cycle
+            for i in range(n):
+                expected_value = (i << 4) | 0x01
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield
+            # second clr cycle
+            for i in range(n):
+                expected_value = (i << 4) | 0x01
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield self.dut.f.eq(0x20 << 16)
+            yield
+            yield
+            yield
+            # first cycle after clr with old f
+            for i in range(n):
+                expected_value = (i << 4) | 0x01
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield
+            # second cycle with old f
+            for i in range(n):
+                expected_value += 0x10
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+            yield
+            # cycle with one old and one new
+            expected_value += 0x10
+            for i in range(n):
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+                expected_value += 0x20
+            yield
+            # cycle with only new increments
+            expected_value -= 0x20
+            for i in range(n):
+                expected_value += 0x20
+                self.assertEqual((yield self.dut.z[i]), expected_value)
+        run_simulation(self.dut, gen())
 
 class TestMul(unittest.TestCase):
     def setUp(self):
