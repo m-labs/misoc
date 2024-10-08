@@ -8,7 +8,7 @@ from misoc.cores import sdram_settings
 
 
 class K7DDRPHY(Module, AutoCSR):
-    def __init__(self, pads):
+    def __init__(self, pads, read_cd="sys4x"):
         addressbits = len(pads.a)
         bankbits = len(pads.ba)
         databits = len(pads.dq)
@@ -228,7 +228,7 @@ class K7DDRPHY(Module, AutoCSR):
                          i_DDLY=dq_i_delayed,
                          i_CE1=1,
                          i_RST=ResetSignal() | (self._dly_sel.storage[i//8] & self._wdly_dq_rst.re),
-                         i_CLK=ClockSignal("sys4x"), i_CLKB=~ClockSignal("sys4x"), i_CLKDIV=ClockSignal(),
+                         i_CLK=ClockSignal(read_cd), i_CLKB=~ClockSignal(read_cd), i_CLKDIV=ClockSignal(),
                          i_BITSLIP=self._dly_sel.storage[i//8] & self._rdly_dq_bitslip.re,
                          o_Q8=self.dfi.phases[0].rddata[i], o_Q7=self.dfi.phases[0].rddata[databits+i],
                          o_Q6=self.dfi.phases[1].rddata[i], o_Q5=self.dfi.phases[1].rddata[databits+i],
