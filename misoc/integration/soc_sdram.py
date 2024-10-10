@@ -79,7 +79,7 @@ class SoCSDRAM(SoCCore):
 
             bridge_if = self.get_native_sdram_if()
             if self.l2_size:
-                l2_cache = wishbone.Cache(self.l2_size//4,
+                l2_cache = wishbone.Cache(self.l2_size//(self.cpu_dw//8),
                     self._cpulevel_sdram_if_arbitrated, bridge_if)
                 # XXX Vivado ->2015.1 workaround, Vivado is not able to map correctly our L2 cache.
                 # Issue is reported to Xilinx and should be fixed in next releases (> 2017.2).
