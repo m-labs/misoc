@@ -123,21 +123,76 @@ class Minicon(Module):
         self.submodules +=  write2precharge_timer
         self.comb += write2precharge_timer.wait.eq(~write)
 
-        refresh_timer = WaitTimer(timing_settings.tREFI)
-        self.submodules +=  refresh_timer
-        self.comb += refresh_timer.wait.eq(~refresh)
+        refi_cycles = Signal(bits_for(timing_settings.tREFI), reset=timing_settings.tREFI)
+        refresh_required = Signal()
+        refresh_required_burst = Signal()
+
+        self.comb += [
+            refresh_required.eq(refi_cycles == 0),
+            refresh_required_burst.eq(
+                refi_cycles[(geom_settings.colbits-address_align):] == 0),
+        ]
+
+        self.sync += \
+            If(refresh,
+                refi_cycles.eq(refi_cycles.reset),
+            ).Elif(~refresh_required,
+                refi_cycles.eq(refi_cycles - 1),
+            )
+
+        sdram_col = Signal.like(slicer.col(bus.adr))
+        sdram_col_inc_next = Signal.like(slicer.col(bus.adr))
+        sdram_swap_bank = Signal()
+        sdram_adr_inc = Signal()
+
+        burst = Signal()
+
+        self.comb += \
+            Cat(sdram_col_inc_next, sdram_swap_bank).eq(sdram_col + (1 << address_align))
+
+        self.sync += \
+            If(~burst,
+                sdram_col.eq(slicer.col(bus.adr)),
+            ).Else(
+                If(sdram_adr_inc,
+                    sdram_col.eq(sdram_col_inc_next),
+                )
+            )
+
+        rdvalid = dfi.phases[rdphase].rddata_valid
+        rdvalid_r = Signal.like(rdvalid)
+        self.sync += rdvalid_r.eq(rdvalid)
+
+        read_ended = Signal()
+        self.comb += read_ended.eq(rdvalid_r & ~rdvalid)
 
         # Main FSM
         self.submodules.fsm = fsm = FSM()
         fsm.act("IDLE",
-            If(refresh_timer.done,
+            If(refresh_required,
                 NextState("PRECHARGE-ALL")
             ).Elif(bus.stb & bus.cyc,
                 If(bank_hit,
                     If(bus.we,
-                        NextState("WRITE")
+                        If(bus.cti == 0b010,
+                            If(refresh_required_burst,
+                                NextState("PRECHARGE-ALL"),
+                            ).Else(
+                                NextState("BURST-WRITE"),
+                            ),
+                        ).Else(
+                            NextState("WRITE")
+                        )
                     ).Else(
-                        NextState("READ")
+                        If(bus.cti == 0b010,
+                            If(refresh_required_burst,
+                                NextState("PRECHARGE-ALL"),
+                            ).Else(
+                                NextState("BURST-READ"),
+                            ),
+                        ).Else(
+                            NextState("READ")
+                        )
                     )
                 ).Elif(~bank_idle,
                     If(write2precharge_timer.done,
@@ -157,10 +212,45 @@ class Minicon(Module):
             NextState("WAIT-READ-DONE"),
         )
         fsm.act("WAIT-READ-DONE",
-            If(dfi.phases[rdphase].rddata_valid,
-                bus.ack.eq(1),
-                NextState("IDLE")
-            )
+            bus.ack.eq(dfi.phases[rdphase].rddata_valid),
+            If(read_ended,
+                NextState("IDLE"),
+            ),
+        )
+        fsm.act("WAIT-BURST-READ-DONE",
+            bus.ack.eq(dfi.phases[rdphase].rddata_valid),
+            If(read_ended,
+                NextState("IDLE"),
+            ).Elif((bus.cti == 0b111) & bus.ack,
+                # Pending reads should be invalidated
+                NextState("INVALIDATE-READ"),
+            ),
+        )
+        fsm.act("BURST-READ",
+            read.eq(1),
+            burst.eq(1),
+            dfi.phases[rdphase].ras_n.eq(1),
+            dfi.phases[rdphase].cas_n.eq(0),
+            dfi.phases[rdphase].we_n.eq(1),
+            dfi.phases[rdphase].rddata_en.eq(1),
+            bus.ack.eq(dfi.phases[rdphase].rddata_valid),
+            sdram_adr_inc.eq(1),
+
+            # Stop the burst
+            If(bus.cti == 0b111,
+                # Wait out the overly anticipated reads
+                NextState("INVALIDATE-READ"),
+            ).Elif(sdram_swap_bank,
+                # Wait for the read to complete
+                NextState("WAIT-BURST-READ-DONE"),
+            ),
+        )
+        fsm.act("INVALIDATE-READ",
+            # Invalidate responses by deasserting ACK
+            # The last legitimiate word was sent out by the end of BURST-READ
+            If(read_ended,
+                NextState("IDLE"),
+            ),
         )
         fsm.act("WRITE",
             write.eq(1),
@@ -169,6 +259,19 @@ class Minicon(Module):
             dfi.phases[wrphase].we_n.eq(0),
             dfi.phases[wrphase].wrdata_en.eq(1),
             NextState("WRITE-LATENCY")
+        )
+        fsm.act("BURST-WRITE",
+            write.eq(1),
+            burst.eq(1),
+            sdram_adr_inc.eq(1),
+            dfi.phases[wrphase].ras_n.eq(1),
+            dfi.phases[wrphase].cas_n.eq(0),
+            dfi.phases[wrphase].we_n.eq(0),
+            dfi.phases[wrphase].wrdata_en.eq(1),
+            bus.ack.eq(1),
+            If((bus.cti == 0b111) | sdram_swap_bank,
+                NextState("BURST-WRITE-LATENCY"),
+            ),
         )
         fsm.act("WRITE-ACK",
             bus.ack.eq(1),
@@ -203,6 +306,7 @@ class Minicon(Module):
             NextState("POST-REFRESH")
         )
         fsm.delayed_enter("WRITE-LATENCY", "WRITE-ACK", phy_settings.write_latency-1)
+        fsm.delayed_enter("BURST-WRITE-LATENCY", "IDLE", phy_settings.write_latency)
         fsm.delayed_enter("TRP", "ACTIVATE", timing_settings.tRP-1)
         fsm.delayed_enter("TRCD", "IDLE", timing_settings.tRCD-1)
         fsm.delayed_enter("PRE-REFRESH", "REFRESH", timing_settings.tRP-1)
@@ -221,15 +325,28 @@ class Minicon(Module):
                 If(precharge_all,
                     phase.address.eq(2**10)
                 ).Elif(activate,
-                     phase.address.eq(slicer.row(bus.adr))
+                    phase.address.eq(slicer.row(bus.adr))
                 ).Elif(write | read,
-                    phase.address.eq(slicer.col(bus.adr))
+                    phase.address.eq(sdram_col)
                 )
             ]
 
-        # DFI datapath
+        # DFI read datapath
+        self.comb += bus.dat_r.eq(Cat(phase.rddata for phase in dfi.phases))
+
+        # DFI write datapath
+        dfi_dat_w = Cat(phase.wrdata for phase in dfi.phases)
+        dfi_sel = Cat(phase.wrdata_mask for phase in dfi.phases)
+
+        for _ in range(phy_settings.write_latency):
+            dfi_dat_w_r, dfi_dat_w = dfi_dat_w, Signal.like(dfi_dat_w)
+            dfi_sel_r, dfi_sel = dfi_sel, Signal.like(dfi_sel)
+            self.sync += [
+                dfi_dat_w_r.eq(dfi_dat_w),
+                dfi_sel_r.eq(dfi_sel),
+            ]
+
         self.comb += [
-            bus.dat_r.eq(Cat(phase.rddata for phase in dfi.phases)),
-            Cat(phase.wrdata for phase in dfi.phases).eq(bus.dat_w),
-            Cat(phase.wrdata_mask for phase in dfi.phases).eq(~bus.sel),
+            dfi_dat_w.eq(bus.dat_w),
+            dfi_sel.eq(~bus.sel)
         ]
