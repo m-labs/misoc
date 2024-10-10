@@ -461,7 +461,7 @@ class Cache(Module):
     """Cache
 
     This module is a write-back wishbone cache that can be used as a L2 cache.
-    Cachesize (in 32-bit words) is the size of the data store and must be a power of 2
+    Cachesize (in CPU data-width-bytes) is the size of the data store and must be a power of 2
     """
     def __init__(self, cachesize, master, slave):
         self.master = master
