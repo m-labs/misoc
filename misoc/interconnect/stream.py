@@ -49,7 +49,7 @@ class Endpoint(Record):
 
 
 class _FIFOWrapper(Module):
-    def __init__(self, fifo_class, layout, depth):
+    def __init__(self, fifo_class, layout, depth, hi_wm=None, lo_wm=None):
         self.sink = Endpoint(layout)
         self.source = Endpoint(layout)
 
@@ -78,13 +78,122 @@ class _FIFOWrapper(Module):
             self.fifo.re.eq(self.source.ack)
         ]
 
+        if hi_wm is not None:
+            self.fifo.add_almost_full(hi_wm)
+
+            transfer_count = Signal(max=hi_wm, reset=hi_wm-1)
+            transfer_count_ce = Signal()
+            transfer_count_rst = Signal()
+            activated = Signal()
+            eop_count = Signal(max=depth+1)
+            eop_count_next = Signal(max=depth+1)
+            has_pending_eop = Signal()
+
+            # helper signals
+            last = Signal()
+            do_write = Signal()
+            do_read = Signal()
+
+            self.sync += [
+                If(transfer_count_rst,
+                    transfer_count.eq(transfer_count.reset),
+                ).Elif(transfer_count_ce,
+                    transfer_count.eq(transfer_count - 1),
+                ),
+                eop_count.eq(eop_count_next),
+            ]
+
+            self.comb += [
+                # Avoid downstream overreading
+                self.fifo.re.eq(self.source.stb & self.source.ack),
+
+                last.eq((transfer_count == 0) | fifo_out.eop),
+                do_write.eq(self.fifo.we & self.fifo.writable),
+                do_read.eq(self.fifo.re & self.fifo.readable),
+                has_pending_eop.eq(eop_count_next != 0),
+
+                eop_count_next.eq(eop_count),
+
+                If(fifo_in.eop & do_write,
+                    If(~(fifo_out.eop & do_read),
+                        eop_count_next.eq(eop_count + 1),
+                    ),
+                ).Elif(fifo_out.eop & do_read,
+                    eop_count_next.eq(eop_count - 1),
+                ),
+            ]
+
+            # Stream control
+            self.comb += [
+                self.source.stb.eq(self.fifo.readable & (self.fifo.almost_full | activated)),
+                # self.source.eop.eq(last),
+                transfer_count_ce.eq(do_read),
+                transfer_count_rst.eq(do_read & last),
+            ]
+
+            self.sync += [
+                If(~activated,
+                    activated.eq(self.fifo.almost_full | (self.sink.eop & do_write))
+                ).Elif(do_read & last,
+                    activated.eq(has_pending_eop),
+                ),
+            ]
+
+        if lo_wm is not None:
+            self.fifo.add_almost_empty(lo_wm)
+
+            recv_burst_len = depth-lo_wm
+            recv_count = Signal(max=recv_burst_len, reset=recv_burst_len-1)
+            recv_count_ce = Signal()
+            recv_count_rst = Signal()
+            recv_activated = Signal()
+
+            # helper signals
+            do_write = Signal()
+            recv_last = Signal()
+
+            self.comb += [
+                do_write.eq(self.fifo.we & self.fifo.writable),
+                recv_last.eq((recv_count == 0) | self.sink.eop),
+
+                # Avoid upstream overwriting
+                self.fifo.we.eq(self.sink.stb & self.sink.ack),
+            ]
+
+            self.sync += [
+                If(recv_count_rst,
+                    recv_count.eq(recv_count.reset),
+                ).Elif(recv_count_ce,
+                    recv_count.eq(recv_count - 1),
+                ),
+            ]
+
+            # recv stream control
+            self.comb += [
+                self.sink.ack.eq(self.fifo.writable & (
+                    self.fifo.almost_empty  # Can accept long burst
+                    | recv_activated        # In the middle of a burst
+                )),
+                recv_count_ce.eq(do_write),
+                recv_count_rst.eq(do_write & recv_last),
+            ]
+
+            self.sync += \
+                If(~recv_activated,
+                    # Avoid entry to burst state if it is a 1 word burst
+                    recv_activated.eq(self.fifo.almost_empty & ~(do_write & self.sink.eop)),
+                ).Elif(recv_activated & (do_write & recv_last),
+                    # almost_empty needs 1 cycle to update
+                    recv_activated.eq(0),
+                )
+
 
 class SyncFIFO(_FIFOWrapper):
-    def __init__(self, layout, depth, buffered=False):
+    def __init__(self, layout, depth, buffered=False, hi_wm=None, lo_wm=None):
         _FIFOWrapper.__init__(
             self,
             fifo.SyncFIFOBuffered if buffered else fifo.SyncFIFO,
-            layout, depth)
+            layout, depth, hi_wm, lo_wm)
 
 
 class AsyncFIFO(_FIFOWrapper):
