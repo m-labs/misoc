@@ -15,7 +15,7 @@ intended to be used with a CPU and a software stack.
 
 [> Features
 -----------
-- Ethernet MAC with various various PHYs (GMII, MII, RGMII, Loopback)
+- Ethernet MAC with various PHYs (GMII, MII, RGMII, Loopback)
 - SRAM storage and wishbone interface
 
 [> Possible improvements
