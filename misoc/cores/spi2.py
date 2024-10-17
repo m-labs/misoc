@@ -441,7 +441,7 @@ class SPIMaster(Module, AutoCSR):
           maximum bits per transfer)
         * Every transfer consists of a 1-M bit read/write.
         * A transaction consists of one or more transfers.
-        * The a transfer that starts (loads) with end asserted completes the
+        * A transfer that starts (loads) with end asserted completes the
           transaction.
         * cs is asserted at the beginning and deasserted at the end of the
           transaction.
