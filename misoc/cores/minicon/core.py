@@ -123,22 +123,19 @@ class Minicon(Module):
         self.submodules +=  write2precharge_timer
         self.comb += write2precharge_timer.wait.eq(~write)
 
+        pending_refresh = Signal()
         refi_cycles = Signal(bits_for(timing_settings.tREFI), reset=timing_settings.tREFI)
-        refresh_required = Signal()
-        refresh_required_burst = Signal()
-
-        self.comb += [
-            refresh_required.eq(refi_cycles == 0),
-            refresh_required_burst.eq(
-                refi_cycles[(geom_settings.colbits-address_align):] == 0),
-        ]
-
-        self.sync += \
+        self.sync += [
             If(refresh,
+                pending_refresh.eq(0),
+            ),
+            If(refi_cycles == 0,
+                pending_refresh.eq(1),
                 refi_cycles.eq(refi_cycles.reset),
-            ).Elif(~refresh_required,
-                refi_cycles.eq(refi_cycles - 1),
-            )
+            ).Else(
+                refi_cycles.eq(refi_cycles - 1)
+            ),
+        ]
 
         sdram_col = Signal.like(slicer.col(bus.adr))
         sdram_col_inc_next = Signal.like(slicer.col(bus.adr))
@@ -169,27 +166,19 @@ class Minicon(Module):
         # Main FSM
         self.submodules.fsm = fsm = FSM()
         fsm.act("IDLE",
-            If(refresh_required,
+            If(pending_refresh,
                 NextState("PRECHARGE-ALL")
             ).Elif(bus.stb & bus.cyc,
                 If(bank_hit,
                     If(bus.we,
                         If(bus.cti == 0b010,
-                            If(refresh_required_burst,
-                                NextState("PRECHARGE-ALL"),
-                            ).Else(
-                                NextState("BURST-WRITE"),
-                            ),
+                            NextState("BURST-WRITE"),
                         ).Else(
                             NextState("WRITE")
                         )
                     ).Else(
                         If(bus.cti == 0b010,
-                            If(refresh_required_burst,
-                                NextState("PRECHARGE-ALL"),
-                            ).Else(
-                                NextState("BURST-READ"),
-                            ),
+                            NextState("BURST-READ"),
                         ).Else(
                             NextState("READ")
                         )
