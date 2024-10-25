@@ -236,7 +236,7 @@ class Minicon(Module):
         )
         fsm.act("INVALIDATE-READ",
             # Invalidate responses by deasserting ACK
-            # The last legitimiate word was sent out by the end of BURST-READ
+            # The last legitimate word was sent out by the end of BURST-READ
             If(read_ended,
                 NextState("IDLE"),
             ),
