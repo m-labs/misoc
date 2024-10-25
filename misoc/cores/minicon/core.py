@@ -201,10 +201,10 @@ class Minicon(Module):
             NextState("WAIT-READ-DONE"),
         )
         fsm.act("WAIT-READ-DONE",
-            bus.ack.eq(dfi.phases[rdphase].rddata_valid),
-            If(read_ended,
-                NextState("IDLE"),
-            ),
+            If(dfi.phases[rdphase].rddata_valid,
+                bus.ack.eq(1),
+                NextState("IDLE")
+            )
         )
         fsm.act("WAIT-BURST-READ-DONE",
             bus.ack.eq(dfi.phases[rdphase].rddata_valid),
