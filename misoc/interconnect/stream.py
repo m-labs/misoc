@@ -84,6 +84,15 @@ class _FIFOWrapper(Module):
             self.fifo.re.eq(self.source.ack)
         ]
 
+        # Watermarks:
+        # FIFO only signals only signals availability when a complete
+        # burst/buffered packet can be transferred.
+        #
+        # A complete burst is a continuous lo_wm/hi_wm of words written to/
+        # read from the FIFO.
+        # 
+        # The EoP bit from the sink endpoint signals the end of packet.
+
         if hi_wm is not None:
             transfer_count = Signal(max=hi_wm, reset=hi_wm-1)
             transfer_count_ce = Signal()
