@@ -130,7 +130,6 @@ class _FIFOWrapper(Module):
             # Stream control
             self.comb += [
                 self.source.stb.eq(self.fifo.readable & (self.fifo.almost_full | activated)),
-                # self.source.eop.eq(last),
                 transfer_count_ce.eq(do_read),
                 transfer_count_rst.eq(do_read & last),
             ]
