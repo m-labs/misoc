@@ -58,7 +58,13 @@ class _FIFOWrapper(Module):
         description = self.sink.description
         fifo_layout = [("payload", description.payload_layout), ("eop", 1)]
 
-        self.submodules.fifo = fifo_class(layout_len(fifo_layout), depth)
+        watermark_args = {}
+        if hi_wm is not None:
+            watermark_args["hi_wm"] = hi_wm
+        if lo_wm is not None:
+            watermark_args["lo_wm"] = lo_wm
+
+        self.submodules.fifo = fifo_class(layout_len(fifo_layout), depth, **watermark_args)
         fifo_in = Record(fifo_layout)
         fifo_out = Record(fifo_layout)
         self.comb += [
@@ -79,8 +85,6 @@ class _FIFOWrapper(Module):
         ]
 
         if hi_wm is not None:
-            self.fifo.add_almost_full(hi_wm)
-
             transfer_count = Signal(max=hi_wm, reset=hi_wm-1)
             transfer_count_ce = Signal()
             transfer_count_rst = Signal()
@@ -140,8 +144,6 @@ class _FIFOWrapper(Module):
             ]
 
         if lo_wm is not None:
-            self.fifo.add_almost_empty(lo_wm)
-
             recv_burst_len = depth-lo_wm
             recv_count = Signal(max=recv_burst_len, reset=recv_burst_len-1)
             recv_count_ce = Signal()
