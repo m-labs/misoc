@@ -11,7 +11,7 @@ __all__ = ["SoCSDRAM", "soc_sdram_args", "soc_sdram_argdict"]
 
 
 class SoCSDRAM(SoCCore):
-    def __init__(self, platform, clk_freq, l2_size=8192, **kwargs):
+    def __init__(self, platform, clk_freq, l2_size=8192, l2_line_size=None, **kwargs):
         SoCCore.__init__(self, platform, clk_freq,
                          integrated_main_ram_size=0, **kwargs)
         self.csr_devices += ["dfii", "l2_cache"]
@@ -19,6 +19,7 @@ class SoCSDRAM(SoCCore):
         if l2_size:
             self.config["L2_SIZE"] = l2_size
         self.l2_size = l2_size
+        self.l2_line_size = l2_line_size
 
         self._sdram_phy = []
         self._cpulevel_sdram_ifs = []
@@ -79,8 +80,11 @@ class SoCSDRAM(SoCCore):
 
             bridge_if = self.get_native_sdram_if()
             if self.l2_size:
+                if self.l2_line_size is None: 
+                    self.l2_line_size = len(bridge_if.dat_w)//8
+
                 l2_cache = wishbone.Cache(self.l2_size//(self.cpu_dw//8),
-                    self._cpulevel_sdram_if_arbitrated, bridge_if)
+                    self._cpulevel_sdram_if_arbitrated, bridge_if, linesize=self.l2_line_size//(len(bridge_if.dat_w)//8))
                 # XXX Vivado ->2015.1 workaround, Vivado is not able to map correctly our L2 cache.
                 # Issue is reported to Xilinx and should be fixed in next releases (> 2017.2).
                 # Remove this workaround when fixed by Xilinx.

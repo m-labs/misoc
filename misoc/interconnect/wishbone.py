@@ -462,8 +462,12 @@ class Cache(Module):
 
     This module is a write-back wishbone cache that can be used as a L2 cache.
     Cachesize (in master words) is the size of the data store and must be a power of 2
+    Linesize (in slave words) is the size of each cache line and must be a power of 2
+
+    Cache line size must be at least 1 master word.
+    All data widths must be a power of 2.
     """
-    def __init__(self, cachesize, master, slave):
+    def __init__(self, cachesize, master, slave, linesize=1):
         self.master = master
         self.slave = slave
 
@@ -476,40 +480,64 @@ class Cache(Module):
         if dw_to < dw_from and (dw_from % dw_to) != 0:
             raise ValueError("Master data width must be a multiple of {dw}".format(dw=dw_to))
 
+        lw = dw_to*linesize
+        if lw < dw_from:
+            raise ValueError("Line size must be a multiple of {dw}".format(dw=dw_from))
+        num_of_lines = cachesize*dw_from//lw
+        if num_of_lines < 1:
+            raise ValueError("Cache size must be a multiple of {lw}")
+
         # Split address:
         # TAG | LINE NUMBER | LINE OFFSET
-        offsetbits = log2_int(max(dw_to//dw_from, 1))
-        addressbits = len(slave.adr) + offsetbits
-        linebits = log2_int(cachesize) - offsetbits
-        tagbits = addressbits - linebits
-        wordbits = log2_int(max(dw_from//dw_to, 1))
+        offsetbits = log2_int(lw//dw_from)
+        addressbits = len(slave.adr) + log2_int(max(dw_to//dw_from, 1))
+        linebits = log2_int(num_of_lines)
+        tagbits = addressbits - linebits - offsetbits
+        wordbits = log2_int(lw//dw_to)
         adr_offset, adr_line, adr_tag = split(master.adr, offsetbits, linebits, tagbits)
         word = Signal(wordbits) if wordbits else None
 
         # Data memory
-        data_mem = Memory(dw_to*2**wordbits, 2**linebits)
+        data_mem = Memory(lw, 2**linebits)
         data_port = data_mem.get_port(write_capable=True, we_granularity=8)
         self.specials += data_mem, data_port
 
         write_from_slave = Signal()
+        adr_inc = Signal()
+
         if adr_offset is None:
             adr_offset_r = None
+            last = True
         else:
+            next_adr_offset = Signal(offsetbits)
             adr_offset_r = Signal(offsetbits)
-            self.sync += adr_offset_r.eq(adr_offset)
+
+            last = Signal()
+            newline = Signal()
+            self.comb += [
+                Cat(next_adr_offset, newline).eq(adr_offset+1),
+                last.eq(newline | (master.cti != 0b010))
+            ]
+
+            self.sync += [
+                adr_offset_r.eq(adr_offset),
+                If(adr_inc,
+                    adr_offset_r.eq(next_adr_offset)
+                )
+            ]
 
         self.comb += [
             data_port.adr.eq(adr_line),
             If(write_from_slave,
-                displacer(slave.dat_r, word, data_port.dat_w),
-                displacer(Replicate(1, dw_to//8), word, data_port.we)
+                data_port.dat_w.eq(Replicate(slave.dat_r, lw//dw_to)),
+                displacer(Replicate(1, dw_to//8), word, data_port.we, reverse=True)
             ).Else(
-                data_port.dat_w.eq(Replicate(master.dat_w, max(dw_to//dw_from, 1))),
+                data_port.dat_w.eq(Replicate(master.dat_w, lw//dw_from)),
                 If(master.cyc & master.stb & master.we & master.ack,
                     displacer(master.sel, adr_offset, data_port.we, 2**offsetbits, reverse=True)
                 )
             ),
-            chooser(data_port.dat_r, word, slave.dat_w),
+            chooser(data_port.dat_r, word, slave.dat_w, reverse=True),
             slave.sel.eq(2**(dw_to//8)-1),
             chooser(data_port.dat_r, adr_offset_r, master.dat_r, reverse=True)
         ]
@@ -565,11 +593,14 @@ class Cache(Module):
             word_clr.eq(1),
             If(tag_do.tag == adr_tag,
                 master.ack.eq(1),
+                adr_inc.eq(1),
                 If(master.we,
                     tag_di.dirty.eq(1),
                     tag_port.we.eq(1)
                 ),
-                NextState("IDLE")
+                If(last,
+                    NextState("IDLE")
+                )
             ).Else(
                 If(tag_do.dirty,
                     NextState("EVICT")
@@ -583,9 +614,10 @@ class Cache(Module):
             slave.stb.eq(1),
             slave.cyc.eq(1),
             slave.we.eq(1),
+            slave.cti.eq(Mux(word_is_last(word), 0b111, 0b010)),
             If(slave.ack,
                 word_inc.eq(1),
-                 If(word_is_last(word),
+                If(word_is_last(word),
                     NextState("REFILL_WRTAG")
                 )
             )
@@ -600,6 +632,7 @@ class Cache(Module):
             slave.stb.eq(1),
             slave.cyc.eq(1),
             slave.we.eq(0),
+            slave.cti.eq(Mux(word_is_last(word), 0b111, 0b010)),
             If(slave.ack,
                 write_from_slave.eq(1),
                 word_inc.eq(1),
