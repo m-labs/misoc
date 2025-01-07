@@ -116,15 +116,21 @@ class _RtioSysCRG(Module, AutoCSR):
         clk125 = platform.request("clk125_gtp")
         platform.add_period_constraint(clk125, 8.)
         self.clk125_buf = Signal()
+        clk125_div2_raw = Signal()
         self.clk125_div2 = Signal()
-        self.specials += Instance("IBUFDS_GTE2",
-            i_CEB=0,
-            i_I=clk125.p, i_IB=clk125.n,
-            o_O=self.clk125_buf,
-            o_ODIV2=self.clk125_div2,
-            p_CLKCM_CFG="TRUE",
-            p_CLKRCV_TRST="TRUE",
-            p_CLKSWING_CFG=3)
+        self.specials += [
+            Instance("IBUFDS_GTE2",
+                i_CEB=0,
+                i_I=clk125.p, i_IB=clk125.n,
+                o_O=self.clk125_buf,
+                o_ODIV2=clk125_div2_raw,
+                p_CLKCM_CFG="TRUE",
+                p_CLKRCV_TRST="TRUE",
+                p_CLKSWING_CFG=3),
+            # BUFH is always added even without explicit instantiation, has no effect on routing
+            # Adding the BUFH instance here is to appease vivado
+            Instance("BUFH", i_I=clk125_div2_raw, o_O=self.clk125_div2)
+        ]
 
         self.submodules.clk_sw_fsm = ClockSwitchFSM()
 
@@ -136,23 +142,27 @@ class _RtioSysCRG(Module, AutoCSR):
             clkout1_div = 1e9/bootstrap_freq
         else:
             raise ValueError("Only 100, 125MHz supported for bootstrap clock")
+        self.specials.pll = Instance("PLLE2_BASE",
+            p_CLKIN1_PERIOD=16.0,
+            i_CLKIN1=self.clk125_div2,
+
+            i_CLKFBIN=pll_fb,
+            o_CLKFBOUT=pll_fb,
+            o_LOCKED=self.pll_locked,
+
+            # VCO @ 1GHz
+            p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+
+            # 200MHz for IDELAYCTRL
+            p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
+            # 125MHz/100MHz for bootstrap
+            p_CLKOUT1_DIVIDE=clkout1_div, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk_bootstrap
+        )
+        # There are no CMT tiles in the IBUFDS_GT's clock region (X1Y3)
+        # Place the PLL in the adjacent clock region
+        platform.add_platform_command(
+            "set_property LOC PLLE2_ADV_X0Y3 [get_cells {pll}]", pll=self.pll)
         self.specials += [
-            Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
-
-                i_CLKFBIN=pll_fb,
-                o_CLKFBOUT=pll_fb,
-                o_LOCKED=self.pll_locked,
-
-                # VCO @ 1GHz
-                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
-
-                # 200MHz for IDELAYCTRL
-                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
-                # 125MHz/100MHz for bootstrap
-                p_CLKOUT1_DIVIDE=clkout1_div, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=pll_clk_bootstrap
-            ),
             Instance("BUFG", i_I=pll_clk_bootstrap, o_O=self.cd_bootstrap.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
             AsyncResetSynchronizer(self.cd_clk200, ~self.pll_locked),
@@ -296,15 +306,21 @@ class _SysCRG(Module):
         clk125 = platform.request("clk125_gtp")
         platform.add_period_constraint(clk125, 8.)
         self.clk125_buf = Signal()
-        self.clk125_div2 = Signal()
-        self.specials += Instance("IBUFDS_GTE2",
-            i_CEB=0,
-            i_I=clk125.p, i_IB=clk125.n,
-            o_O=self.clk125_buf,
-            o_ODIV2=self.clk125_div2,
-            p_CLKCM_CFG="TRUE",
-            p_CLKRCV_TRST="TRUE",
-            p_CLKSWING_CFG=3)
+        clk125_div2_raw = Signal()
+        clk125_div2 = Signal()
+        self.specials += [
+            Instance("IBUFDS_GTE2",
+                i_CEB=0,
+                i_I=clk125.p, i_IB=clk125.n,
+                o_O=self.clk125_buf,
+                o_ODIV2=clk125_div2_raw,
+                p_CLKCM_CFG="TRUE",
+                p_CLKRCV_TRST="TRUE",
+                p_CLKSWING_CFG=3),
+            # BUFH is always added even without explicit instantiation, has no effect on routing
+            # Adding the BUFH instance here is to appease vivado
+            Instance("BUFH", i_I=clk125_div2_raw, o_O=clk125_div2)
+        ]
 
         mmcm_locked = Signal()
         mmcm_fb = Signal()
@@ -314,39 +330,38 @@ class _SysCRG(Module):
         pll_locked = Signal()
         pll_fb = Signal()
         pll_clk200 = Signal()
+        self.specials.mmcm, self.specials.pll = Instance("MMCME2_BASE",
+            p_CLKIN1_PERIOD=16.0,
+            i_CLKIN1=clk125_div2,
+
+            i_CLKFBIN=mmcm_fb,
+            o_CLKFBOUT=mmcm_fb,
+            o_LOCKED=mmcm_locked,
+
+            # VCO @ 1GHz with MULT=16
+            p_CLKFBOUT_MULT_F=14.5, p_DIVCLK_DIVIDE=1,
+
+            # ~125MHz
+            p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+
+            # ~500MHz. Must be more than 400MHz as per DDR3 specs.
+            p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+            p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
+        ), Instance("PLLE2_BASE",
+            p_CLKIN1_PERIOD=16.0,
+            i_CLKIN1=clk125_div2,
+
+            i_CLKFBIN=pll_fb,
+            o_CLKFBOUT=pll_fb,
+            o_LOCKED=pll_locked,
+
+            # VCO @ 1GHz
+            p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
+
+            # 200MHz for IDELAYCTRL
+            p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
+        )
         self.specials += [
-            Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
-
-                i_CLKFBIN=mmcm_fb,
-                o_CLKFBOUT=mmcm_fb,
-                o_LOCKED=mmcm_locked,
-
-                # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=14.5, p_DIVCLK_DIVIDE=1,
-
-                # ~125MHz
-                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
-
-                # ~500MHz. Must be more than 400MHz as per DDR3 specs.
-                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
-                p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=90.0, o_CLKOUT2=mmcm_sys4x_dqs,
-            ),
-            Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=self.clk125_div2,
-
-                i_CLKFBIN=pll_fb,
-                o_CLKFBOUT=pll_fb,
-                o_LOCKED=pll_locked,
-
-                # VCO @ 1GHz
-                p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
-
-                # 200MHz for IDELAYCTRL
-                p_CLKOUT0_DIVIDE=5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk200,
-            ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
@@ -364,6 +379,13 @@ class _SysCRG(Module):
                 ic_reset.eq(0)
             )
         self.specials += Instance("IDELAYCTRL", i_REFCLK=ClockSignal("clk200"), i_RST=ic_reset)
+
+        # There are no CMT tiles in the IBUFDS_GT's clock region (X1Y3)
+        # Place the MMCM/PLL in the adjacent clock region
+        platform.add_platform_command(
+            "set_property LOC PLLE2_ADV_X0Y3 [get_cells {pll}]", pll=self.pll)
+        platform.add_platform_command(
+            "set_property LOC MMCME2_ADV_X0Y3 [get_cells {mmcm}]", mmcm=self.mmcm)
 
 
 class BaseSoC(SoCSDRAM):

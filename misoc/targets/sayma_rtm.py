@@ -23,30 +23,41 @@ class CRG(Module):
         elif hw_rev == "v2.0":
             clkin1_period = 16.0
             clkin1 = Signal()
+            clk125_div2 = Signal()
             clkfbout_mult = 16
             clk125 = platform.request("clk125_gtp")
             platform.add_period_constraint(clk125, 8.)
-            self.specials += Instance("IBUFDS_GTE2",
-                i_CEB=0,
-                i_I=clk125.p, i_IB=clk125.n,
-                o_ODIV2=clkin1,
-                p_CLKCM_CFG="TRUE",
-                p_CLKRCV_TRST="TRUE",
-                p_CLKSWING_CFG=3)
+            self.specials += [
+                Instance("IBUFDS_GTE2",
+                    i_CEB=0,
+                    i_I=clk125.p, i_IB=clk125.n,
+                    o_ODIV2=clk125_div2,
+                    p_CLKCM_CFG="TRUE",
+                    p_CLKRCV_TRST="TRUE",
+                    p_CLKSWING_CFG=3),
+                # BUFH is always added even without explicit instantiation, has no effect on routing
+                # Adding the BUFH instance here is to appease vivado
+                Instance("BUFH", i_I=clk125_div2, o_O=clkin1),
+            ]
         else:
             raise ValueError
+        self.specials.pll = Instance("PLLE2_BASE",
+            p_CLKIN1_PERIOD=clkin1_period,
+            i_CLKIN1=clkin1,
+
+            i_CLKFBIN=pll_fb,
+            o_CLKFBOUT=pll_fb,
+            o_LOCKED=pll_locked,
+
+            p_CLKFBOUT_MULT=clkfbout_mult, p_DIVCLK_DIVIDE=1,
+            p_CLKOUT0_DIVIDE=16, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk625,
+        )
+        if hw_rev == "v2.0":
+            # There are no CMT tiles in the IBUFDS_GT's clock region (X1Y2)
+            # Place the PLL in the adjacent clock region
+            platform.add_platform_command(
+                "set_property LOC PLLE2_ADV_X0Y2 [get_cells {pll}]", pll=self.pll)
         self.specials += [
-            Instance("PLLE2_BASE",
-                p_CLKIN1_PERIOD=clkin1_period,
-                i_CLKIN1=clkin1,
-
-                i_CLKFBIN=pll_fb,
-                o_CLKFBOUT=pll_fb,
-                o_LOCKED=pll_locked,
-
-                p_CLKFBOUT_MULT=clkfbout_mult, p_DIVCLK_DIVIDE=1,
-                p_CLKOUT0_DIVIDE=16, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=pll_clk625,
-            ),
             Instance("BUFG", i_I=pll_clk625, o_O=self.cd_sys.clk),
             AsyncResetSynchronizer(self.cd_sys, ~pll_locked)
         ]

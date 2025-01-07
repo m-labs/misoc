@@ -46,29 +46,32 @@ class _CRG(Module):
         mmcm_sys4x = Signal()
         mmcm_sys4x_dqs = Signal()
         mmcm_clk200 = Signal()
+        self.specials.mmcm = Instance("MMCME2_BASE",
+            p_CLKIN1_PERIOD=16.0,
+            i_CLKIN1=clk125_div2,
+
+            i_CLKFBIN=mmcm_fb,
+            o_CLKFBOUT=mmcm_fb,
+            o_LOCKED=mmcm_locked,
+
+            # VCO @ 1GHz with MULT=16
+            p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
+
+            # ~125MHz
+            p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
+
+            # ~500MHz. Must be more than 400MHz as per DDR3 specs.
+            p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
+
+            # ~200MHz for IDELAYCTRL. Datasheet specified tolerance +/- 10MHz.
+            p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_clk200,
+
+            p_CLKOUT3_DIVIDE=2, p_CLKOUT3_PHASE=90.0, o_CLKOUT3=mmcm_sys4x_dqs,
+        )
+        # Place the MMCM in the same clock region as the IBUFDS_GT
+        platform.add_platform_command(
+            "set_property LOC MMCME2_ADV_X1Y0 [get_cells {mmcm}]", mmcm=self.mmcm)
         self.specials += [
-            Instance("MMCME2_BASE",
-                p_CLKIN1_PERIOD=16.0,
-                i_CLKIN1=clk125_div2,
-
-                i_CLKFBIN=mmcm_fb,
-                o_CLKFBOUT=mmcm_fb,
-                o_LOCKED=mmcm_locked,
-
-                # VCO @ 1GHz with MULT=16
-                p_CLKFBOUT_MULT_F=16, p_DIVCLK_DIVIDE=1,
-
-                # ~125MHz
-                p_CLKOUT0_DIVIDE_F=8.0, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys,
-
-                # ~500MHz. Must be more than 400MHz as per DDR3 specs.
-                p_CLKOUT1_DIVIDE=2, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys4x,
-
-                # ~200MHz for IDELAYCTRL. Datasheet specified tolerance +/- 10MHz.
-                p_CLKOUT2_DIVIDE=5, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_clk200,
-
-                p_CLKOUT3_DIVIDE=2, p_CLKOUT3_PHASE=90.0, o_CLKOUT3=mmcm_sys4x_dqs,
-            ),
             Instance("BUFG", i_I=mmcm_sys, o_O=self.cd_sys.clk),
             Instance("BUFG", i_I=mmcm_sys4x, o_O=self.cd_sys4x.clk),
             Instance("BUFG", i_I=mmcm_sys4x_dqs, o_O=self.cd_sys4x_dqs.clk),
