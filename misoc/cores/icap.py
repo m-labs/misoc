@@ -4,7 +4,7 @@ from migen.genlib.cdc import PulseSynchronizer
 from misoc.interconnect.csr import AutoCSR, CSR
 
 class ICAP(Module, AutoCSR):
-    def __init__(self, fpga_family, clk_divide_ratio="2"):
+    def __init__(self, fpga_family, platform=None, clk_divide_ratio=2):
         """
         ICAP module.
 
@@ -17,7 +17,10 @@ class ICAP(Module, AutoCSR):
             FPGA family name, used to determine the version of primitive. 
             Supported family: ultrascale (metlino), 7series (kasli/kc705)
 
-        clk_divide_ratio : str
+        platform : subinstance of XilinxPlatform
+            FPGA platform instance. 7series platform must specify this. Unused otherwise.
+
+        clk_divide_ratio : int
             Optional. The divide ratio of the clock frequency from system clock.
         """
         self.iprog = CSR()
@@ -48,19 +51,35 @@ class ICAP(Module, AutoCSR):
         self.clock_domains.cd_icap = ClockDomain(reset_less=True)
 
         if fpga_family == "7series":
-            # BUFR primitive module
-            self.specials += Instance("BUFR",
-                p_BUFR_DIVIDE = clk_divide_ratio,
+            counter = Signal(max=clk_divide_ratio, reset_less=True)
+            counter_rst = Signal()
 
+            self.comb += counter_rst.eq(counter == 0)
+            self.sync += \
+                If(counter_rst,
+                    counter.eq(clk_divide_ratio - 1)
+                ).Else(
+                    counter.eq(counter - 1)
+                )
+            
+            # sys_clk gating. Only 1 in clk_divide_ratio cycles pass through
+            self.specials.bufhce = Instance("BUFHCE",
                 o_O = self.cd_icap.clk,
-                i_CE = 1,
-                i_CLR = 0,
+                i_CE = counter_rst,
                 i_I = ClockSignal()
             )
+            if platform is not None:
+                platform.add_platform_command(
+                    "create_generated_clock -name icap_clk -source [get_pins {bufhce}/I] "
+                    "-edges {{1 2 " + str(2 * clk_divide_ratio + 1) + "}} [get_pins {bufhce}/O]",
+                    bufhce=self.bufhce
+                )
+            else:
+                raise ValueError("7series platform instance missing, cannot constrain clock")
         elif fpga_family == "ultrascale":
             # BUFGCE_DIV primitive module
             self.specials += Instance("BUFGCE_DIV",
-                p_BUFGCE_DIVIDE = int(clk_divide_ratio),
+                p_BUFGCE_DIVIDE = clk_divide_ratio,
 
                 o_O = self.cd_icap.clk,
                 i_CE = 1,

@@ -435,7 +435,7 @@ class BaseSoC(SoCSDRAM):
             self.register_rom(self.spiflash.bus, 16*1024*1024)
             self.csr_devices.append("spiflash")
         
-        self.submodules.icap = icap.ICAP("7series")
+        self.submodules.icap = icap.ICAP("7series", platform=platform)
         self.csr_devices.append("icap")
 
 
