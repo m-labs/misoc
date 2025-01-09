@@ -57,12 +57,12 @@ class ICAP(Module, AutoCSR):
             self.comb += counter_rst.eq(counter == 0)
             self.sync += \
                 If(counter_rst,
-                    counter.eq(clk_divide_ratio-1)
+                    counter.eq(clk_divide_ratio - 1)
                 ).Else(
                     counter.eq(counter - 1)
                 )
             
-            # sys_clk gating. Only 1 in clk_divide_ratio-1 cycles pass through
+            # sys_clk gating. Only 1 in clk_divide_ratio cycles pass through
             self.specials.bufhce = Instance("BUFHCE",
                 o_O = self.cd_icap.clk,
                 i_CE = counter_rst,
@@ -71,7 +71,7 @@ class ICAP(Module, AutoCSR):
             if platform is not None:
                 platform.add_platform_command(
                     "create_generated_clock -name icap_clk -source [get_pins {bufhce}/I] "
-                    "-edges {{1 2 " + str(2*clk_divide_ratio+1) + "}} [get_pins {bufhce}/O]",
+                    "-edges {{1 2 " + str(2 * clk_divide_ratio + 1) + "}} [get_pins {bufhce}/O]",
                     bufhce=self.bufhce
                 )
             else:
