@@ -4,7 +4,7 @@ from migen.genlib.cdc import PulseSynchronizer
 from misoc.interconnect.csr import AutoCSR, CSR
 
 class ICAP(Module, AutoCSR):
-    def __init__(self, fpga_family, clk_divide_ratio=2):
+    def __init__(self, fpga_family, platform=None, clk_divide_ratio=2):
         """
         ICAP module.
 
@@ -16,6 +16,9 @@ class ICAP(Module, AutoCSR):
         fpga_family : str
             FPGA family name, used to determine the version of primitive. 
             Supported family: ultrascale (metlino), 7series (kasli/kc705)
+
+        platform : subinstance of XilinxPlatform
+            FPGA platform instance. 7series platform must specify this. Unused otherwise.
 
         clk_divide_ratio : int
             Optional. The divide ratio of the clock frequency from system clock.
@@ -59,11 +62,20 @@ class ICAP(Module, AutoCSR):
                     counter.eq(counter - 1)
                 )
             
+            # sys_clk gating. Only 1 in clk_divide_ratio-1 cycles pass through
             self.specials.bufhce = Instance("BUFHCE",
                 o_O = self.cd_icap.clk,
                 i_CE = counter_rst,
                 i_I = ClockSignal()
             )
+            if platform is not None:
+                platform.add_platform_command(
+                    "create_generated_clock -name icap_clk -source [get_pins {bufhce}/I] "
+                    "-edges {{1 2 " + str(2*clk_divide_ratio+1) + "}} [get_pins {bufhce}/O]",
+                    bufhce=self.bufhce
+                )
+            else:
+                ValueError("7series platform instance missing, cannot constrain clock")
         elif fpga_family == "ultrascale":
             # BUFGCE_DIV primitive module
             self.specials += Instance("BUFGCE_DIV",
