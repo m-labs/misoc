@@ -302,6 +302,10 @@ class BaseSoC(SoCSDRAM):
             self.csr_devices.append("spiflash")
         self.submodules.icap = icap.ICAP("7series")
         self.csr_devices.append("icap")
+        platform.add_platform_command(
+            "create_generated_clock -name icap_clk -source [get_pins {bufhce}/I] -edges {{1 2 5}} [get_pins {bufhce}/O]",
+            bufhce=self.icap.bufhce
+        )
 
 
 class MiniSoC(BaseSoC):
