@@ -75,7 +75,7 @@ class ICAP(Module, AutoCSR):
                     bufhce=self.bufhce
                 )
             else:
-                ValueError("7series platform instance missing, cannot constrain clock")
+                raise ValueError("7series platform instance missing, cannot constrain clock")
         elif fpga_family == "ultrascale":
             # BUFGCE_DIV primitive module
             self.specials += Instance("BUFGCE_DIV",
