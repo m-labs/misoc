@@ -48,13 +48,20 @@ class ICAP(Module, AutoCSR):
         self.clock_domains.cd_icap = ClockDomain(reset_less=True)
 
         if fpga_family == "7series":
-            # BUFR primitive module
-            self.specials += Instance("BUFR",
-                p_BUFR_DIVIDE = clk_divide_ratio,
+            counter = Signal(max=int(clk_divide_ratio), reset_less=True)
+            counter_rst = Signal()
 
+            self.comb += counter_rst.eq(counter == 0)
+            self.sync += \
+                If(counter_rst,
+                    counter.eq(int(clk_divide_ratio)-1)
+                ).Else(
+                    counter.eq(counter - 1)
+                )
+            
+            self.specials.bufhce = Instance("BUFHCE",
                 o_O = self.cd_icap.clk,
-                i_CE = 1,
-                i_CLR = 0,
+                i_CE = counter_rst,
                 i_I = ClockSignal()
             )
         elif fpga_family == "ultrascale":
