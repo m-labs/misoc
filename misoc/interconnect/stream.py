@@ -18,7 +18,7 @@ class EndpointDescription:
         self.payload_layout = payload_layout
 
     def get_full_layout(self):
-        reserved = {"stb", "ack", "payload", "eop", "description"}
+        reserved = {"stb", "ack", "payload", "last", "eop", "description"}
         attributed = set()
         for f in self.payload_layout:
             if f[0] in attributed:
@@ -30,6 +30,7 @@ class EndpointDescription:
         full_layout = [
             ("stb", 1, DIR_M_TO_S),
             ("ack", 1, DIR_S_TO_M),
+            ("last", 1, DIR_M_TO_S),
             ("eop", 1, DIR_M_TO_S),
             ("payload", _make_m2s(self.payload_layout))
         ]
