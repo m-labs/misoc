@@ -257,7 +257,9 @@ class _UpConverter(Module):
         self.comb += [
             sink.ack.eq(~strobe_all | source.ack),
             source.stb.eq(strobe_all),
-            load_part.eq(sink.stb & sink.ack)
+            load_part.eq(sink.stb & sink.ack),
+            # cannot burst
+            source.last.eq(1)
         ]
 
         demux_last = ((demux == (ratio - 1)) | sink.eop)
@@ -309,6 +311,7 @@ class _DownConverter(Module):
             last.eq(mux == (ratio-1)),
             source.stb.eq(sink.stb),
             source.eop.eq(sink.eop & last),
+            source.last.eq(sink.last & last),
             sink.ack.eq(last & source.ack)
         ]
         self.sync += \
@@ -393,6 +396,7 @@ class StrideConverter(Module):
         # cast sink to converter.sink (user fields --> raw bits)
         self.comb += [
             converter.sink.stb.eq(sink.stb),
+            converter.sink.last.eq(sink.last),
             converter.sink.eop.eq(sink.eop),
             sink.ack.eq(converter.sink.ack)
         ]
@@ -412,6 +416,7 @@ class StrideConverter(Module):
         # cast converter.source to source (raw bits --> user fields)
         self.comb += [
             source.stb.eq(converter.source.stb),
+            source.last.eq(converter.source.last),
             source.eop.eq(converter.source.eop),
             converter.source.ack.eq(source.ack)
         ]
