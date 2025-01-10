@@ -85,15 +85,18 @@ class _FIFOWrapper(Module):
             self.fifo.re.eq(self.source.ack)
         ]
 
-        # Watermarks:
-        # FIFO only signals only signals availability when a complete
-        # burst/buffered packet can be transferred.
-        #
+        # Burst transfer with the use of watermarks:
+        # FIFO would expect complete bursts to be written to/read from, when
+        # given the corresponding watermark arguments, unless the burst is
+        # prematurely terminated by asserting sink.eop.
         # A complete burst is a continuous lo_wm/hi_wm of words written to/
         # read from the FIFO.
-        # 
-        # The EoP bit from the sink endpoint signals the end of packet.
 
+        # With high watermark, FIFO mandates hi_wm length burst read.
+        #
+        # source.stb is held low if no complete burst/buffered packet could
+        # be transferred.
+        # source.last is driven high to signal end of burst.
         if hi_wm is not None:
             transfer_count = Signal(max=hi_wm, reset=hi_wm-1)
             transfer_count_ce = Signal()
@@ -104,7 +107,6 @@ class _FIFOWrapper(Module):
             has_pending_eop = Signal()
 
             # helper signals
-            last = Signal()
             do_write = Signal()
             do_read = Signal()
 
@@ -121,7 +123,6 @@ class _FIFOWrapper(Module):
                 # Avoid downstream overreading
                 self.fifo.re.eq(self.source.stb & self.source.ack),
 
-                last.eq((transfer_count == 0) | fifo_out.eop),
                 do_write.eq(self.fifo.we & self.fifo.writable),
                 do_read.eq(self.fifo.re & self.fifo.readable),
                 has_pending_eop.eq(eop_count_next != 0),
@@ -139,61 +140,50 @@ class _FIFOWrapper(Module):
 
             # Stream control
             self.comb += [
+                self.source.last.eq((transfer_count == 0) | fifo_out.eop),
                 self.source.stb.eq(self.fifo.readable & (self.fifo.almost_full | activated)),
                 transfer_count_ce.eq(do_read),
-                transfer_count_rst.eq(do_read & last),
+                transfer_count_rst.eq(do_read & self.source.last),
             ]
 
             self.sync += [
                 If(~activated,
                     activated.eq(self.fifo.almost_full | (self.sink.eop & do_write))
-                ).Elif(do_read & last,
+                ).Elif(do_read & self.source.last,
                     activated.eq(has_pending_eop),
                 ),
             ]
 
+        # With low watermark, FIFO accepts lo_wm length burst write.
+        #
+        # sink.last must indicate the end of burst
+        #
+        # It is the upstream's duty to drive sink.last signal appropriately.
         if lo_wm is not None:
-            recv_burst_len = depth-lo_wm
-            recv_count = Signal(max=recv_burst_len, reset=recv_burst_len-1)
-            recv_count_ce = Signal()
-            recv_count_rst = Signal()
             recv_activated = Signal()
 
             # helper signals
             do_write = Signal()
-            recv_last = Signal()
 
             self.comb += [
                 do_write.eq(self.fifo.we & self.fifo.writable),
-                recv_last.eq((recv_count == 0) | self.sink.eop),
 
                 # Avoid upstream overwriting
                 self.fifo.we.eq(self.sink.stb & self.sink.ack),
             ]
 
-            self.sync += [
-                If(recv_count_rst,
-                    recv_count.eq(recv_count.reset),
-                ).Elif(recv_count_ce,
-                    recv_count.eq(recv_count - 1),
-                ),
-            ]
-
             # recv stream control
-            self.comb += [
+            self.comb += \
                 self.sink.ack.eq(self.fifo.writable & (
                     self.fifo.almost_empty  # Can accept long burst
                     | recv_activated        # In the middle of a burst
-                )),
-                recv_count_ce.eq(do_write),
-                recv_count_rst.eq(do_write & recv_last),
-            ]
+                ))
 
             self.sync += \
                 If(~recv_activated,
                     # Avoid entry to burst state if it is a 1 word burst
                     recv_activated.eq(self.fifo.almost_empty & ~(do_write & self.sink.eop)),
-                ).Elif(recv_activated & (do_write & recv_last),
+                ).Elif(recv_activated & (do_write & (self.sink.last | self.sink.eop)),
                     # almost_empty needs 1 cycle to update
                     recv_activated.eq(0),
                 )
