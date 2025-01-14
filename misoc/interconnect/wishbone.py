@@ -500,7 +500,7 @@ class Cache(Module):
         # Data memory
         data_mem = Memory(lw, 2**linebits)
         data_port = data_mem.get_port(write_capable=True, we_granularity=8)
-        self.specials += data_mem, data_port
+        self.specials.data_mem, self.specials.data_port = data_mem, data_port
 
         write_from_slave = Signal()
         adr_inc = Signal()

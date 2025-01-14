@@ -90,8 +90,40 @@ class SoCSDRAM(SoCCore):
                 # Remove this workaround when fixed by Xilinx.
                 from migen.build.xilinx.vivado import XilinxVivadoToolchain
                 if isinstance(self.platform.toolchain, XilinxVivadoToolchain):
-                    from migen.fhdl.simplify import FullMemoryWE
-                    self.submodules.l2_cache = FullMemoryWE()(l2_cache)
+                    from migen.fhdl.simplify import ModuleTransformer
+
+                    class CacheWidthDivider(ModuleTransformer):
+                        """Splitting cache data memory into synthesizable grains by dividing width.
+
+                        The splitted memories always preserve its original depth.
+                        See RAMB36E* documentation regarding the block RAM dimensional constraints.
+
+                        Memory width must be powers of 2."""
+                        def transform_fragment(self, i, f):
+                            old_mem, old_port = i.data_mem, i.data_port
+
+                            if old_mem.width < 64:
+                                return
+
+                            f.specials -= set([old_mem, old_port])
+
+                            grain_width = 64
+                            for i in range(old_mem.width//grain_width):
+                                newmem = Memory(grain_width, old_mem.depth,
+                                    name=old_mem.name_override + "_grain" + str(i))
+                                f.specials.add(newmem)
+                                for port in old_mem.ports:
+                                    newport = newmem.get_port(write_capable=True, we_granularity=8)
+
+                                    f.comb += [
+                                        newport.adr.eq(port.adr),
+                                        port.dat_r[i*grain_width:(i+1)*grain_width].eq(newport.dat_r),
+                                        newport.we.eq(port.we[i*grain_width//8:(i+1)*grain_width//8]),
+                                        newport.dat_w.eq(port.dat_w[i*grain_width:(i+1)*grain_width]),
+                                    ]
+                                    f.specials.add(newport)
+
+                    self.submodules.l2_cache = CacheWidthDivider()(l2_cache)
                 else:
                     self.submodules.l2_cache = l2_cache
             else:
