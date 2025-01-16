@@ -83,17 +83,8 @@ class SoCSDRAM(SoCCore):
                 if self.l2_line_size is None: 
                     self.l2_line_size = len(bridge_if.dat_w)//8
 
-                l2_cache = wishbone.Cache(self.l2_size//(self.cpu_dw//8),
+                self.submodules.l2_cache = wishbone.Cache(self.l2_size//(self.cpu_dw//8),
                     self._cpulevel_sdram_if_arbitrated, bridge_if, linesize=self.l2_line_size//(len(bridge_if.dat_w)//8))
-                # XXX Vivado ->2015.1 workaround, Vivado is not able to map correctly our L2 cache.
-                # Issue is reported to Xilinx and should be fixed in next releases (> 2017.2).
-                # Remove this workaround when fixed by Xilinx.
-                from migen.build.xilinx.vivado import XilinxVivadoToolchain
-                if isinstance(self.platform.toolchain, XilinxVivadoToolchain):
-                    from migen.fhdl.simplify import FullMemoryWE
-                    self.submodules.l2_cache = FullMemoryWE()(l2_cache)
-                else:
-                    self.submodules.l2_cache = l2_cache
             else:
                 self.submodules.converter = wishbone.Converter(
                     self._cpulevel_sdram_if_arbitrated, bridge_if)
