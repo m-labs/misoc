@@ -1,6 +1,6 @@
 from migen import *
 
-from misoc.cores.coaxpress.common import char_layout, char_width, KCode, word_layout
+from misoc.cores.coaxpress.common import char_layout, char_width, KCode, word_layout, word_layout_dchar
 from misoc.interconnect.stream import Endpoint
 
 class Trigger_Inserter(Module):
@@ -86,3 +86,74 @@ class Trigger_ACK_Inserter(Module):
             If(self.source.ack, NextState("COPY")),
         )
 
+class Trigger_Reader(Module):
+    def __init__(self):
+        self.sink = Endpoint(word_layout_dchar)
+        self.source = Endpoint(word_layout_dchar)
+
+        self.trig = Signal()
+        self.delay = Signal(char_width)
+        self.linktrigger_n = Signal(char_width)
+
+        # # #
+
+        self.submodules.fsm = fsm = FSM(reset_state="COPY")
+
+        fsm.act("COPY",
+            If((self.sink.stb & (self.sink.dchar == KCode["trig_indic_28_2"]) & (self.sink.dchar_k == 1)),
+                # discard K28,2
+                self.sink.ack.eq(1),
+                NextState("READ_DELAY")
+            ).Else(
+                self.sink.connect(self.source),
+            )
+        )
+
+        fsm.act("READ_DELAY",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextValue(self.delay, self.sink.dchar),
+                NextState("READ_LINKTRIGGER"),
+            )
+        )
+
+        fsm.act("READ_LINKTRIGGER",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextValue(self.linktrigger_n, self.sink.dchar),
+                self.trig.eq(1),
+                NextState("COPY"),
+            )
+        )
+
+class Trigger_ACK_Reader(Module):
+    def __init__(self):
+        self.sink = Endpoint(word_layout_dchar)
+        self.source = Endpoint(word_layout_dchar)
+
+        self.ack = Signal()
+
+        # # #
+
+        self.submodules.fsm = fsm = FSM(reset_state="COPY")
+
+        fsm.act("COPY",
+            If((self.sink.stb & (self.sink.dchar == KCode["io_ack"]) & (self.sink.dchar_k == 1)),
+                # discard K28,6
+                self.sink.ack.eq(1),
+                NextState("READ_ACK")
+            ).Else(
+                self.sink.connect(self.source),
+            )
+        )
+
+        fsm.act("READ_ACK",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextState("COPY"),
+                # discard the word after K28,6
+                If((self.sink.dchar == 0x01) & (self.sink.dchar_k == 0),
+                    self.ack.eq(1),
+                )
+            )
+        )
