@@ -6,6 +6,13 @@ char_layout = [("data", char_width), ("k", char_width // 8)]
 word_width = 32
 word_layout = [("data", word_width), ("k", word_width // 8)]
 
+word_layout_dchar = [
+    ("data", word_width),
+    ("k", word_width // 8),
+    ("dchar", char_width),
+    ("dchar_k", char_width // 8),
+]
+
 
 def _K(x, y):
     return (y << 5) | x
