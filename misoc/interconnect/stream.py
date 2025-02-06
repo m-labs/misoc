@@ -316,3 +316,18 @@ class StrideConverter(Module):
                     j += width
         else:
             self.comb += source.payload.raw_bits().eq(converter.source.data)
+
+
+class Buffer(Module):
+    def __init__(self, layout):
+        self.sink = Endpoint(layout)
+        self.source = Endpoint(layout)
+
+        # # #
+
+        self.sync += \
+            If(self.source.ack,
+                self.sink.connect(self.source, omit={"ack"}),
+            ),
+
+        self.comb += self.sink.ack.eq(self.source.ack),
