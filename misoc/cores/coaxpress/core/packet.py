@@ -1,6 +1,13 @@
 from migen import *
 
-from misoc.cores.coaxpress.common import char_width, KCode, word_layout, word_width
+from misoc.cores.coaxpress.common import (
+    char_width,
+    KCode,
+    switch_endianness,
+    word_layout,
+    word_layout_dchar,
+    word_width,
+)
 from misoc.interconnect.stream import Endpoint
 
 class Packet_Wrapper(Module):
@@ -128,3 +135,149 @@ class Command_Test_Packet_Writer(Module):
                
             )
         )
+
+
+@FullMemoryWE()
+class Command_Packet_Reader(Module):
+    def __init__(self, buffer_depth, nslot):
+        self.write_ptr = Signal(log2_int(nslot))
+        self.read_ptr = Signal.like(self.write_ptr)
+        self.buffer_err = Signal()
+
+        self.sink = Endpoint(word_layout_dchar)
+
+        # # #
+         
+        # N buffers for firmware to read packet from
+         
+        self.specials.mem = mem = Memory(word_width, nslot*buffer_depth)
+        self.specials.mem_port = mem_port = mem.get_port(write_capable=True)
+        buf_mem_we = Signal.like(mem_port.we)
+        buf_mem_dat_w = Signal.like(mem_port.dat_w)
+        buf_mem_adr = Signal.like(mem_port.adr)
+
+        # buffered mem_port to improve timing
+        self.sync += [
+            mem_port.we.eq(buf_mem_we),
+            mem_port.dat_w.eq(buf_mem_dat_w),
+            mem_port.adr.eq(buf_mem_adr)
+        ]
+
+        addr_nbits = log2_int(buffer_depth)
+        addr = Signal(addr_nbits)
+        self.comb += [
+            buf_mem_adr[:addr_nbits].eq(addr),
+            buf_mem_adr[addr_nbits:].eq(self.write_ptr),
+        ]
+
+        # Data packet parser
+        self.submodules.fsm = fsm = FSM(reset_state="LOAD_BUFFER")
+
+        fsm.act("LOAD_BUFFER",
+            buf_mem_we.eq(0),
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                If(((self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                    NextState("MOVE_BUFFER_PTR"),
+                ).Else(
+                    buf_mem_we.eq(1),
+                    buf_mem_dat_w.eq(self.sink.data),
+                    NextValue(addr, addr + 1),
+                    If(addr == buffer_depth - 1,
+                        # discard the packet
+                        self.buffer_err.eq(1),
+                        NextValue(addr, addr.reset),
+                    )
+                )
+            )
+        )
+
+        fsm.act("MOVE_BUFFER_PTR",
+            self.sink.ack.eq(0),
+            If(self.write_ptr + 1 == self.read_ptr,
+                # if next one hasn't been read, overwrite the current buffer when new packet comes in
+                self.buffer_err.eq(1),
+            ).Else(
+                NextValue(self.write_ptr, self.write_ptr + 1),
+            ),
+            NextValue(addr, addr.reset),
+            NextState("LOAD_BUFFER"),
+        )
+
+
+class Heartbeat_Packet_Reader(Module):
+    def __init__(self):
+        self.host_id = Signal(4*char_width)
+        self.heartbeat = Signal(8*char_width)
+
+        self.sink = Endpoint(word_layout_dchar)
+
+        # # #
+
+        n_chars = 12
+        packet_layout = [
+            ("stream_id", len(self.host_id)),
+            ("source_tag", len(self.heartbeat)), 
+        ]
+        assert layout_len(packet_layout) == n_chars*char_width  
+
+
+        cnt = Signal(max=n_chars)
+        packet_buffer = Signal(layout_len(packet_layout))
+        case = dict(
+            (i, packet_buffer[8*i:8*(i+1)].eq(self.sink.dchar))
+            for i in range(n_chars)
+        )
+        self.sync += [
+            self.host_id.eq(switch_endianness(packet_buffer[:4*char_width])),
+            self.heartbeat.eq(switch_endianness(packet_buffer[4*char_width:])),
+
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                Case(cnt, case),
+                If(((self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                    cnt.eq(cnt.reset),
+                ).Else(
+                    cnt.eq(cnt + 1),
+                ),
+            ),
+        ]
+        
+
+class Test_Sequence_Checker(Module):
+    def __init__(self):
+        self.error = Signal()
+
+        self.sink = Endpoint(word_layout_dchar)
+
+        # # #
+
+        # Section 9.9.1 (CXP-001-2021)
+        # the received test data packet (0x00, 0x01 ... 0xFF) 
+        # need to be compared against the local test sequence generator
+        cnt_bytes = [Signal(char_width, reset=i) for i in range(4)]
+        test_errors = [Signal() for _ in range(4)]
+
+        self.sync += [
+            self.sink.ack.eq(1),
+            self.error.eq(reduce(or_, test_errors))
+        ]
+        for i, (cnt, err) in enumerate(zip(cnt_bytes,test_errors)):
+            self.sync += [
+                err.eq(0),
+                If(self.sink.stb,
+                    If(((self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                        cnt.eq(cnt.reset)
+                    ).Else(
+                        If(self.sink.data[8 * i : 8 * (i + 1)] != cnt,
+                            err.eq(1),
+                        ),
+                        If(cnt == 0xFC + i,
+                            cnt.eq(cnt.reset),
+                        ).Else(
+                            cnt.eq(cnt + 4)
+                        ),
+                    )
+                )
+            ]
+
