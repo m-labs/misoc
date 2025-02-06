@@ -28,3 +28,9 @@ KCode = {
     "idle_comma": C(_K(28, 5), char_width),
     "idle_alignment": C(_K(28, 1), char_width),
 }
+
+
+def switch_endianness(s):
+    assert len(s) % 8 == 0
+    char = [s[i * 8 : (i + 1) * 8] for i in range(len(s) // 8)]
+    return Cat(char[::-1])
