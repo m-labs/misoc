@@ -137,6 +137,113 @@ class Command_Test_Packet_Writer(Module):
         )
 
 
+class Packet_Arbiter(Module):
+    def __init__(self):
+        self.decode_err = Signal()
+        self.recv_test_pak = Signal()
+        self.recv_heartbeat = Signal()
+
+        self.sink = Endpoint(word_layout_dchar)
+        self.source_stream = Endpoint(word_layout_dchar)
+        self.source_test = Endpoint(word_layout_dchar)
+        self.source_heartbeat = Endpoint(word_layout_dchar)
+        self.source_command = Endpoint(word_layout_dchar)
+
+        # # #
+
+        type = {
+            "data_stream": 0x01,
+            "control_ack_no_tag": 0x03,
+            "test_packet": 0x04,
+            "control_ack_with_tag": 0x06,
+            "event": 0x07,
+            "heartbeat": 0x09,
+        }
+
+
+        # Data packet parser
+        self.submodules.fsm = fsm = FSM(reset_state="IDLE")
+
+        fsm.act("IDLE",
+            self.sink.ack.eq(1),
+            If((self.sink.stb & (self.sink.dchar == KCode["pak_start"]) & (self.sink.dchar_k == 1)),
+                NextState("DECODE"),
+            )
+        )
+
+        fsm.act("DECODE",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                Case(self.sink.dchar, {
+                    type["data_stream"]: NextState("COPY_STREAM_PACKET"),
+                    type["test_packet"]: [
+                        self.recv_test_pak.eq(1),
+                        NextState("COPY_TEST_PACKET"),
+                    ],
+                    type["control_ack_no_tag"]:[
+                        # pass packet type for downstream modules
+                        self.source_command.stb.eq(1),
+                        self.source_command.data.eq(self.sink.data),
+                        NextState("COPY_COMMAND_PACKET"),
+                    ],
+                    type["control_ack_with_tag"]:[
+                        # pass packet type for downstream modules
+                        self.source_command.stb.eq(1),
+                        self.source_command.data.eq(self.sink.data),
+                        NextState("COPY_COMMAND_PACKET"),
+                    ],
+                    type["event"]: [
+                        # pass packet type for downstream modules 
+                        self.source_command.stb.eq(1),
+                        self.source_command.data.eq(self.sink.data),
+                        NextState("COPY_COMMAND_PACKET"),
+                    ],
+                    type["heartbeat"] : [
+                        self.recv_heartbeat.eq(1),
+                         NextState("COPY_HEARTBEAT_PACKET"),
+                    ],
+                    "default": [
+                         self.decode_err.eq(1),
+                         # wait till next valid packet
+                         NextState("IDLE"),
+                    ],
+                }),
+            )
+        )
+
+        # copy stream data packet with K29.7 
+        fsm.act("COPY_STREAM_PACKET",
+            self.sink.connect(self.source_stream),
+            If((self.sink.stb & self.source_stream.ack & (self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                NextState("IDLE")
+            )      
+        )
+
+        # copy test sequence packet with K29.7 
+        fsm.act("COPY_TEST_PACKET",
+            self.sink.connect(self.source_test),
+            If((self.sink.stb & self.source_test.ack & (self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                NextState("IDLE")
+            )      
+        )
+
+        # copy command packet with K29.7 
+        fsm.act("COPY_COMMAND_PACKET",
+            self.sink.connect(self.source_command),
+            If((self.sink.stb & self.source_command.ack & (self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                NextState("IDLE")
+            )      
+        )
+
+        # copy heartbeat packet with K29.7 
+        fsm.act("COPY_HEARTBEAT_PACKET",
+            self.sink.connect(self.source_heartbeat),
+            If((self.sink.stb & self.source_heartbeat.ack & (self.sink.dchar == KCode["pak_end"]) & (self.sink.dchar_k == 1)),
+                NextState("IDLE")
+            )      
+        )
+
+
 @FullMemoryWE()
 class Command_Packet_Reader(Module):
     def __init__(self, buffer_depth, nslot):
