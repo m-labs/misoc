@@ -388,3 +388,92 @@ class Test_Sequence_Checker(Module):
                 )
             ]
 
+
+class Stream_Packet_Arbiter(Module):
+    def __init__(self, stream_ids=[0]):
+        n_id = len(stream_ids)
+
+        self.sources = [Endpoint(word_layout_dchar) for _ in range(n_id)]
+        self.sink = Endpoint(word_layout_dchar)
+
+        # # #
+
+        
+        stream_id = Signal(char_width)
+        pak_tag = Signal(char_width)
+        stream_pak_size = Signal(char_width * 2)
+
+        self.submodules.fsm = fsm = FSM(reset_state="WAIT_HEADER")
+
+        fsm.act("WAIT_HEADER",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextValue(stream_id, self.sink.dchar),
+                NextState("GET_PAK_TAG"),
+            ),
+        )
+
+        fsm.act("GET_PAK_TAG",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextValue(pak_tag, self.sink.dchar),
+                NextState("GET_PAK_SIZE_0"),
+            ),
+        )
+
+        fsm.act("GET_PAK_SIZE_0",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextValue(stream_pak_size[8:], self.sink.dchar),
+                NextState("GET_PAK_SIZE_1"),
+            ),
+        )
+
+        routing_case = {"default": NextState("DISCARD")}
+        for id in (stream_ids):
+            routing_case[id] = [NextState(f"COPY_TO_{id}")]
+
+        fsm.act("GET_PAK_SIZE_1",
+            self.sink.ack.eq(1),
+            If(self.sink.stb,
+                NextValue(stream_pak_size[:8], self.sink.dchar),
+                Case(stream_id, routing_case),
+            ),
+        )
+
+        for id in routing_case:
+            if id == "default":
+                fsm.act("DISCARD",
+                    self.sink.ack.eq(1),
+                    If(self.sink.stb,
+                        NextValue(stream_pak_size, stream_pak_size - 1),
+                        If(stream_pak_size == 0,
+                            NextValue(stream_id, stream_id.reset),
+                            NextValue(pak_tag, pak_tag.reset),
+                            NextValue(stream_pak_size, stream_pak_size.reset),
+                            NextState("DISCARD_K29.7"),
+                        )
+                    ),
+                )
+            else:
+                fsm.act(f"COPY_TO_{id}",
+                    self.sink.connect(self.sources[id], omit={"eop"}),
+
+                    If(self.sink.stb & self.sources[id].ack,
+                        NextValue(stream_pak_size, stream_pak_size - 1),
+                        If(stream_pak_size == 0,
+                            # mark the crc word with eop
+                            self.sources[id].eop.eq(1),
+                            NextValue(stream_id, stream_id.reset),
+                            NextValue(pak_tag, pak_tag.reset),
+                            NextValue(stream_pak_size, stream_pak_size.reset),
+                            NextState("DISCARD_K29.7"),
+                        )
+                    ),
+                
+                )
+
+        fsm.act("DISCARD_K29.7",
+            self.sink.ack.eq(1),
+            If(self.sink.stb, NextState("WAIT_HEADER")),
+        )
