@@ -28,10 +28,10 @@ from misoc.cores.coaxpress.core.trigger import (
 
 
 class HostTXCore(Module, AutoCSR):
-    def __init__(self, phy, command_buffer_depth, with_trigger_ack):
+    def __init__(self, phy, command_buffer_depth, clk_freq, with_trigger_ack):
         self.trig_stb = Signal()
-        self.trig_delay = Signal(char_width)
-        self.trig_linktrigger_mode = Signal()
+        self.trig_linktrig_mode = Signal(2)
+        self.trig_extra_linktrig = Signal()
 
         if with_trigger_ack:
             self.trig_ack_stb = Signal()
@@ -59,11 +59,12 @@ class HostTXCore(Module, AutoCSR):
         
 
         # Priority level 0 packet - Trigger packet
-        self.submodules.trig = trig = Trigger_Inserter()
+        self.submodules.trig = trig = Trigger_Inserter(clk_freq)
         self.comb += [
             trig.stb.eq(self.trig_stb),
-            trig.delay.eq(self.trig_delay),
-            trig.linktrig_mode.eq(self.trig_linktrigger_mode)
+            trig.linktrig_mode.eq(self.trig_linktrig_mode),
+            trig.extra_linktrig.eq(self.trig_extra_linktrig),
+            trig.bitrate2x.eq(phy.bitrate2x_enable)
         ]
 
         # Priority level 1 packet - Trigger ack

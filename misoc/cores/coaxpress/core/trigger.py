@@ -4,31 +4,70 @@ from misoc.cores.coaxpress.common import char_layout, char_width, KCode, word_la
 from misoc.interconnect.stream import Endpoint
 
 class Trigger_Inserter(Module):
-    def __init__(self):
+    def __init__(self, clk_freq):
         self.stb = Signal()
-        self.delay = Signal(char_width) 
-        self.linktrig_mode = Signal()
+        self.linktrig_mode = Signal(2)
+        self.extra_linktrig = Signal()
+        self.bitrate2x = Signal()
 
         # # #
 
         self.sink = Endpoint(char_layout)
         self.source = Endpoint(char_layout)
 
-        # Table 15 & 16 (CXP-001-2021)
-        # Send [K28.2, K28.4, K28.4] or [K28.4, K28.2, K28.2] and 3x delay as trigger packet 
-        trig_packet = [Signal(char_width), Signal(char_width), Signal(char_width), self.delay, self.delay, self.delay]
-        trig_packet_k = [1, 1, 1, 0, 0, 0]
-        self.comb += [
-            If(self.linktrig_mode,
-                trig_packet[0].eq(KCode["trig_indic_28_4"]),
-                trig_packet[1].eq(KCode["trig_indic_28_2"]),
-                trig_packet[2].eq(KCode["trig_indic_28_2"]),
+        # Fixed latency triggering - Section 9.3.1.1 (CXP-001-2021)
+        # As trigger packet can only start transmitting in char boundary, the timing between a trigger event and the start of packet transmission can varies.
+        # 
+        # To minimize this jitter, a delay is encoded into the trigger packet following this formula:
+        # delay + time between trigger event & char boundery = 1 char tranmission time (which is constant)
+        # 
+        # So the receiver can use the delay value to recreate the trigger event with low jitter and a fixed latency
+        period_ns = int(1e9 / clk_freq)
+        delay = Signal(max=240, reset=239)
+
+        self.sync += [
+            If(self.source.ack,
+                # start of packet transmission (i.e char boundary)
+                delay.eq(delay.reset),
             ).Else(
-                trig_packet[0].eq(KCode["trig_indic_28_2"]),
-                trig_packet[1].eq(KCode["trig_indic_28_4"]),
-                trig_packet[2].eq(KCode["trig_indic_28_4"]),
+                If(self.bitrate2x,
+                    # in 41.6 Mpbs, the ratio of delay : time (ns) = 1 : 1  
+                    delay.eq(delay - (period_ns)),
+                ).Else(
+                    # in 20.83 Mpbs, the ratio of delay : time (ns) = 1 : 2  
+                    delay.eq(delay - (period_ns // 2)),
+                )
             ),
         ]
+
+
+        # Table 15 & 16 (CXP-001-2021)
+        # Send [K28.2, K28.4, K28.4] or [K28.4, K28.2, K28.2] and 3x delay as trigger packet 
+        delay_r = Signal(char_width)
+        trig_packet = [Signal(char_width), Signal(char_width), Signal(char_width), delay_r, delay_r, delay_r]
+        trig_packet_k = [1, 1, 1, 0, 0, 0]
+        self.sync += [
+            If(self.stb,
+                If(self.linktrig_mode[0],
+                    trig_packet[0].eq(KCode["trig_indic_28_4"]),
+                    trig_packet[1].eq(KCode["trig_indic_28_2"]),
+                    trig_packet[2].eq(KCode["trig_indic_28_2"]),
+                ).Else(
+                    trig_packet[0].eq(KCode["trig_indic_28_2"]),
+                    trig_packet[1].eq(KCode["trig_indic_28_4"]),
+                    trig_packet[2].eq(KCode["trig_indic_28_4"]),
+                ),
+                If(self.extra_linktrig,
+                    # the LSB of delay is repurposed to define extra linktrig_mode
+                    # LSB = 0 when using LinkTrigger0 or LinkTrigger1
+                    # LSB = 1 when using LinkTrigger2 or LinkTrigger3
+                    delay_r.eq(self.linktrig_mode[1] | delay[1:])
+                ).Else(
+                    delay_r.eq(delay)
+                )
+            )
+        ]
+
         
         self.submodules.fsm = fsm = FSM(reset_state="COPY")
         
