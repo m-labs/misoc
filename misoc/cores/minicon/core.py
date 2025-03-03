@@ -247,6 +247,7 @@ class Minicon(Module):
             dfi.phases[wrphase].cas_n.eq(0),
             dfi.phases[wrphase].we_n.eq(0),
             dfi.phases[wrphase].wrdata_en.eq(1),
+            bus.ack.eq(1),
             NextState("WRITE-LATENCY")
         )
         fsm.act("BURST-WRITE",
@@ -259,12 +260,8 @@ class Minicon(Module):
             dfi.phases[wrphase].wrdata_en.eq(1),
             bus.ack.eq(1),
             If((bus.cti == 0b111) | sdram_swap_bank,
-                NextState("BURST-WRITE-LATENCY"),
+                NextState("WRITE-LATENCY"),
             ),
-        )
-        fsm.act("WRITE-ACK",
-            bus.ack.eq(1),
-            NextState("IDLE")
         )
         fsm.act("PRECHARGE-ALL",
             precharge_all.eq(1),
@@ -294,8 +291,7 @@ class Minicon(Module):
             dfi.phases[rdphase].we_n.eq(1),
             NextState("POST-REFRESH")
         )
-        fsm.delayed_enter("WRITE-LATENCY", "WRITE-ACK", phy_settings.write_latency-1)
-        fsm.delayed_enter("BURST-WRITE-LATENCY", "IDLE", phy_settings.write_latency)
+        fsm.delayed_enter("WRITE-LATENCY", "IDLE", phy_settings.write_latency)
         fsm.delayed_enter("TRP", "ACTIVATE", timing_settings.tRP-1)
         fsm.delayed_enter("TRCD", "IDLE", timing_settings.tRCD-1)
         fsm.delayed_enter("PRE-REFRESH", "REFRESH", timing_settings.tRP-1)
