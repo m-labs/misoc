@@ -207,7 +207,7 @@ class QPLL(Module, AutoCSR):
         ]
 
 
-class Comma_Aligner(Module):
+class CommaAligner(Module):
     """
     Xilinx transceivers are LSB first, and comma needs to be flipped
     compared to the usual 8b10b binary representation.
@@ -703,7 +703,7 @@ class GTX(Module):
         if rx_mode:
             self.comb += rx_init.restart.eq(self.rx_restart)
 
-            self.submodules.comma_aligner = comma_aligner = Comma_Aligner(0b0101111100)
+            self.submodules.comma_aligner = comma_aligner = CommaAligner(0b0101111100)
             self.sync.cxp_gt_rx += [
                 comma_aligner.data.eq(rxdata),
                 comma_aligner.comma_aligned.eq(comma_aligned),

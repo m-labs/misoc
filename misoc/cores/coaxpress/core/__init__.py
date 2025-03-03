@@ -9,21 +9,21 @@ from misoc.cores.coaxpress.common import (
     word_layout,
     word_layout_dchar,
 )
-from misoc.cores.coaxpress.core.dchar import Duplicated_Char_Decoder
-from misoc.cores.coaxpress.core.idle import Idle_Word_Inserter
+from misoc.cores.coaxpress.core.dchar import DuplicatedCharDecoder
+from misoc.cores.coaxpress.core.idle import IdleWordInserter
 from misoc.cores.coaxpress.core.packet import (
-    Command_Packet_Reader,
-    Command_Test_Packet_Writer,
-    Heartbeat_Packet_Reader,
-    Packet_Arbiter,
-    Packet_Wrapper,
-    Test_Sequence_Checker,
+    CommandPacketReader,
+    CommandTestPacketWriter,
+    HeartbeatPacketReader,
+    PacketArbiter,
+    PacketWrapper,
+    TestSequenceChecker,
 )
 from misoc.cores.coaxpress.core.trigger import (
-    Trigger_ACK_Inserter,
-    Trigger_ACK_Reader,
-    Trigger_Inserter,
-    Trigger_Reader,
+    TriggerACKInserter,
+    TriggerACKReader,
+    TriggerInserter,
+    TriggerReader,
 )
 
 
@@ -59,7 +59,7 @@ class HostTXCore(Module, AutoCSR):
         
 
         # Priority level 0 packet - Trigger packet
-        self.submodules.trig = trig = Trigger_Inserter(clk_freq)
+        self.submodules.trig = trig = TriggerInserter(clk_freq)
         self.comb += [
             trig.stb.eq(self.trig_stb),
             trig.linktrig_mode.eq(self.trig_linktrig_mode),
@@ -69,12 +69,12 @@ class HostTXCore(Module, AutoCSR):
 
         # Priority level 1 packet - Trigger ack
         if with_trigger_ack:
-            self.submodules.trig_ack = trig_ack = Trigger_ACK_Inserter()
+            self.submodules.trig_ack = trig_ack = TriggerACKInserter()
             self.comb += self.trig_ack_stb.eq(trig_ack.stb)
         
         # Priority level 2 packet - command and test packet
         # Control is not timing dependent, all the data packets are handled in firmware
-        self.submodules.writer = writer = Command_Test_Packet_Writer(command_buffer_depth)
+        self.submodules.writer = writer = CommandTestPacketWriter(command_buffer_depth)
 
         # writer memory control interface
         self.writer_word_len = CSRStorage(log2_int(command_buffer_depth))
@@ -90,8 +90,8 @@ class HostTXCore(Module, AutoCSR):
         ]
 
         # Misc
-        self.submodules.pak_wrp = pak_wrp = Packet_Wrapper()
-        self.submodules.idle = idle = Idle_Word_Inserter()
+        self.submodules.pak_wrp = pak_wrp = PacketWrapper()
+        self.submodules.idle = idle = IdleWordInserter()
         self.submodules.converter = converter = StrideConverter(word_layout, char_layout)
 
         if with_trigger_ack:
@@ -146,11 +146,11 @@ class HostRXCore(Module, AutoCSR):
         cdr = ClockDomainsRenamer("cxp_gt_rx")
 
         # decode all incoming data as duplicate char and inject the result into the bus for downstream modules
-        self.submodules.dchar_decoder = dchar_decoder = cdr(Duplicated_Char_Decoder())
+        self.submodules.dchar_decoder = dchar_decoder = cdr(DuplicatedCharDecoder())
 
         # Priority level 0 packet - Trigger packet
         if with_trigger:
-            self.submodules.trig_reader = trig_reader = cdr(Trigger_Reader())
+            self.submodules.trig_reader = trig_reader = cdr(TriggerReader())
             self.sync.cxp_gt_rx += [
                 self.trig.eq(trig_reader.trig),
                 self.trig_delay.eq(trig_reader.delay),
@@ -158,7 +158,7 @@ class HostRXCore(Module, AutoCSR):
             ]
 
         # Priority level 1 packet - Trigger ack packet
-        self.submodules.trig_ack_reader= trig_ack_reader = cdr(Trigger_ACK_Reader())
+        self.submodules.trig_ack_reader= trig_ack_reader = cdr(TriggerACKReader())
         
         self.submodules.trig_ack_ps = trig_ack_ps = PulseSynchronizer("cxp_gt_rx", "sys")
         self.sync.cxp_gt_rx += trig_ack_ps.i.eq(trig_ack_reader.ack)
@@ -171,7 +171,7 @@ class HostRXCore(Module, AutoCSR):
         ]
 
         # Priority level 2 packet - stream, test, heartbeat and command packets
-        self.submodules.arbiter = arbiter = cdr(Packet_Arbiter())
+        self.submodules.arbiter = arbiter = cdr(PacketArbiter())
 
         self.submodules.decode_err_ps = decode_err_ps = PulseSynchronizer("cxp_gt_rx", "sys")
         self.sync.cxp_gt_rx += decode_err_ps.i.eq(arbiter.decode_err)
@@ -198,7 +198,7 @@ class HostRXCore(Module, AutoCSR):
         self.source = arbiter.source_stream
 
         # Test packet 
-        self.submodules.test_seq_checker = test_seq_checker = cdr(Test_Sequence_Checker())
+        self.submodules.test_seq_checker = test_seq_checker = cdr(TestSequenceChecker())
         self.comb += arbiter.source_test.connect(test_seq_checker.sink)
         
         self.submodules.test_reset_ps = test_reset_ps = PulseSynchronizer("sys", "cxp_gt_rx")
@@ -228,7 +228,7 @@ class HostRXCore(Module, AutoCSR):
         ]
 
         # Command packet
-        self.submodules.command_reader = command_reader = cdr(Command_Packet_Reader(command_buffer_depth, nslot))
+        self.submodules.command_reader = command_reader = cdr(CommandPacketReader(command_buffer_depth, nslot))
         self.comb += arbiter.source_command.connect(command_reader.sink)
 
         # nslot buffers control interface
@@ -258,7 +258,7 @@ class HostRXCore(Module, AutoCSR):
         ]
 
         # Heartbeat packet
-        self.submodules.heartbeat_reader = heartbeat_reader = cdr(Heartbeat_Packet_Reader())
+        self.submodules.heartbeat_reader = heartbeat_reader = cdr(HeartbeatPacketReader())
         self.comb += arbiter.source_heartbeat.connect(heartbeat_reader.sink)
 
         self.specials += [

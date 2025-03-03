@@ -3,7 +3,7 @@ from migen import *
 from misoc.cores.coaxpress.common import char_width, KCode, word_layout 
 from misoc.interconnect.stream import Endpoint
 
-class Idle_Word_Inserter(Module):
+class IdleWordInserter(Module):
     def __init__(self):
         # Section 9.2.5 (CXP-001-2021)
         # Send K28.5, K28.1, K28.1, D21.5  as idle word

@@ -3,7 +3,7 @@ from migen import *
 from misoc.cores.coaxpress.common import char_layout, char_width, KCode, word_layout, word_layout_dchar
 from misoc.interconnect.stream import Endpoint
 
-class Trigger_Inserter(Module):
+class TriggerInserter(Module):
     def __init__(self, clk_freq):
         self.stb = Signal()
         self.linktrig_mode = Signal(2)
@@ -92,7 +92,7 @@ class Trigger_Inserter(Module):
             )
         )
 
-class Trigger_ACK_Inserter(Module):
+class TriggerACKInserter(Module):
     def __init__(self):
         self.stb = Signal()
 
@@ -125,7 +125,7 @@ class Trigger_ACK_Inserter(Module):
             If(self.source.ack, NextState("COPY")),
         )
 
-class Trigger_Reader(Module):
+class TriggerReader(Module):
     def __init__(self):
         self.sink = Endpoint(word_layout_dchar)
         self.source = Endpoint(word_layout_dchar)
@@ -165,7 +165,7 @@ class Trigger_Reader(Module):
             )
         )
 
-class Trigger_ACK_Reader(Module):
+class TriggerACKReader(Module):
     def __init__(self):
         self.sink = Endpoint(word_layout_dchar)
         self.source = Endpoint(word_layout_dchar)
