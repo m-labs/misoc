@@ -10,7 +10,7 @@ from misoc.cores.coaxpress.common import (
 )
 from misoc.interconnect.stream import Endpoint
 
-class Packet_Wrapper(Module):
+class PacketWrapper(Module):
     def __init__(self):
         self.sink = Endpoint(word_layout)
         self.source = Endpoint(word_layout)
@@ -54,7 +54,7 @@ class Packet_Wrapper(Module):
 
 
 @FullMemoryWE()
-class Command_Test_Packet_Writer(Module):
+class CommandTestPacketWriter(Module):
     def __init__(self, buffer_depth):
         self.word_len = Signal(log2_int(buffer_depth))
         self.stb = Signal()
@@ -137,7 +137,7 @@ class Command_Test_Packet_Writer(Module):
         )
 
 
-class Packet_Arbiter(Module):
+class PacketArbiter(Module):
     def __init__(self):
         self.decode_err = Signal()
         self.recv_test_pak = Signal()
@@ -245,7 +245,7 @@ class Packet_Arbiter(Module):
 
 
 @FullMemoryWE()
-class Command_Packet_Reader(Module):
+class CommandPacketReader(Module):
     def __init__(self, buffer_depth, nslot):
         self.write_ptr = Signal(log2_int(nslot))
         self.read_ptr = Signal.like(self.write_ptr)
@@ -312,7 +312,7 @@ class Command_Packet_Reader(Module):
         )
 
 
-class Heartbeat_Packet_Reader(Module):
+class HeartbeatPacketReader(Module):
     def __init__(self):
         self.host_id = Signal(4*char_width)
         self.heartbeat = Signal(8*char_width)
@@ -351,7 +351,7 @@ class Heartbeat_Packet_Reader(Module):
         ]
         
 
-class Test_Sequence_Checker(Module):
+class TestSequenceChecker(Module):
     def __init__(self):
         self.error = Signal()
 
@@ -389,7 +389,7 @@ class Test_Sequence_Checker(Module):
             ]
 
 
-class Stream_Packet_Arbiter(Module):
+class StreamPacketArbiter(Module):
     def __init__(self, stream_ids=[0]):
         n_id = len(stream_ids)
 

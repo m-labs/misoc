@@ -62,7 +62,7 @@ class Transmitter(Module, AutoCSR):
             )
         ]
 
-        self.submodules.serializer = serializer = Serializer_10bits(pad)
+        self.submodules.serializer = serializer = Serializer10bits(pad)
 
         self.comb += [
             cg.reset.eq(self.clk_reset),
@@ -117,7 +117,7 @@ class ClockGen(Module):
 
 @ResetInserter()
 @CEInserter()
-class Serializer_10bits(Module):
+class Serializer10bits(Module):
     def __init__(self, pad):
         self.oe = Signal()
         self.d = Signal(10)

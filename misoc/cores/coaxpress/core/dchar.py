@@ -8,7 +8,7 @@ from itertools import combinations
 from operator import or_, and_
 
 
-class Duplicated_Char_Decoder(Module):
+class DuplicatedCharDecoder(Module):
     def __init__(self):
         self.sink = Endpoint(word_layout)
         self.source = Endpoint(word_layout_dchar)

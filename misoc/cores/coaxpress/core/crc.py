@@ -33,7 +33,7 @@ class CXPCRC32(Module):
         ]
 
 
-class CXPCRC32_Checker(Module):
+class CXPCRC32Checker(Module):
     def __init__(self):
         self.error = Signal()
 
