@@ -16,8 +16,8 @@
 #include <errno.h>
 
 #ifndef _USE_WRITE
-#include <stdio.h>			/* fputs(), stderr */
-#define	WRITE2(u,v)	fputs(u, stderr)
+#include <stdio.h>			/* puts() */
+#define	WRITE2(u,v)	puts(u)
 #else	/* !defined(_USE_WRITE) */
 #include <unistd.h>			/* write */
 #define	WRITE2(u,v)	write(2, u, v)
