@@ -278,7 +278,7 @@ class SPIInterface(Module):
 
 
 class SPIInterfaceXC7Diff(Module):
-    def __init__(self, pads, pads_n):
+    def __init__(self, pads, pads_n, sdo=None):
         self.cs = Signal(len(getattr(pads, "cs_n", [0])))
         self.cs_polarity = Signal.like(self.cs)
         self.clk_next = Signal()
@@ -286,14 +286,36 @@ class SPIInterfaceXC7Diff(Module):
         self.cs_next = Signal()
         self.ce = Signal()
         self.sample = Signal()
-        self.offline = Signal()
-        self.half_duplex = Signal()
+        self.offline_next = Signal()
+        self.half_duplex_next = Signal()
         self.sdi = Signal()
-        self.sdo = Signal()
+        self.half_duplex = Signal()
+
+        # All data signals outputting to IO elements should be in IOB.
+        if hasattr(pads, "mosi"):
+            assert "iob" in sdo.attr
+            self.sdo = sdo
+
+        def get_iob_offline_signal():
+            offline = Signal()
+            # HACK: Prohibit vivado from merging IOB FFs
+            #
+            # DONT_TOUCH/KEEP attribute is inapplicable here, it risks vivado
+            # synthesizing this FF with incompatible control signals initially
+            #
+            # All IOB FFs in the same OLOGIC slice MUST share the same (re)set
+            self.specials += Instance("FDSE",
+                attr={"iob"},
+                i_D=self.offline_next,
+                i_CE=1,
+                i_C=ClockSignal(),
+                i_S=ResetSignal(),
+                o_Q=offline)
+            return offline
 
         cs = Signal.like(self.cs)
         cs.reset = C((1 << len(self.cs)) - 1)
-        clk = Signal()
+        clk = Signal(attr={"iob"})
         miso = Signal()
         mosi = Signal()
         miso_reg = Signal(reset_less=True)
@@ -302,6 +324,7 @@ class SPIInterfaceXC7Diff(Module):
                 self.sdi.eq(Mux(self.half_duplex, mosi_reg, miso_reg))
         ]
         self.sync += [
+                self.half_duplex.eq(self.half_duplex_next),
                 If(self.ce,
                     cs.eq((Replicate(self.cs_next, len(self.cs))
                         & self.cs) ^ ~self.cs_polarity),
@@ -314,21 +337,26 @@ class SPIInterfaceXC7Diff(Module):
         ]
 
         if hasattr(pads, "cs_n"):
+            cs.attr.add("iob")
             for i in range(len(pads.cs_n)):
                 self.specials += Instance("OBUFTDS",
-                    i_I=cs[i], i_T=self.offline,
+                    i_I=cs[i], i_T=get_iob_offline_signal(),
                     o_O=pads.cs_n[i], o_OB=pads_n.cs_n[i])
         self.specials += Instance("OBUFTDS",
-            i_I=clk, i_T=self.offline,
+            i_I=clk, i_T=get_iob_offline_signal(),
             o_O=pads.clk, o_OB=pads_n.clk)
         if hasattr(pads, "mosi"):
+            sdo_out_disable = Signal(attr={"iob"}, reset=1)
+            self.sync += sdo_out_disable.eq(
+                self.offline_next | self.half_duplex_next)
             self.specials += Instance("IOBUFDS",
-                o_O=mosi, i_I=self.sdo, i_T=self.offline | self.half_duplex,
+                o_O=mosi, i_I=self.sdo, i_T=sdo_out_disable,
                 io_IO=pads.mosi, io_IOB=pads_n.mosi)
+            mosi_reg.attr.add("iob")
         if hasattr(pads, "miso"):
-            self.specials += Instance("IOBUFDS",
-                o_O=miso, i_I=self.sdo, i_T=1,
-                io_IO=pads.miso, io_IOB=pads_n.miso)
+            self.specials += Instance("IBUFDS",
+                o_O=miso, i_I=pads.miso, i_IB=pads_n.miso)
+            miso_reg.attr.add("iob")
 
 
 class SPIInterfaceiCE40Diff(Module):
