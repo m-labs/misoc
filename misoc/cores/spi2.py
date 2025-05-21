@@ -50,7 +50,7 @@ class Register(Module):
         # Parallel data out (from serial)
         self.pdi = Signal(width)
         # Serial data out (from parallel)
-        self.sdo = Signal(reset_less=True)
+        self.sdo = Signal()
         # Serial data in
         # Must be sampled at a higher layer at self.sample
         self.sdi = Signal()
@@ -65,7 +65,7 @@ class Register(Module):
 
         ###
 
-        sr = Signal(width, reset_less=True)
+        sr = Signal(width)
 
         self.comb += [
             self.pdi.eq(Mux(self.lsb_first,
