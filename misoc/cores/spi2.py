@@ -277,8 +277,8 @@ class SPIInterface(Module):
             i += n
 
 
-class SPIInterfaceXC7Diff(Module):
-    def __init__(self, pads, pads_n, sdo=None):
+class SPIInterfaceXC7(Module):
+    def __init__(self, pads, pads_n=None, sdo=None):
         self.cs = Signal(len(getattr(pads, "cs_n", [0])))
         self.cs_polarity = Signal.like(self.cs)
         self.clk_next = Signal()
@@ -289,7 +289,6 @@ class SPIInterfaceXC7Diff(Module):
         self.offline_next = Signal()
         self.half_duplex_next = Signal()
         self.sdi = Signal()
-        self.half_duplex = Signal()
 
         # All data signals outputting to IO elements should be in IOB.
         if hasattr(pads, "mosi"):
@@ -312,19 +311,57 @@ class SPIInterfaceXC7Diff(Module):
                 i_S=ResetSignal(),
                 o_Q=offline)
             return offline
+        
+        # This function generates single-ended/differential I/O instances.
+        # Arguments (excluding pads) are fabric facing signals.
+        # Directions (being sources or sinks) are from I/O bank's perspective.
+        def generate_io(pad, pad_n=None, source=None, sink=None, tristate=None):
+            use_input = sink is not None
+            use_output = source is not None
+            use_tristate = tristate is not None
+
+            assert use_input or use_output
+
+            primitive = "{}{}BUF{}{}".format(
+                "I" if use_input else "",
+                "O" if use_output else "",
+                "T" if use_output and not use_input and use_tristate else "",
+                "DS" if pad_n is not None else "",
+            )
+
+            io_dict = {}
+            if use_input:
+                io_dict["o_O"] = sink
+            if use_output:
+                io_dict["i_I"] = source
+            if use_tristate:
+                io_dict["i_T"] = tristate
+            
+            if use_input and use_output:
+                dev_pad = "io_IO"
+            elif use_input:
+                dev_pad = "i_I"
+            elif use_output:
+                dev_pad = "o_O"
+            io_dict[dev_pad] = pad
+            if pad_n is not None:
+                io_dict[dev_pad + "B"] = pad_n
+            
+            self.specials += Instance(primitive, **io_dict)
 
         cs = Signal.like(self.cs)
         cs.reset = C((1 << len(self.cs)) - 1)
         clk = Signal(attr={"iob"})
+        half_duplex = Signal()
         miso = Signal()
         mosi = Signal()
         miso_reg = Signal(reset_less=True)
         mosi_reg = Signal(reset_less=True)
         self.comb += [
-                self.sdi.eq(Mux(self.half_duplex, mosi_reg, miso_reg))
+                self.sdi.eq(Mux(half_duplex, mosi_reg, miso_reg))
         ]
         self.sync += [
-                self.half_duplex.eq(self.half_duplex_next),
+                half_duplex.eq(self.half_duplex_next),
                 If(self.ce,
                     cs.eq((Replicate(self.cs_next, len(self.cs))
                         & self.cs) ^ ~self.cs_polarity),
@@ -339,23 +376,28 @@ class SPIInterfaceXC7Diff(Module):
         if hasattr(pads, "cs_n"):
             cs.attr.add("iob")
             for i in range(len(pads.cs_n)):
-                self.specials += Instance("OBUFTDS",
-                    i_I=cs[i], i_T=get_iob_offline_signal(),
-                    o_O=pads.cs_n[i], o_OB=pads_n.cs_n[i])
-        self.specials += Instance("OBUFTDS",
-            i_I=clk, i_T=get_iob_offline_signal(),
-            o_O=pads.clk, o_OB=pads_n.clk)
+                generate_io(pads.cs_n[i],
+                    pad_n=pads_n.cs_n[i] if pads_n is not None else None,
+                    source=cs[i],
+                    tristate=get_iob_offline_signal())
+        generate_io(pads.clk,
+            pad_n=pads_n.clk if pads_n is not None else None,
+            source=clk,
+            tristate=get_iob_offline_signal())
         if hasattr(pads, "mosi"):
             sdo_out_disable = Signal(attr={"iob"}, reset=1)
             self.sync += sdo_out_disable.eq(
                 self.offline_next | self.half_duplex_next)
-            self.specials += Instance("IOBUFDS",
-                o_O=mosi, i_I=self.sdo, i_T=sdo_out_disable,
-                io_IO=pads.mosi, io_IOB=pads_n.mosi)
+            generate_io(pads.mosi,
+                pad_n=pads_n.mosi if pads_n is not None else None,
+                source=self.sdo,
+                sink=mosi,
+                tristate=sdo_out_disable)
             mosi_reg.attr.add("iob")
         if hasattr(pads, "miso"):
-            self.specials += Instance("IBUFDS",
-                o_O=miso, i_I=pads.miso, i_IB=pads_n.miso)
+            generate_io(pads.miso,
+                pad_n=pads_n.miso if pads_n is not None else None,
+                sink=miso)
             miso_reg.attr.add("iob")
 
 
