@@ -36,6 +36,9 @@ class AsyncResetSynchronizerBUFG(Module):
 
 class _RtioSysCRG(Module, AutoCSR):
     def __init__(self, platform, sys_freq=125e6, hw_rev="v1.1"):
+        if hw_rev == "v1.0" and sys_freq != 125e6:
+            raise ValueError("EFC v1.0 does not support other clocks than 125MHz")
+
         self.clock_domains.cd_sys = ClockDomain()
         self.clock_domains.cd_sys4x = ClockDomain(reset_less=True)
         self.clock_domains.cd_sys4x_dqs = ClockDomain(reset_less=True)
@@ -45,13 +48,13 @@ class _RtioSysCRG(Module, AutoCSR):
         gtp_clk = platform.request("gtp_clk")
         gtp_clk_period = 1e9/sys_freq
         platform.add_period_constraint(gtp_clk, gtp_clk_period)
-        self.gtp_clk_buf = Signal()
-        self.gtp_clk_div2 = Signal()
+        gtp_clk_buf = Signal()
+        gtp_clk_div2 = Signal()
         self.specials += Instance("IBUFDS_GTE2",
             i_CEB=0,
             i_I=gtp_clk.p, i_IB=gtp_clk.n,
-            o_O=self.gtp_clk_buf,
-            o_ODIV2=self.gtp_clk_div2,
+            o_O=gtp_clk_buf,
+            o_ODIV2=gtp_clk_div2,
             p_CLKCM_CFG="TRUE",
             p_CLKRCV_TRST="TRUE",
             p_CLKSWING_CFG=3)
@@ -60,10 +63,10 @@ class _RtioSysCRG(Module, AutoCSR):
             # Adding the BUFH instance here is to appease vivado
             clk_div2 = Signal()
             self.specials += Instance("BUFH",
-                i_I=self.gtp_clk_div2,
+                i_I=gtp_clk_div2,
                 o_O=clk_div2)
         elif hw_rev == "v1.1":
-            clk_div2 = self.gtp_clk_div2
+            clk_div2 = gtp_clk_div2
         else:
             raise ValueError("Unknown hardware revision", hw_rev)
 
@@ -80,7 +83,7 @@ class _RtioSysCRG(Module, AutoCSR):
             o_CLKFBOUT=pll_fb,
             o_LOCKED=self.pll_locked,
 
-            # VCO @ 1GHz
+            # VCO @ 800/1GHz
             p_CLKFBOUT_MULT=16, p_DIVCLK_DIVIDE=1,
 
             # 200MHz for IDELAYCTRL & OOB reset
@@ -124,16 +127,16 @@ class _RtioSysCRG(Module, AutoCSR):
             o_CLKFBOUT=mmcm_fb_out,
             o_LOCKED=mmcm_locked,
 
-            # VCO @ 1.25GHz with MULT=20
+            # VCO @ 1/1.25GHz with MULT=20
             p_CLKFBOUT_MULT_F=20, p_DIVCLK_DIVIDE=1,
 
-            # 500MHz. Must be more than 400MHz as per DDR3 specs.
+            # 400/500MHz. Must be more than 400MHz as per DDR3 specs.
             p_CLKOUT0_DIVIDE_F=2.5, p_CLKOUT0_PHASE=0.0, o_CLKOUT0=mmcm_sys4x,
 
-            # 125MHz
+            # 100/125MHz
             p_CLKOUT1_DIVIDE=10, p_CLKOUT1_PHASE=0.0, o_CLKOUT1=mmcm_sys,
 
-            # 625MHz
+            # 500/625MHz
             p_CLKOUT2_DIVIDE=2, p_CLKOUT2_PHASE=0.0, o_CLKOUT2=mmcm_sys5x,
         )
         self.specials += [
