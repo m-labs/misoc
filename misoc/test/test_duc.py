@@ -107,7 +107,7 @@ class TestPhasedAccu(unittest.TestCase):
 
 class TestPhasedAccuNonLog(unittest.TestCase):
     def setUp(self):
-        self.dut = duc.PhasedAccu(n=12, fwidth=32, pwidth=16)
+        self.dut = duc.PhasedAccuPipelined(n=12, fwidth=32, pwidth=16)
 
     def test_init(self):
         self.assertEqual(len(self.dut.f), 32)
