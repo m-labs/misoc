@@ -205,8 +205,6 @@ class MCM(Module):
 
         ###
 
-        self.latency = 2 if n > 8 else 0
-
         # TODO: improve MCM
         assert n <= 16
         assert range(n) == constants
@@ -215,14 +213,82 @@ class MCM(Module):
 
         # manually generated multiplication for small numbers,
         # if you use "x*y" Vivado will use a DSP48E1 instead
-        for x in range(n):
-            ctx += o[x].eq((x & 0x1) * i + 
-                           ((x & 0x2) >> 1) * (i << 1) +
-                           ((x & 0x4) >> 2) * (i << 2) +
-                           ((x & 0x8) >> 3) * (i << 3))
+        ctx = self.comb
+        if n > 0:
+            ctx += o[0].eq(0)
+        if n > 1:
+            ctx += o[1].eq(i)
+        if n > 2:
+            ctx += o[2].eq(i << 1)
+        if n > 3:
+            ctx += o[3].eq(i + (i << 1))
+        if n > 4:
+            ctx += o[4].eq(i << 2)
+        if n > 5:
+            ctx += o[5].eq(i + (i << 2))
+        if n > 6:
+            ctx += o[6].eq(o[3] << 1)
+        if n > 7:
+            ctx += o[7].eq((i << 3) - i)
+        if n > 8:
+            ctx += o[8].eq(i << 3)
+        if n > 9:
+            ctx += o[9].eq(i + (i << 3))
+        if n > 10:
+            ctx += o[10].eq(o[5] << 1)
+        if n > 11:
+            ctx += o[11].eq(i + (i << 3) + (i << 1))
+        if n > 12:
+            ctx += o[12].eq(o[6] << 1)
+        if n > 13:
+            ctx += o[13].eq(i + (i << 3) + (i << 2))
+        if n > 14:
+            ctx += o[14].eq(o[7] << 1)
+        if n > 15:
+            ctx += o[15].eq((i << 4) - i)
 
 
 class PhasedAccu(Module):
+    """Phase accumulator with multiple phased outputs.
+
+    Output data (across cycles and outputs) is such
+    that there is always one frequency word offset between successive
+    phase samples.
+
+    * Input frequency, phase offset, clear
+    * Output `n` phase samples per cycle
+    """
+    def __init__(self, n, fwidth, pwidth):
+        self.f = Signal(fwidth)
+        self.p = Signal(pwidth)
+        self.clr = Signal(reset=1)
+        self.z = [Signal(pwidth, reset_less=True)
+                  for _ in range(n)]
+
+        self.submodules.mcm = MCM(fwidth, range(n))
+        # reset by clr
+        qa = Signal(fwidth, reset_less=True)
+        qb = Signal(fwidth, reset_less=True)
+        clr_d = Signal(reset_less=True)
+
+        self.sync += [
+            clr_d.eq(self.clr),
+            qa.eq(qa + (self.f << log2_int(n))),
+            self.mcm.i.eq(self.f),
+            If(self.clr | clr_d,
+                qa.eq(0),
+            ),
+            If(clr_d,
+                self.mcm.i.eq(0),
+            ),
+            qb.eq(qa + (self.p << (fwidth - pwidth))),
+
+            # Use non-delayed signals in the final phase calculation
+            [z.eq((qb + oi)[fwidth - pwidth:])
+                for oi, z in zip(self.mcm.o, self.z)]
+        ]
+
+class PhasedAccuPipelined(Module):
     """Phase accumulator with multiple phased outputs.
 
     Output data (across cycles and outputs) is such
@@ -244,48 +310,32 @@ class PhasedAccu(Module):
         qa = Signal(fwidth, reset_less=True)
         qb = Signal(fwidth, reset_less=True)
         clr_d = Signal(reset_less=True)
+        
+        clr_d2 = Signal(reset_less=True)
+        mcm_o_reg = [Signal(fwidth, reset_less=True) for _ in range(n+1)]
+        mcm_o_d = [Signal(fwidth, reset_less=True) for _ in range(n)]
+        self.sync += [
+            # extra register layer to accomodate latency
+            [mcm_o_reg[i].eq(self.mcm.o[i]) for i in range(n+1)],
+            # Delay signals to match now increased mcm latency
+            clr_d.eq(self.clr),
+            clr_d2.eq(clr_d),
+            [mcm_o_d[i].eq(mcm_o_reg[i]) for i in range(n)],
 
-        if n > 8:
-            # additional pipelining for n > 8
-            clr_d2 = Signal(reset_less=True)
-            mcm_o_d = [Signal(fwidth, reset_less=True) for _ in range(n)]
-            self.sync += [
-                # Delay signals to match now increased mcm latency
-                clr_d.eq(self.clr),
-                clr_d2.eq(clr_d),
-                [mcm_o_d[i].eq(self.mcm.o[i]) for i in range(n)],
+            qa.eq(qa + mcm_o_reg[n]),
+            self.mcm.i.eq(self.f),
+            If(clr_d | clr_d2,
+                qa.eq(0),
+            ),
+            If(clr_d2,
+                self.mcm.i.eq(0),
+            ),
+            qb.eq(qa + (self.p << (fwidth - pwidth))),
 
-                qa.eq(qa + self.mcm.o[n]),
-                self.mcm.i.eq(self.f),
-                If(clr_d | clr_d2,
-                    qa.eq(0),
-                ),
-                If(clr_d2,
-                    self.mcm.i.eq(0),
-                ),
-                qb.eq(qa + (self.p << (fwidth - pwidth))),
-
-                # Use delayed signals in the final phase calculation
-                [z.eq((qb + mcm_o_d[i])[fwidth - pwidth:])
-            for i, z in enumerate(self.z)]
-            ]
-        else:
-            self.sync += [
-                clr_d.eq(self.clr),
-                qa.eq(qa + (self.f << log2_int(n))),
-                self.mcm.i.eq(self.f),
-                If(self.clr | clr_d,
-                    qa.eq(0),
-                ),
-                If(clr_d,
-                    self.mcm.i.eq(0),
-                ),
-                qb.eq(qa + (self.p << (fwidth - pwidth))),
-
-                # Use non-delayed signals in the final phase calculation
-                [z.eq((qb + oi)[fwidth - pwidth:])
-                    for oi, z in zip(self.mcm.o, self.z)]
-            ]
+            # Use delayed signals in the final phase calculation
+            [z.eq((qb + mcm_o_d[i])[fwidth - pwidth:])
+                for i, z in enumerate(self.z)]
+        ]
 
 class PhaseModulator(Module):
     """Complex phase modulator/shifter.
