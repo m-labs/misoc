@@ -126,7 +126,9 @@ class UART(Module, AutoCSR):
                  phy_cd="sys"):
         self._rxtx = CSR(8)
         self._txfull = CSRStatus()
+        self._txempty = CSRStatus()
         self._rxempty = CSRStatus()
+        self._rxfull = CSRStatus()
 
         self.submodules.ev = EventManager()
         self.ev.tx = EventSourceProcess()
@@ -143,6 +145,7 @@ class UART(Module, AutoCSR):
             tx_fifo.sink.stb.eq(self._rxtx.re),
             tx_fifo.sink.data.eq(self._rxtx.r),
             self._txfull.status.eq(~tx_fifo.sink.ack),
+            self._txempty.status.eq(~tx_fifo.source.stb),
             tx_fifo.source.connect(phy.sink),
             # Generate TX IRQ when tx_fifo becomes non-full
             self.ev.tx.trigger.eq(~tx_fifo.sink.ack)
@@ -155,6 +158,7 @@ class UART(Module, AutoCSR):
         self.comb += [
             phy.source.connect(rx_fifo.sink),
             self._rxempty.status.eq(~rx_fifo.source.stb),
+            self._rxfull.status.eq(~rx_fifo.sink.ack),
             self._rxtx.w.eq(rx_fifo.source.data),
             rx_fifo.source.ack.eq(self.ev.rx.clear),
             # Generate RX IRQ when tx_fifo becomes non-empty
