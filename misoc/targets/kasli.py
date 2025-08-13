@@ -416,7 +416,7 @@ class BaseSoC(SoCSDRAM):
                             sdram_module.geom_settings, sdram_module.timing_settings)
         self.csr_devices.append("ddrphy")
 
-        if hw_rev == "v2.0":
+        if hw_rev in ("v2.0", "v2.1"):
             self.submodules.virtual_leds = virtual_leds.VirtualLeds()
             self.csr_devices.append("virtual_leds")
 
@@ -472,7 +472,7 @@ class MiniSoC(BaseSoC):
                 sfp_ctl.led.eq(~sfp_ctl.los & ~sfp_ctl.tx_fault & mod_present &
                     self.ethphy.link_up),
             ]
-        if self.platform.hw_rev == "v2.0":
+        if self.platform.hw_rev in ("v2.0", "v2.1"):
             self.comb += self.virtual_leds.get(0).eq(self.ethphy.link_up)
 
         self.submodules.ethmac = LiteEthMAC(
@@ -497,7 +497,7 @@ class MiniSoC(BaseSoC):
 def soc_kasli_args(parser):
     soc_sdram_args(parser)
     parser.add_argument("--hw-rev", default=None,
-                        help="Kasli hardware revision: v1.0/v1.1/v2.0 "
+                        help="Kasli hardware revision: v1.0/v1.1/v2.0/v2.1 "
                              "(default: variant-dependent)")
 
 
