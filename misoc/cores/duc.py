@@ -209,8 +209,6 @@ class MCM(Module):
         assert n <= 16
         assert range(n) == constants
 
-        ctx = self.sync if n > 8 else self.comb
-
         # manually generated multiplication for small numbers,
         # if you use "x*y" Vivado will use a DSP48E1 instead
         ctx = self.comb
@@ -270,7 +268,6 @@ class PhasedAccu(Module):
         qa = Signal(fwidth, reset_less=True)
         qb = Signal(fwidth, reset_less=True)
         clr_d = Signal(reset_less=True)
-
         self.sync += [
             clr_d.eq(self.clr),
             qa.eq(qa + (self.f << log2_int(n))),
@@ -281,9 +278,7 @@ class PhasedAccu(Module):
             If(clr_d,
                 self.mcm.i.eq(0),
             ),
-            qb.eq(qa + (self.p << (fwidth - pwidth))),
-
-            # Use non-delayed signals in the final phase calculation
+            qb.eq(qa + (self.p << fwidth - pwidth)),
             [z.eq((qb + oi)[fwidth - pwidth:])
                 for oi, z in zip(self.mcm.o, self.z)]
         ]
