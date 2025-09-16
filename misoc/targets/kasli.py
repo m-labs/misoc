@@ -161,7 +161,7 @@ class _RtioSysCRG(Module, AutoCSR):
         # There are no CMT tiles in the IBUFDS_GT's clock region (X1Y3)
         # Place the PLL in the adjacent clock region
         platform.add_platform_command(
-            "set_property LOC PLLE2_ADV_X0Y3 [get_cells {pll}]", pll=self.pll)
+            "set_property LOC PLLE2_ADV_X1Y2 [get_cells {pll}]", pll=self.pll)
         self.specials += [
             Instance("BUFG", i_I=pll_clk_bootstrap, o_O=self.cd_bootstrap.clk),
             Instance("BUFG", i_I=pll_clk200, o_O=self.cd_clk200.clk),
