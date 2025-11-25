@@ -204,7 +204,10 @@ class CSRStorage(_CompoundCSR):
         *Warning*: The atomicity of reads by the CPU is not guaranteed.
 
     alignment_bits : int
-        ???
+        Marks the given number of LSBs as zero padding (such as for a
+        power-of-two-aligned memory address). ``signal`` provides the data
+        without these bits, and they are zero'd out on gateware writes or
+        on CPU readback.
 
     name : string
         Provide (or override the name) of the ``CSRStatus`` register.
@@ -212,22 +215,23 @@ class CSRStorage(_CompoundCSR):
     Attributes
     ----------
     storage_full : Signal(size), out
-        ???
+        Provides the full width of the value including alignment bits (which
+        may be non-zero if written from the CPU, but shouldn't in normal use).
 
-    storage : Signal(size), out
-        Signal providing the value of the ``CSRStorage`` object.
+    storage : Signal(size - alignment_bits), out
+        Provides the stored value with the alignment bits truncated (if any).
 
-    re : Signal(), in
+    re : Signal(), out
         The strobe signal indicating a write to the ``CSRStorage`` register.
         It is active for one cycle, after or during a write from the bus.
 
-    we : Signal(), out
-        Only available when ``write_from_dev == True``
-        ???
+    we : Signal(), in
+        Write enable; when high, store is set from ``dat_w``.
+        Only available when ``write_from_dev == True``.
 
-    dat_w : Signal(), out
-        Only available when ``write_from_dev == True``
-        ???
+    dat_w : Signal(size - alignment_bits), in
+        Data to write when ``we`` high.
+        Only available when ``write_from_dev == True``.
     """
 
     def __init__(self, size=1, reset=0, atomic_write=False, write_from_dev=False, alignment_bits=0, name=None):
