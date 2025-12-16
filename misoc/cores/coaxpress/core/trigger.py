@@ -61,7 +61,7 @@ class TriggerInserter(Module):
                     # the LSB of delay is repurposed to define extra linktrig_mode
                     # LSB = 0 when using LinkTrigger0 or LinkTrigger1
                     # LSB = 1 when using LinkTrigger2 or LinkTrigger3
-                    delay_r.eq(self.linktrig_mode[1] | delay[1:])
+                    delay_r.eq(Cat(self.linktrig_mode[1], delay[1:])),
                 ).Else(
                     delay_r.eq(delay)
                 )
