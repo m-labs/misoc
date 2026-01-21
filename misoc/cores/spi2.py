@@ -222,7 +222,7 @@ class SPIMachine(Module):
 class SPIInterface(Module):
     """Drive one or more SPI buses with a single interface."""
     def __init__(self, *pads):
-        self.cs = Signal(sum(len(p.cs_n) for p in pads))
+        self.cs = Signal(sum(len(getattr(p, "cs_n", [0])) for p in pads))
         self.cs_polarity = Signal.like(self.cs)
         self.clk_next = Signal()
         self.clk_polarity = Signal()
@@ -236,7 +236,7 @@ class SPIInterface(Module):
 
         i = 0
         for p in pads:
-            n = len(p.cs_n)
+            n = len(getattr(p, "cs_n", [0]))
             cs = TSTriple(n)
             cs.o.reset = C((1 << n) - 1)
             clk = TSTriple()
@@ -244,10 +244,9 @@ class SPIInterface(Module):
             miso = TSTriple()
             miso_reg = Signal(reset_less=True)
             mosi_reg = Signal(reset_less=True)
-            self.specials += [
-                    cs.get_tristate(p.cs_n),
-                    clk.get_tristate(p.clk),
-            ]
+            self.specials += clk.get_tristate(p.clk)
+            if hasattr(p, "cs_n"):
+                self.specials += cs.get_tristate(p.cs_n)
             if hasattr(p, "mosi"):
                 self.specials += mosi.get_tristate(p.mosi)
             if hasattr(p, "miso"):
